@@ -9,6 +9,7 @@
 #include "DatabaseEnv.h"
 #include "LlmConfig.h"
 #include "Log.h"
+#include "QueryResult.h"
 
 #include <fmt/args.h>
 #include <fmt/format.h>

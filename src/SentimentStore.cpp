@@ -8,6 +8,7 @@
 #include "DatabaseEnv.h"
 #include "LlmConfig.h"
 #include "Log.h"
+#include "QueryResult.h"
 
 #include <algorithm>
 

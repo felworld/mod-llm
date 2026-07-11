@@ -115,7 +115,7 @@ namespace ModLlm::ContextBuilder
         std::list<Unit*> units;
         Acore::AnyUnitInObjectRangeCheck check(bot, 30.0f);
         Acore::UnitListSearcher<Acore::AnyUnitInObjectRangeCheck> searcher(bot, units, check);
-        Cell::VisitAllObjects(bot, searcher, 30.0f);
+        Cell::VisitObjects(bot, searcher, 30.0f);
 
         for (Unit* unit : units)
         {
