@@ -29,7 +29,7 @@ namespace ModLlm
         if (!bot || !bot->IsInWorld())
             return false;
 
-        PlayerbotAI* botAI = sPlayerbotsMgr->GetPlayerbotAI(bot);
+        PlayerbotAI* botAI = sPlayerbotsMgr.GetPlayerbotAI(bot);
         if (!botAI || !botAI->IsBotAI())
             return false;
 

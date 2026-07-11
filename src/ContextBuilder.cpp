@@ -56,7 +56,7 @@ namespace ModLlm::ContextBuilder
         snapshot.botRace = ChatHelper::FormatRace(bot->getRace());
         snapshot.botFaction = bot->GetTeamId() == TEAM_ALLIANCE ? "Alliance" : "Horde";
 
-        if (PlayerbotAI* botAI = sPlayerbotsMgr->GetPlayerbotAI(bot))
+        if (PlayerbotAI* botAI = sPlayerbotsMgr.GetPlayerbotAI(bot))
         {
             snapshot.botArea = PlayerbotAI::GetLocalizedAreaName(botAI->GetCurrentArea());
             snapshot.botZone = PlayerbotAI::GetLocalizedAreaName(botAI->GetCurrentZone());
@@ -104,7 +104,7 @@ namespace ModLlm::ContextBuilder
     {
         std::string description;
 
-        if (PlayerbotAI* botAI = sPlayerbotsMgr->GetPlayerbotAI(bot))
+        if (PlayerbotAI* botAI = sPlayerbotsMgr.GetPlayerbotAI(bot))
         {
             std::string area = PlayerbotAI::GetLocalizedAreaName(botAI->GetCurrentArea());
             if (!area.empty())

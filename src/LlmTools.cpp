@@ -72,11 +72,10 @@ namespace ModLlm::LlmTools
                     {
                         if (Channel* channel = mgr->GetChannel(trigger.channelName, context.bot, false))
                         {
-                            if (channel->IsOn(context.bot->GetGUID()))
-                            {
-                                channel->Say(context.bot->GetGUID(), message, LANG_UNIVERSAL);
-                                sent = true;
-                            }
+                            // Say() itself validates membership/mute and
+                            // no-ops with an error packet otherwise.
+                            channel->Say(context.bot->GetGUID(), message, LANG_UNIVERSAL);
+                            sent = true;
                         }
                     }
                     break;

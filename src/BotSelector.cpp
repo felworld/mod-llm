@@ -27,7 +27,7 @@ namespace ModLlm::BotSelector
     {
         PlayerbotAI* GetBotAI(Player* player)
         {
-            PlayerbotAI* botAI = sPlayerbotsMgr->GetPlayerbotAI(player);
+            PlayerbotAI* botAI = sPlayerbotsMgr.GetPlayerbotAI(player);
             return botAI && botAI->IsBotAI() ? botAI : nullptr;
         }
 
@@ -207,7 +207,7 @@ namespace ModLlm::BotSelector
                     break;
                 for (auto const& [guid, player] : ObjectAccessor::GetPlayers())
                 {
-                    if (!player->IsInWorld() || !channel->IsOn(player->GetGUID()))
+                    if (!player->IsInWorld() || !player->IsInChannel(channel))
                         continue;
                     if (IsEligibleBot(player, sender)
                         && (IsRealPlayer(sender) || HasRealPlayerNearby(player, sLlmConfig->initiativeRealPlayerDistance)))
