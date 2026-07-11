@@ -1,0 +1,83 @@
+/*
+ * This file is part of mod-llm for Felworld. Released under the MIT license
+ * (see the LICENSE file at the module root).
+ */
+
+#ifndef MOD_LLM_HISTORY_STORE_H
+#define MOD_LLM_HISTORY_STORE_H
+
+#include "ObjectGuid.h"
+
+#include <deque>
+#include <mutex>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
+namespace ModLlm
+{
+    // Conversation transcripts, two kinds:
+    //  - pair: one bot <-> one player (whispers, and any direct exchange)
+    //  - room: a shared space (guild, group, named channel) keyed by string
+    // Ring buffers in memory, appended rows persisted to the characters DB on
+    // the save tick. Mutex-guarded: appends come from chat hooks and the
+    // world-thread tool executor.
+    class HistoryStore
+    {
+    public:
+        static HistoryStore* instance();
+
+        void Load();      // synchronous, call once at startup
+        void SaveDirty(); // async inserts, call from the world-thread save tick
+
+        void AddPairLine(ObjectGuid botGuid, ObjectGuid playerGuid, bool botSpoke,
+            std::string const& speakerName, std::string const& text);
+        void AddRoomLine(std::string const& roomKey, ObjectGuid speakerGuid,
+            std::string const& speakerName, std::string const& text);
+
+        // Transcripts preformatted with LLM.Prompt.HistoryLine, newest last,
+        // one line per message. Empty string when there is no history.
+        std::string FormatPair(ObjectGuid botGuid, ObjectGuid playerGuid, uint32 maxLines);
+        std::string FormatRoom(std::string const& roomKey, uint32 maxLines);
+
+    private:
+        struct Line
+        {
+            std::string speakerName;
+            std::string text;
+        };
+
+        struct PendingPairRow
+        {
+            uint32 botGuid;
+            uint32 playerGuid;
+            bool botSpoke;
+            std::string text;
+        };
+
+        struct PendingRoomRow
+        {
+            std::string roomKey;
+            uint32 speakerGuid;
+            std::string speakerName;
+            std::string text;
+        };
+
+        static uint64 MakeKey(ObjectGuid botGuid, ObjectGuid playerGuid)
+        {
+            return (uint64(botGuid.GetCounter()) << 32) | playerGuid.GetCounter();
+        }
+
+        static std::string FormatLines(std::deque<Line> const& lines, uint32 maxLines);
+
+        std::mutex _mutex;
+        std::unordered_map<uint64, std::deque<Line>> _pairs;
+        std::unordered_map<std::string, std::deque<Line>> _rooms;
+        std::vector<PendingPairRow> _pendingPairRows;
+        std::vector<PendingRoomRow> _pendingRoomRows;
+    };
+}
+
+#define sLlmHistoryStore ModLlm::HistoryStore::instance()
+
+#endif

@@ -1,0 +1,123 @@
+/*
+ * This file is part of mod-llm for Felworld. Released under the MIT license
+ * (see the LICENSE file at the module root).
+ */
+
+#include "LlmConfig.h"
+#include "PromptAssembler.h"
+#include "gtest/gtest.h"
+
+using namespace ModLlm;
+
+namespace
+{
+    ContextSnapshot TestSnapshot()
+    {
+        ContextSnapshot snapshot;
+        snapshot.botName = "Thundertusk";
+        snapshot.botLevel = 30;
+        snapshot.botClass = "shaman";
+        snapshot.botRace = "troll";
+        snapshot.botFaction = "Horde";
+        snapshot.botArea = "Crossroads";
+        snapshot.botZone = "The Barrens";
+        snapshot.actorName = "Mera";
+        snapshot.actorLevel = 28;
+        snapshot.actorClass = "mage";
+        snapshot.actorRace = "human";
+        snapshot.channelLabel = "say";
+        return snapshot;
+    }
+
+    TriggerContext TestTrigger()
+    {
+        TriggerContext trigger;
+        trigger.kind = TRIGGER_CHAT_SAY;
+        trigger.message = "hello there";
+        return trigger;
+    }
+
+    void ResetTemplates()
+    {
+        sLlmConfig->promptSystem = "You are {bot_name}, level {bot_level} {bot_race} {bot_class}.";
+        sLlmConfig->promptChat = "{sentiment_line}{history_block}[{channel_label}] {actor_name}: \"{message}\"";
+        sLlmConfig->promptEmote = "{actor_name} {message}.";
+        sLlmConfig->promptEvent = "Event: {message}.";
+        sLlmConfig->promptInitiative = "Idle. Around you: {environment}.";
+        sLlmConfig->promptHistoryLine = "{speaker}: {message}";
+        sLlmConfig->promptSentimentLine = "You find {actor_name} {sentiment_word}. ";
+    }
+}
+
+// cppcheck-suppress syntaxError
+TEST(PromptAssemblerTest, BuildsSystemAndUserMessages)
+{
+    ResetTemplates();
+
+    nlohmann::json messages = PromptAssembler::BuildMessages(TestSnapshot(), TestTrigger());
+
+    ASSERT_TRUE(messages.is_array());
+    ASSERT_EQ(messages.size(), 2u);
+    EXPECT_EQ(messages[0]["role"], "system");
+    EXPECT_EQ(messages[1]["role"], "user");
+
+    std::string system = messages[0]["content"].get<std::string>();
+    EXPECT_NE(system.find("Thundertusk"), std::string::npos);
+    EXPECT_NE(system.find("troll shaman"), std::string::npos);
+
+    std::string user = messages[1]["content"].get<std::string>();
+    EXPECT_NE(user.find("[say] Mera"), std::string::npos);
+    EXPECT_NE(user.find("hello there"), std::string::npos);
+}
+
+TEST(PromptAssemblerTest, SentimentLineOnlyWhenPresent)
+{
+    ResetTemplates();
+
+    ContextSnapshot snapshot = TestSnapshot();
+    TriggerContext trigger = TestTrigger();
+
+    std::string without = PromptAssembler::BuildMessages(snapshot, trigger)[1]["content"].get<std::string>();
+    EXPECT_EQ(without.find("You find"), std::string::npos);
+
+    snapshot.hasSentiment = true;
+    snapshot.sentimentValue = 0.9f;
+    std::string with = PromptAssembler::BuildMessages(snapshot, trigger)[1]["content"].get<std::string>();
+    EXPECT_NE(with.find("You find Mera friendly"), std::string::npos);
+}
+
+TEST(PromptAssemblerTest, HistoryBlockIncluded)
+{
+    ResetTemplates();
+
+    ContextSnapshot snapshot = TestSnapshot();
+    snapshot.pairHistory = "Mera: hi\nThundertusk: yo\n";
+
+    std::string user = PromptAssembler::BuildMessages(snapshot, TestTrigger())[1]["content"].get<std::string>();
+    EXPECT_NE(user.find("Thundertusk: yo"), std::string::npos);
+}
+
+TEST(PromptAssemblerTest, TriggerKindSelectsTemplate)
+{
+    ResetTemplates();
+
+    ContextSnapshot snapshot = TestSnapshot();
+    snapshot.environment = "a kodo nearby";
+
+    TriggerContext trigger = TestTrigger();
+    trigger.kind = TRIGGER_INITIATIVE;
+    trigger.message.clear();
+
+    std::string user = PromptAssembler::BuildMessages(snapshot, trigger)[1]["content"].get<std::string>();
+    EXPECT_NE(user.find("a kodo nearby"), std::string::npos);
+}
+
+TEST(PromptAssemblerTest, BadTemplateFallsBackInsteadOfThrowing)
+{
+    ResetTemplates();
+    sLlmConfig->promptChat = "{this_placeholder_does_not_exist}";
+
+    nlohmann::json messages;
+    EXPECT_NO_THROW(messages = PromptAssembler::BuildMessages(TestSnapshot(), TestTrigger()));
+    EXPECT_FALSE(messages[1]["content"].get<std::string>().empty());
+}

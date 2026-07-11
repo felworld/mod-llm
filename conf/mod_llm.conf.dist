@@ -1,0 +1,314 @@
+#
+# mod-llm configuration
+#
+# Turns mod-playerbots bots into agentic LLM-driven characters. Each trigger
+# (incoming chat, an emote, a game event, or an idle "initiative" tick) sends
+# the bot's situation plus a tool list to an OpenAI-compatible chat-completions
+# endpoint (vLLM by default). The model may call tools - send a message,
+# perform an emote, adjust its opinion of a player, invite to a party,
+# challenge to a duel - or do nothing at all.
+#
+
+[worldserver]
+
+########################################
+# Core
+########################################
+
+#
+#    LLM.Enable
+#        Description: Master switch for the module.
+#        Default:     0
+#
+
+LLM.Enable = 0
+
+#
+#    LLM.Endpoint
+#        Description: Full URL of an OpenAI-compatible chat-completions endpoint.
+#        Default:     "http://ac-vllm:8000/v1/chat/completions"
+#
+
+LLM.Endpoint = "http://ac-vllm:8000/v1/chat/completions"
+
+#
+#    LLM.ApiKey
+#        Description: Bearer token sent as Authorization header. Empty = none.
+#        Default:     ""
+#
+
+LLM.ApiKey = ""
+
+#
+#    LLM.Model
+#        Description: Model name sent in requests. The ac-vllm service serves
+#                     its model under the alias "felworld" regardless of which
+#                     model is loaded, so this rarely needs to change.
+#        Default:     "felworld"
+#
+
+LLM.Model = "felworld"
+
+#
+#    LLM.MaxTokens
+#        Description: Response token cap per request.
+#        Default:     200
+#
+
+LLM.MaxTokens = 200
+
+#
+#    LLM.Temperature / LLM.TopP
+#        Description: Sampling parameters.
+#        Default:     0.8 / 0.95
+#
+
+LLM.Temperature = 0.8
+LLM.TopP = 0.95
+
+#
+#    LLM.TimeoutSeconds
+#        Description: HTTP connect/read/write timeout per request.
+#        Default:     30
+#
+
+LLM.TimeoutSeconds = 30
+
+#
+#    LLM.MaxConcurrentRequests
+#        Description: Number of HTTP worker threads (concurrent LLM requests).
+#        Default:     3
+#
+
+LLM.MaxConcurrentRequests = 3
+
+#
+#    LLM.MaxQueueSize
+#        Description: Pending-request cap. New requests are dropped (logged)
+#                     when the queue is full, so a stalled LLM server can never
+#                     back up into the game.
+#        Default:     32
+#
+
+LLM.MaxQueueSize = 32
+
+#
+#    LLM.TreatBareContentAsSay
+#        Description: If the model answers in plain prose instead of calling a
+#                     tool, deliver that prose as a chat message.
+#        Default:     1
+#
+
+LLM.TreatBareContentAsSay = 1
+
+#
+#    LLM.Debug.Enable / LLM.Debug.LogPrompts
+#        Description: Verbose response logging / full prompt logging.
+#        Default:     0 / 0
+#
+
+LLM.Debug.Enable = 0
+LLM.Debug.LogPrompts = 0
+
+########################################
+# Reactive chat
+########################################
+
+LLM.Chat.Enable = 1
+LLM.Chat.EnableWhispers = 1
+
+#
+#    LLM.Chat.SayDistance / LLM.Chat.YellDistance
+#        Description: How far away a bot can "hear" /say and /yell.
+#        Default:     30 / 100
+#
+
+LLM.Chat.SayDistance = 30
+LLM.Chat.YellDistance = 100
+
+#
+#    LLM.Chat.MaxBotsToPick
+#        Description: Cap on bots reacting to one message.
+#        Default:     2
+#
+
+LLM.Chat.MaxBotsToPick = 2
+
+#
+#    LLM.Chat.SkipInCombat
+#        Description: Bots in combat never react.
+#        Default:     1
+#
+
+LLM.Chat.SkipInCombat = 1
+
+#
+#    LLM.Chat.PlayerReplyChance.* / LLM.Chat.BotReplyChance.*
+#        Description: Percent chance per candidate bot to react, split by
+#                     whether the sender is a human player or another bot.
+#
+
+LLM.Chat.PlayerReplyChance.Say = 90
+LLM.Chat.PlayerReplyChance.Party = 90
+LLM.Chat.PlayerReplyChance.Guild = 70
+LLM.Chat.PlayerReplyChance.Channel = 60
+LLM.Chat.BotReplyChance.Say = 10
+LLM.Chat.BotReplyChance.Party = 25
+LLM.Chat.BotReplyChance.Guild = 5
+LLM.Chat.BotReplyChance.Channel = 3
+
+#
+#    LLM.Chat.EnableCustomChannels
+#        Description: React in player-created channels too.
+#        Default:     1
+#
+
+LLM.Chat.EnableCustomChannels = 1
+
+########################################
+# Emote reactions
+########################################
+
+LLM.Emote.Enable = 1
+
+#
+#    LLM.Emote.TargetedChance / LLM.Emote.NearbyChance
+#        Description: Percent chance to react to an emote aimed at the bot /
+#                     performed nearby without a target.
+#        Default:     100 / 10
+#
+
+LLM.Emote.TargetedChance = 100
+LLM.Emote.NearbyChance = 10
+LLM.Emote.Distance = 20
+
+########################################
+# Game events
+########################################
+
+LLM.Event.Enable = 1
+
+#
+#    LLM.Event.BotDistance
+#        Description: How close a bot must be to the event to comment.
+#        Default:     40
+#
+#    LLM.Event.RealPlayerDistance
+#        Description: A human must be within this range of the commenting bot
+#                     (unless the event is about a human).
+#        Default:     40
+#
+
+LLM.Event.BotDistance = 40
+LLM.Event.RealPlayerDistance = 40
+
+LLM.Event.CooldownSeconds = 10
+LLM.Event.MaxBotsPerEvent = 2
+
+#
+#    LLM.Event.Chance.*
+#        Description: Percent chance per candidate bot, by event type.
+#                     0 disables an event type entirely.
+#
+
+LLM.Event.Chance.Kill = 15
+LLM.Event.Chance.PvPKill = 40
+LLM.Event.Chance.Death = 30
+LLM.Event.Chance.QuestComplete = 20
+LLM.Event.Chance.LevelUp = 50
+LLM.Event.Chance.Duel = 40
+LLM.Event.Chance.Achievement = 40
+LLM.Event.Chance.Loot = 15
+
+#
+#    LLM.Event.LootMinQuality
+#        Description: Minimum item quality to trigger loot comments
+#                     (0 poor, 1 common, 2 uncommon, 3 rare, 4 epic, 5 legendary).
+#        Default:     3
+#
+
+LLM.Event.LootMinQuality = 3
+
+########################################
+# Initiative (unprompted behaviour)
+########################################
+
+LLM.Initiative.Enable = 1
+
+#
+#    LLM.Initiative.MinIntervalSeconds / MaxIntervalSeconds
+#        Description: Per-bot random schedule between initiative opportunities.
+#        Default:     45 / 180
+#
+#    LLM.Initiative.Chance
+#        Description: Percent chance to actually act when an opportunity comes.
+#        Default:     5
+#
+
+LLM.Initiative.MinIntervalSeconds = 45
+LLM.Initiative.MaxIntervalSeconds = 180
+LLM.Initiative.Chance = 5
+
+#
+#    LLM.Initiative.RealPlayerDistance
+#        Description: A human must be within this range for a bot to bother.
+#        Default:     200
+#
+
+LLM.Initiative.RealPlayerDistance = 200
+LLM.Initiative.MaxBotsPerTick = 2
+
+########################################
+# Sentiment tracking
+########################################
+
+#
+#    LLM.Sentiment.*
+#        Description: Bots keep a persistent 0..1 disposition toward each
+#                     player (0 hostile, 0.5 neutral, 1 friendly), included in
+#                     prompts and adjusted by the model via the
+#                     adjust_sentiment tool.
+#
+
+LLM.Sentiment.Enable = 1
+LLM.Sentiment.Default = 0.5
+LLM.Sentiment.StepSmall = 0.05
+LLM.Sentiment.StepLarge = 0.15
+LLM.Sentiment.SaveIntervalSeconds = 60
+
+########################################
+# Conversation history
+########################################
+
+#
+#    LLM.History.*
+#        Description: Transcripts included in prompts: per bot<->player pair
+#                     and per shared room (party/guild/channel), persisted to
+#                     the characters DB.
+#
+
+LLM.History.Enable = 1
+LLM.History.MaxPairTurns = 5
+LLM.History.MaxRoomLines = 20
+LLM.History.SaveIntervalSeconds = 60
+LLM.History.RetentionDays = 14
+
+########################################
+# Prompt templates
+########################################
+
+#
+#    Prompt templates use {named} placeholders. Available everywhere:
+#      system:  {bot_name} {bot_level} {bot_class} {bot_race} {bot_faction}
+#               {bot_area} {bot_zone} {bot_group} {bot_guild}
+#      user:    {sentiment_line} {history_block} {channel_label} {actor_name}
+#               {actor_level} {actor_class} {actor_race} {message} {environment}
+#    Leave unset to use the built-in defaults (recommended starting point).
+#
+# LLM.Prompt.System = ""
+# LLM.Prompt.Chat = ""
+# LLM.Prompt.Emote = ""
+# LLM.Prompt.Event = ""
+# LLM.Prompt.Initiative = ""
+# LLM.Prompt.HistoryLine = ""
+# LLM.Prompt.SentimentLine = ""
