@@ -12,6 +12,7 @@
 #include "Player.h"
 #include "PlayerbotAI.h"
 #include "PlayerbotMgr.h"
+#include "StringFormat.h"
 #include "ToolRegistry.h"
 
 #include <nlohmann/json.hpp>
@@ -52,49 +53,60 @@ namespace ModLlm
             calls.push_back({ "say", args.dump() });
         }
 
+        // Tool outcomes surface at INFO under LLM.Debug.Enable; the default
+        // logger config swallows DEBUG, which makes silent bots undebuggable.
+        auto logOutcome = [&](std::string const& toolName, std::string const& outcome)
+        {
+            if (sLlmConfig->debugEnabled)
+                LOG_INFO("module.llm", "Bot {} tool '{}': {}", bot->GetName(), toolName, outcome);
+            else
+                LOG_DEBUG("module.llm", "Bot {} tool '{}': {}", bot->GetName(), toolName, outcome);
+        };
+
         bool anySucceeded = false;
         for (ToolCall const& call : calls)
         {
             ToolSpec const* spec = sLlmToolRegistry->Find(call.name);
             if (!spec)
             {
-                LOG_DEBUG("module.llm", "Bot {} called unknown tool '{}'", bot->GetName(), call.name);
+                logOutcome(call.name, "unknown tool");
                 continue;
             }
 
             if (!(spec->triggerMask & _trigger.kind))
             {
-                LOG_DEBUG("module.llm", "Bot {} called tool '{}' outside its trigger mask", bot->GetName(), call.name);
+                logOutcome(call.name, "not allowed for this trigger");
                 continue;
             }
 
             if (spec->requiresActor && !actor)
             {
-                LOG_DEBUG("module.llm", "Bot {} called tool '{}' but the actor is gone", bot->GetName(), call.name);
+                logOutcome(call.name, "the actor is gone");
                 continue;
             }
 
             nlohmann::json args = nlohmann::json::parse(call.arguments, nullptr, false);
             if (args.is_discarded())
             {
-                LOG_DEBUG("module.llm", "Bot {} tool '{}' has malformed arguments", bot->GetName(), call.name);
+                logOutcome(call.name, "malformed arguments");
                 continue;
             }
 
             std::string error;
             if (!ToolRegistry::ValidateArgs(spec->parameters, args, error))
             {
-                LOG_DEBUG("module.llm", "Bot {} tool '{}' rejected: {}", bot->GetName(), call.name, error);
+                logOutcome(call.name, Acore::StringFormat("rejected: {}", error));
                 continue;
             }
 
             if (spec->execute(context, args, error))
             {
                 anySucceeded = true;
+                logOutcome(call.name, "executed");
             }
             else
             {
-                LOG_DEBUG("module.llm", "Bot {} tool '{}' failed: {}", bot->GetName(), call.name, error);
+                logOutcome(call.name, Acore::StringFormat("failed: {}", error));
             }
         }
 

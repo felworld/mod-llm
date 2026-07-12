@@ -88,7 +88,7 @@ namespace ModLlm
             if (_queue.size() >= sLlmConfig->maxQueueSize)
             {
                 LOG_WARN("module.llm", "Request queue full ({}), dropping request for bot {}",
-                    _queue.size(), request.trigger.botGuid.ToString());
+                    _queue.size(), request.snapshot.botName);
                 return false;
             }
             _queue.push_back(std::move(request));
@@ -150,7 +150,7 @@ namespace ModLlm
         }
 
         if (sLlmConfig->debugLogPrompts)
-            LOG_INFO("module.llm", "Prompt for bot {}: {}", request.trigger.botGuid.ToString(), body.dump());
+            LOG_INFO("module.llm", "Prompt for bot {}: {}", request.snapshot.botName, body.dump());
 
         std::string base;
         std::string path;
@@ -177,7 +177,7 @@ namespace ModLlm
         if (!result || result->status != 200)
         {
             LOG_WARN("module.llm", "LLM request failed for bot {}: {}",
-                request.trigger.botGuid.ToString(),
+                request.snapshot.botName,
                 result ? Acore::StringFormat("HTTP {}", result->status) : httplib::to_string(result.error()));
             _failed.fetch_add(1, std::memory_order_relaxed);
             return;
@@ -187,7 +187,7 @@ namespace ModLlm
         if (!response.ok)
         {
             LOG_WARN("module.llm", "Failed to parse LLM response for bot {}: {}",
-                request.trigger.botGuid.ToString(), response.error);
+                request.snapshot.botName, response.error);
             _failed.fetch_add(1, std::memory_order_relaxed);
             return;
         }
@@ -195,8 +195,17 @@ namespace ModLlm
         _completed.fetch_add(1, std::memory_order_relaxed);
 
         if (sLlmConfig->debugEnabled)
-            LOG_INFO("module.llm", "Bot {} response: {} tool call(s), content '{}'",
-                request.trigger.botGuid.ToString(), response.toolCalls.size(), response.content);
+        {
+            std::string toolNames;
+            for (ToolCall const& call : response.toolCalls)
+            {
+                if (!toolNames.empty())
+                    toolNames += ", ";
+                toolNames += call.name;
+            }
+            LOG_INFO("module.llm", "Bot {} response: tools [{}], content '{}'",
+                request.snapshot.botName, toolNames, response.content);
+        }
 
         if (response.toolCalls.empty() && response.content.empty())
             return; // the model chose to do nothing
