@@ -53,8 +53,9 @@ namespace ModLlm
 
         static bool HandleStatus(ChatHandler* handler)
         {
-            handler->PSendSysMessage("mod-llm: {} | endpoint: {} | model: {}",
-                sLlmConfig->IsEnabled() ? "enabled" : "disabled", sLlmConfig->endpoint, sLlmConfig->model);
+            handler->PSendSysMessage("mod-llm: {} | endpoint: {} ({}) | model: {}",
+                sLlmConfig->IsEnabled() ? "enabled" : "disabled", sLlmConfig->endpoint,
+                sLlmClient->IsAvailable() ? "reachable" : "unreachable", sLlmConfig->model);
             handler->PSendSysMessage("workers: {} | queued: {} | completed: {} | failed: {}",
                 sLlmClient->GetWorkerCount(), sLlmClient->GetQueueSize(),
                 sLlmClient->GetCompletedCount(), sLlmClient->GetFailedCount());

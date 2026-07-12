@@ -27,22 +27,6 @@ namespace ModLlm::LlmTools
 {
     namespace
     {
-        bool IsBuiltinChannelId(uint32 id)
-        {
-            switch (id)
-            {
-                case GENERAL:
-                case TRADE:
-                case LOCAL_DEFENSE:
-                case WORLD_DEFENSE:
-                case GUILD_RECRUITMENT:
-                case LOOKING_FOR_GROUP:
-                    return true;
-                default:
-                    return false;
-            }
-        }
-
         // Sends `message` back into the channel the trigger came from. The
         // audience is bound by the trigger, never chosen by the model.
         bool RouteSay(ToolExecContext& context, std::string const& message, std::string& error)
@@ -66,14 +50,16 @@ namespace ModLlm::LlmTools
                     sent = context.ai->SayToGuild(message);
                     break;
                 case TRIGGER_CHAT_CHANNEL:
-                    if (IsBuiltinChannelId(trigger.channelId))
-                        sent = context.ai->SayToChannel(message, ChatChannelId(trigger.channelId));
-                    else if (ChannelMgr* mgr = ChannelMgr::forTeam(context.bot->GetTeamId()))
+                    // Reply into the exact channel the message was heard in.
+                    // PlayerbotAI::SayToChannel would re-resolve builtin
+                    // channels by the bot's current zone and report success
+                    // even for a channel the bot is not on, where
+                    // Channel::Say quietly drops the line.
+                    if (ChannelMgr* mgr = ChannelMgr::forTeam(context.bot->GetTeamId()))
                     {
-                        if (Channel* channel = mgr->GetChannel(trigger.channelName, context.bot, false))
+                        Channel* channel = mgr->GetChannel(trigger.channelName, context.bot, false);
+                        if (channel && channel->IsOn(context.bot->GetGUID()))
                         {
-                            // Say() itself validates membership/mute and
-                            // no-ops with an error packet otherwise.
                             channel->Say(context.bot->GetGUID(), message, LANG_UNIVERSAL);
                             sent = true;
                         }

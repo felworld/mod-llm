@@ -102,6 +102,16 @@ LLM.MaxQueueSize = 32
 LLM.TreatBareContentAsSay = 1
 
 #
+#    LLM.Announce.Enable
+#        Description: Broadcast a system-chat message to all players when the
+#                     LLM endpoint becomes available or unavailable (the
+#                     worldserver console is always notified).
+#        Default:     1
+#
+
+LLM.Announce.Enable = 1
+
+#
 #    LLM.Debug.Enable / LLM.Debug.LogPrompts
 #        Description: Verbose response logging / full prompt logging.
 #        Default:     0 / 0

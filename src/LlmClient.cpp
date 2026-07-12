@@ -5,23 +5,61 @@
 
 #include "LlmClient.h"
 
+#include "Chat.h"
 #include "LlmConfig.h"
 #include "LlmToolOperation.h"
 #include "Log.h"
 #include "PlayerbotWorldThreadProcessor.h"
 #include "PromptAssembler.h"
+#include "SharedDefines.h"
 #include "StringFormat.h"
 #include "ToolCallParser.h"
 #include "ToolRegistry.h"
+#include "WorldPacket.h"
+#include "WorldSessionMgr.h"
 
 #include "httplib.h"
 
 #include <nlohmann/json.hpp>
+#include <string_view>
 
 namespace ModLlm
 {
     namespace
     {
+        // How often the availability monitor probes the endpoint.
+        constexpr uint32 PROBE_INTERVAL_SECONDS = 10;
+
+        // Broadcasts a system-chat line to every online player. Queued from
+        // the monitor thread, executed on the world thread.
+        class WorldAnnounceOperation : public PlayerbotOperation
+        {
+        public:
+            explicit WorldAnnounceOperation(std::string text) : _text(std::move(text)) { }
+
+            bool Execute() override
+            {
+                WorldPacket data;
+                ChatHandler::BuildChatPacket(data, CHAT_MSG_SYSTEM, LANG_UNIVERSAL, nullptr, nullptr, _text);
+                sWorldSessionMgr->SendGlobalMessage(&data);
+                return true;
+            }
+
+            std::string GetName() const override { return "LlmWorldAnnounce"; }
+
+        private:
+            std::string _text;
+        };
+
+        void AnnounceInGame(std::string text)
+        {
+            if (!sLlmConfig->announceEnabled)
+                return;
+
+            PlayerbotWorldThreadProcessor::instance().QueueOperation(
+                std::make_unique<WorldAnnounceOperation>(std::move(text)));
+        }
+
         // Splits "http://host:port/path" into base ("http://host:port") and
         // path ("/path"). Returns false if the URL has no scheme.
         bool SplitEndpoint(std::string const& endpoint, std::string& base, std::string& path)
@@ -60,6 +98,8 @@ namespace ModLlm
         for (uint32 i = 0; i < workerCount; ++i)
             _workers.emplace_back(&LlmClient::WorkerLoop, this);
 
+        _monitor = std::thread(&LlmClient::MonitorLoop, this);
+
         LOG_INFO("module.llm", "LlmClient started with {} worker(s), endpoint {}", workerCount, sLlmConfig->endpoint);
     }
 
@@ -69,10 +109,13 @@ namespace ModLlm
             return;
 
         _wake.notify_all();
+        _monitorWake.notify_all();
         for (std::thread& worker : _workers)
             if (worker.joinable())
                 worker.join();
         _workers.clear();
+        if (_monitor.joinable())
+            _monitor.join();
 
         std::lock_guard<std::mutex> lock(_mutex);
         _queue.clear();
@@ -130,6 +173,76 @@ namespace ModLlm
                 _failed.fetch_add(1, std::memory_order_relaxed);
             }
         }
+    }
+
+    void LlmClient::MonitorLoop()
+    {
+        // Watches the endpoint so operators (console) and players (system
+        // chat) learn when the LLM becomes usable - a fresh vLLM container
+        // can spend minutes downloading and loading the model.
+        bool everProbed = false;
+
+        while (_running.load(std::memory_order_relaxed))
+        {
+            if (sLlmConfig->IsEnabled())
+            {
+                bool up = ProbeEndpoint();
+                bool wasUp = _available.exchange(up, std::memory_order_relaxed);
+
+                if (up && !wasUp)
+                {
+                    LOG_INFO("module.llm", "LLM endpoint {} is available; AI player chat is live",
+                        sLlmConfig->endpoint);
+                    AnnounceInGame("AI players are now online.");
+                }
+                else if (!up && wasUp)
+                {
+                    LOG_WARN("module.llm", "LLM endpoint {} became unreachable; AI player chat is paused",
+                        sLlmConfig->endpoint);
+                    AnnounceInGame("AI players are currently offline.");
+                }
+                else if (!up && !everProbed)
+                    LOG_INFO("module.llm", "LLM endpoint {} is not reachable yet (model may still be "
+                        "loading); probing every {}s", sLlmConfig->endpoint, PROBE_INTERVAL_SECONDS);
+
+                everProbed = true;
+            }
+
+            std::unique_lock<std::mutex> lock(_monitorMutex);
+            _monitorWake.wait_for(lock, std::chrono::seconds(PROBE_INTERVAL_SECONDS),
+                [this] { return !_running.load(std::memory_order_relaxed); });
+        }
+    }
+
+    bool LlmClient::ProbeEndpoint() const
+    {
+        std::string base;
+        std::string path;
+        if (!SplitEndpoint(sLlmConfig->endpoint, base, path))
+            return false;
+
+        // GET the models listing that lives next to the chat endpoint: every
+        // OpenAI-compatible server implements it, and vLLM only answers once
+        // the model has actually finished loading.
+        std::string probePath = "/v1/models";
+        constexpr std::string_view chatSuffix = "chat/completions";
+        if (path.size() > chatSuffix.size() && path.ends_with(chatSuffix))
+            probePath = path.substr(0, path.size() - chatSuffix.size()) + "models";
+
+        httplib::Client client(base);
+        client.set_connection_timeout(5, 0);
+        client.set_read_timeout(5, 0);
+        client.set_write_timeout(5, 0);
+#ifdef CPPHTTPLIB_OPENSSL_SUPPORT
+        client.enable_server_certificate_verification(false);
+#endif
+
+        httplib::Headers headers;
+        if (!sLlmConfig->apiKey.empty())
+            headers.emplace("Authorization", "Bearer " + sLlmConfig->apiKey);
+
+        httplib::Result result = client.Get(probePath, headers);
+        return result && result->status == 200;
     }
 
     void LlmClient::ProcessRequest(LlmRequest const& request)

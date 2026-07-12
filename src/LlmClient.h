@@ -47,9 +47,15 @@ namespace ModLlm
         uint64 GetCompletedCount() const { return _completed.load(std::memory_order_relaxed); }
         uint64 GetFailedCount() const { return _failed.load(std::memory_order_relaxed); }
 
+        // Last result of the periodic endpoint probe. False until the first
+        // successful probe (e.g. while vLLM is still loading the model).
+        bool IsAvailable() const { return _available.load(std::memory_order_relaxed); }
+
     private:
         void WorkerLoop();
         void ProcessRequest(LlmRequest const& request);
+        void MonitorLoop();
+        bool ProbeEndpoint() const;
 
         std::mutex _mutex;
         std::condition_variable _wake;
@@ -58,6 +64,11 @@ namespace ModLlm
         std::atomic<bool> _running{false};
         std::atomic<uint64> _completed{0};
         std::atomic<uint64> _failed{0};
+
+        std::thread _monitor;
+        std::mutex _monitorMutex;
+        std::condition_variable _monitorWake;
+        std::atomic<bool> _available{false};
     };
 }
 

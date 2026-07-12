@@ -179,10 +179,7 @@ namespace ModLlm
                 trigger.roomKey = roomKey;
                 trigger.message = msg;
                 if (channel)
-                {
                     trigger.channelName = channel->GetName();
-                    trigger.channelId = channel->GetChannelId();
-                }
                 Dispatch::Submit(bot, sender, std::move(trigger));
             }
         }

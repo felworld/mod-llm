@@ -61,6 +61,7 @@ namespace ModLlm
         maxConcurrentRequests = sConfigMgr->GetOption<uint32>("LLM.MaxConcurrentRequests", 3);
         maxQueueSize = sConfigMgr->GetOption<uint32>("LLM.MaxQueueSize", 32);
         treatBareContentAsSay = sConfigMgr->GetOption<bool>("LLM.TreatBareContentAsSay", true);
+        announceEnabled = sConfigMgr->GetOption<bool>("LLM.Announce.Enable", true);
         debugEnabled = sConfigMgr->GetOption<bool>("LLM.Debug.Enable", false);
         debugLogPrompts = sConfigMgr->GetOption<bool>("LLM.Debug.LogPrompts", false);
 
