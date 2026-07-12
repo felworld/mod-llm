@@ -58,7 +58,7 @@ namespace ModLlm::LlmTools
                     if (ChannelMgr* mgr = ChannelMgr::forTeam(context.bot->GetTeamId()))
                     {
                         Channel* channel = mgr->GetChannel(trigger.channelName, context.bot, false);
-                        if (channel && channel->IsOn(context.bot->GetGUID()))
+                        if (channel && context.bot->IsInChannel(channel))
                         {
                             channel->Say(context.bot->GetGUID(), message, LANG_UNIVERSAL);
                             sent = true;
