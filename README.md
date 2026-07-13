@@ -22,7 +22,9 @@ Returning no tool calls is a valid outcome — most moments deserve no reaction.
 
 - **Reactive chat**: say/yell, whispers, party/raid, guild, and channel messages, with per-channel
   reply chances (separate for human vs bot senders), a name-mention override, and a bot cap.
-  Faction rules are honored: unless `AllowTwoSide.Interaction.Chat` is enabled, bots don't react
+  When several bots react to one message their replies are staggered (`LLM.Chat.StaggerSeconds`),
+  and each later bot's context is rebuilt when its turn comes, so it can respond to the earlier
+  replies instead of echoing them. Faction rules are honored: unless `AllowTwoSide.Interaction.Chat` is enabled, bots don't react
   to opposite-faction speech (they couldn't understand it) and cross-faction whisper triggers are
   dropped, GMs excepted.
 - **Emotes**: emotes aimed at a bot, or performed nearby — including cross-faction ones, since

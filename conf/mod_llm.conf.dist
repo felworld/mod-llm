@@ -145,6 +145,18 @@ LLM.Chat.YellDistance = 100
 LLM.Chat.MaxBotsToPick = 2
 
 #
+#    LLM.Chat.StaggerSeconds
+#        Description: Extra delay per additional bot when several react to the
+#                     same message (the 2nd waits this long, the 3rd twice as
+#                     long, ...). Each delayed bot rebuilds its context when
+#                     its turn comes, so it sees the replies that landed before
+#                     it instead of answering blind in parallel. 0 to disable.
+#        Default:     5
+#
+
+LLM.Chat.StaggerSeconds = 5
+
+#
 #    LLM.Chat.SkipInCombat
 #        Description: Bots in combat never react.
 #        Default:     1

@@ -70,6 +70,7 @@ namespace ModLlm
         sayDistance = sConfigMgr->GetOption<float>("LLM.Chat.SayDistance", 30.0f);
         yellDistance = sConfigMgr->GetOption<float>("LLM.Chat.YellDistance", 100.0f);
         maxBotsToPick = sConfigMgr->GetOption<uint32>("LLM.Chat.MaxBotsToPick", 2);
+        chatStaggerSeconds = sConfigMgr->GetOption<uint32>("LLM.Chat.StaggerSeconds", 5);
         skipInCombat = sConfigMgr->GetOption<bool>("LLM.Chat.SkipInCombat", true);
         playerReplyChanceSay = sConfigMgr->GetOption<uint32>("LLM.Chat.PlayerReplyChance.Say", 90);
         playerReplyChanceParty = sConfigMgr->GetOption<uint32>("LLM.Chat.PlayerReplyChance.Party", 90);

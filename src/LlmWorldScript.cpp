@@ -52,7 +52,12 @@ namespace ModLlm
         void OnUpdate(uint32 diff) override
         {
             if (!sLlmConfig->IsEnabled())
+            {
+                Dispatch::ClearDelayed();
                 return;
+            }
+
+            Dispatch::UpdateDelayed(diff);
 
             _initiativeTimer += diff;
             if (_initiativeTimer >= 5000)

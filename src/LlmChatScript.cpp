@@ -173,6 +173,13 @@ namespace ModLlm
             std::vector<Player*> bots = BotSelector::SelectForChat(sender, kind, msg, group, guild,
                 channel, maxDistance);
 
+            // Successive responders are staggered so each one's context is
+            // rebuilt after the previous replies (likely) landed - concurrent
+            // requests would otherwise see identical history and converge on
+            // near-identical answers.
+            uint32 staggerMs = sLlmConfig->chatStaggerSeconds * IN_MILLISECONDS;
+            uint32 index = 0;
+
             for (Player* bot : bots)
             {
                 // Direct exchanges (say/yell) also feed the pair transcript.
@@ -187,7 +194,12 @@ namespace ModLlm
                 trigger.message = msg;
                 if (channel)
                     trigger.channelName = channel->GetName();
-                Dispatch::Submit(bot, sender, std::move(trigger));
+
+                if (uint32 delayMs = index * staggerMs)
+                    Dispatch::SubmitDelayed(bot, sender, std::move(trigger), delayMs);
+                else
+                    Dispatch::Submit(bot, sender, std::move(trigger));
+                ++index;
             }
         }
     };

@@ -50,6 +50,7 @@ namespace ModLlm
         float sayDistance = 30.0f;
         float yellDistance = 100.0f;
         uint32 maxBotsToPick = 2;
+        uint32 chatStaggerSeconds = 5;
         bool skipInCombat = true;
         uint32 playerReplyChanceSay = 90;
         uint32 playerReplyChanceParty = 90;
