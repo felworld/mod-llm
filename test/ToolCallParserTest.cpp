@@ -40,6 +40,21 @@ TEST(ToolCallParserTest, ParsesMultipleToolCalls)
     EXPECT_EQ(response.toolCalls[1].name, "emote");
 }
 
+TEST(ToolCallParserTest, CapturesOrFabricatesToolCallIds)
+{
+    LlmResponse response = ToolCallParser::Parse(R"({
+        "choices": [{ "message": { "tool_calls": [
+            { "id": "call_abc", "function": { "name": "say", "arguments": "{}" } },
+            { "function": { "name": "emote", "arguments": "{}" } }
+        ] } }]
+    })");
+
+    ASSERT_TRUE(response.ok);
+    ASSERT_EQ(response.toolCalls.size(), 2u);
+    EXPECT_EQ(response.toolCalls[0].id, "call_abc");
+    EXPECT_EQ(response.toolCalls[1].id, "call_1");
+}
+
 TEST(ToolCallParserTest, ToleratesInlineArgumentsObject)
 {
     LlmResponse response = ToolCallParser::Parse(R"({

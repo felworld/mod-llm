@@ -246,9 +246,13 @@ namespace ModLlm
 
     void LlmClient::ProcessRequest(LlmRequest const& request)
     {
+        nlohmann::json messages = PromptAssembler::BuildMessages(request.snapshot, request.trigger);
+        for (nlohmann::json const& message : request.extraMessages)
+            messages.push_back(message);
+
         nlohmann::json body = {
             { "model", sLlmConfig->model },
-            { "messages", PromptAssembler::BuildMessages(request.snapshot, request.trigger) },
+            { "messages", std::move(messages) },
             { "temperature", sLlmConfig->temperature },
             { "top_p", sLlmConfig->topP },
             { "max_tokens", sLlmConfig->maxTokens }
@@ -329,6 +333,6 @@ namespace ModLlm
         // Marshal all game-state effects onto the world thread.
         PlayerbotWorldThreadProcessor::instance().QueueOperation(
             std::make_unique<LlmToolOperation>(request.trigger, std::move(response.toolCalls),
-                std::move(response.content)));
+                std::move(response.content), request.round));
     }
 }

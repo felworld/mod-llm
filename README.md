@@ -20,7 +20,9 @@ Returning no tool calls is a valid outcome — most moments deserve no reaction.
 offered with each request is filtered by trigger kind *and* by live game state — a bot is never
 offered `invite_to_party` for someone already in its group (or otherwise uninvitable), nor
 `challenge_duel` when a duel can't start. Executors still re-validate at execution time, since
-state can change while the request is in flight.
+state can change while the request is in flight; if a call does fail, the error is fed back to
+the model once — as OpenAI tool-result messages, with context and tool list rebuilt against the
+new game state — so it can pick an alternative action (`LLM.ErrorFeedback.Enable`).
 
 The guiding rule for prompt context: anything a player would see on their screen belongs in it.
 Today that's the bot's zone, its full party/raid roster (names and leader), guild, its lasting

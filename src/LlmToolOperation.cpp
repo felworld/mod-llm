@@ -5,6 +5,8 @@
 
 #include "LlmToolOperation.h"
 
+#include "ContextBuilder.h"
+#include "LlmClient.h"
 #include "LlmConfig.h"
 #include "LlmTools.h"
 #include "Log.h"
@@ -16,6 +18,8 @@
 #include "ToolRegistry.h"
 
 #include <nlohmann/json.hpp>
+
+#include <utility>
 
 namespace ModLlm
 {
@@ -55,12 +59,17 @@ namespace ModLlm
 
         // Tool outcomes surface at INFO under LLM.Debug.Enable; the default
         // logger config swallows DEBUG, which makes silent bots undebuggable.
-        auto logOutcome = [&](std::string const& toolName, std::string const& outcome)
+        // Each outcome is also recorded (parallel to `calls`) for the error
+        // feedback round below.
+        std::vector<std::pair<bool, std::string>> outcomes;
+        outcomes.reserve(calls.size());
+        auto finish = [&](std::string const& toolName, bool ok, std::string outcome)
         {
             if (sLlmConfig->debugEnabled)
                 LOG_INFO("module.llm", "Bot {} tool '{}': {}", bot->GetName(), toolName, outcome);
             else
                 LOG_DEBUG("module.llm", "Bot {} tool '{}': {}", bot->GetName(), toolName, outcome);
+            outcomes.emplace_back(ok, std::move(outcome));
         };
 
         bool anySucceeded = false;
@@ -69,47 +78,100 @@ namespace ModLlm
             ToolSpec const* spec = sLlmToolRegistry->Find(call.name);
             if (!spec)
             {
-                logOutcome(call.name, "unknown tool");
+                finish(call.name, false, "unknown tool");
                 continue;
             }
 
             if (!(spec->triggerMask & _trigger.kind))
             {
-                logOutcome(call.name, "not allowed for this trigger");
+                finish(call.name, false, "not allowed for this trigger");
                 continue;
             }
 
             if (spec->requiresActor && !actor)
             {
-                logOutcome(call.name, "the actor is gone");
+                finish(call.name, false, "the actor is gone");
                 continue;
             }
 
             nlohmann::json args = nlohmann::json::parse(call.arguments, nullptr, false);
             if (args.is_discarded())
             {
-                logOutcome(call.name, "malformed arguments");
+                finish(call.name, false, "malformed arguments");
                 continue;
             }
 
             std::string error;
             if (!ToolRegistry::ValidateArgs(spec->parameters, args, error))
             {
-                logOutcome(call.name, Acore::StringFormat("rejected: {}", error));
+                finish(call.name, false, Acore::StringFormat("rejected: {}", error));
                 continue;
             }
 
             if (spec->execute(context, args, error))
             {
                 anySucceeded = true;
-                logOutcome(call.name, "executed");
+                finish(call.name, true, "executed");
             }
             else
             {
-                logOutcome(call.name, Acore::StringFormat("failed: {}", error));
+                finish(call.name, false, Acore::StringFormat("failed: {}", error));
             }
         }
 
+        SubmitErrorFeedback(bot, actor, outcomes);
+
         return anySucceeded || calls.empty();
+    }
+
+    // One follow-up request per trigger (round-capped) carrying the failed
+    // calls' errors as tool-result messages, so the model can pick an
+    // alternative action. Only genuine tool calls qualify - the rescued
+    // bare-content say has no real tool_call id to reference.
+    void LlmToolOperation::SubmitErrorFeedback(Player* bot, Player* actor,
+        std::vector<std::pair<bool, std::string>> const& outcomes) const
+    {
+        if (!sLlmConfig->errorFeedbackEnabled || _round > 0 || _toolCalls.empty())
+            return;
+
+        bool anyFailed = false;
+        for (auto const& [ok, outcome] : outcomes)
+            anyFailed = anyFailed || !ok;
+        if (!anyFailed)
+            return;
+
+        nlohmann::json toolCallsJson = nlohmann::json::array();
+        for (ToolCall const& call : _toolCalls)
+            toolCallsJson.push_back({
+                { "id", call.id },
+                { "type", "function" },
+                { "function", { { "name", call.name }, { "arguments", call.arguments } } }
+            });
+
+        nlohmann::json extra = nlohmann::json::array();
+        extra.push_back({
+            { "role", "assistant" },
+            { "content", _bareContent },
+            { "tool_calls", std::move(toolCallsJson) }
+        });
+        for (size_t i = 0; i < _toolCalls.size(); ++i)
+            extra.push_back({
+                { "role", "tool" },
+                { "tool_call_id", _toolCalls[i].id },
+                { "content", outcomes[i].first ? "ok" : "error: " + outcomes[i].second }
+            });
+
+        LlmRequest followUp;
+        followUp.snapshot = ContextBuilder::Build(bot, actor, _trigger);
+        followUp.tools = sLlmToolRegistry->BuildToolsArray(_trigger.kind, bot, actor);
+        followUp.trigger = _trigger;
+        followUp.extraMessages = std::move(extra);
+        followUp.round = _round + 1;
+
+        if (sLlmClient->Submit(std::move(followUp)))
+        {
+            if (sLlmConfig->debugEnabled)
+                LOG_INFO("module.llm", "Bot {} tool errors fed back to the model", bot->GetName());
+        }
     }
 }

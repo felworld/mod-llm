@@ -41,6 +41,7 @@ namespace ModLlm
         uint32 maxConcurrentRequests = 3;
         uint32 maxQueueSize = 32;
         bool treatBareContentAsSay = true;
+        bool errorFeedbackEnabled = true;
         bool announceEnabled = true;
         bool debugEnabled = false;
         bool debugLogPrompts = false;

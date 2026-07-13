@@ -114,6 +114,16 @@ LLM.MaxQueueSize = 32
 LLM.TreatBareContentAsSay = 1
 
 #
+#    LLM.ErrorFeedback.Enable
+#        Description: When a tool call fails at execution time, send the error
+#                     back to the model once so it can choose an alternative
+#                     action (one extra LLM round trip per failure).
+#        Default:     1
+#
+
+LLM.ErrorFeedback.Enable = 1
+
+#
 #    LLM.Announce.Enable
 #        Description: Broadcast a system-chat message to all players when the
 #                     LLM endpoint becomes available or unavailable (the

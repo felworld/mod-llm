@@ -60,6 +60,13 @@ namespace ModLlm::ToolCallParser
                 ToolCall toolCall;
                 toolCall.name = function["name"].get<std::string>();
 
+                // Servers may omit ids; fabricate stable ones so error
+                // feedback can always reference the call.
+                if (call.contains("id") && call["id"].is_string())
+                    toolCall.id = call["id"].get<std::string>();
+                else
+                    toolCall.id = "call_" + std::to_string(response.toolCalls.size());
+
                 if (function.contains("arguments"))
                 {
                     // Per the OpenAI schema, arguments is a JSON-encoded

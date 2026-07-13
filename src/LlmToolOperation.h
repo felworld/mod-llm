@@ -11,7 +11,10 @@
 #include "ToolCallParser.h"
 
 #include <string>
+#include <utility>
 #include <vector>
+
+class Player;
 
 namespace ModLlm
 {
@@ -22,8 +25,10 @@ namespace ModLlm
     class LlmToolOperation : public PlayerbotOperation
     {
     public:
-        LlmToolOperation(TriggerContext trigger, std::vector<ToolCall> toolCalls, std::string bareContent)
+        LlmToolOperation(TriggerContext trigger, std::vector<ToolCall> toolCalls, std::string bareContent,
+            uint32 round = 0)
             : _trigger(std::move(trigger)), _toolCalls(std::move(toolCalls)), _bareContent(std::move(bareContent))
+            , _round(round)
         {
         }
 
@@ -34,9 +39,13 @@ namespace ModLlm
         std::string GetName() const override { return "LlmToolOperation"; }
 
     private:
+        void SubmitErrorFeedback(Player* bot, Player* actor,
+            std::vector<std::pair<bool, std::string>> const& outcomes) const;
+
         TriggerContext _trigger;
         std::vector<ToolCall> _toolCalls;
         std::string _bareContent;
+        uint32 _round = 0;
     };
 }
 

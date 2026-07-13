@@ -15,6 +15,7 @@ namespace ModLlm
     {
         std::string name;
         std::string arguments; // raw JSON string, validated later by ToolRegistry
+        std::string id;        // for echoing tool results back to the model
     };
 
     // The assistant message of one chat-completions response. content and
