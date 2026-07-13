@@ -17,6 +17,7 @@
 #include "PlayerbotAI.h"
 #include "PlayerbotMgr.h"
 #include "Random.h"
+#include "World.h"
 
 #include <algorithm>
 #include <cctype>
@@ -40,6 +41,15 @@ namespace ModLlm::BotSelector
             if (sLlmConfig->skipInCombat && candidate->IsInCombat())
                 return false;
             return true;
+        }
+
+        // Say/yell reaches the opposite faction only as untranslated gibberish,
+        // so unless the server allows cross-faction chat a bot cannot
+        // understand (or sensibly answer) the opposing team.
+        bool CanUnderstand(Player* bot, Player* sender)
+        {
+            return bot->GetTeamId() == sender->GetTeamId()
+                || sWorld->getBoolConfig(CONFIG_ALLOW_TWO_SIDE_INTERACTION_CHAT);
         }
 
         // The trigger must involve a human somewhere: either the sender is
@@ -161,7 +171,8 @@ namespace ModLlm::BotSelector
                 for (MapReference const& ref : map->GetPlayers())
                 {
                     Player* player = ref.GetSource();
-                    if (IsEligibleBot(player, sender) && sender->IsWithinDistInMap(player, maxDistance)
+                    if (IsEligibleBot(player, sender) && CanUnderstand(player, sender)
+                        && sender->IsWithinDistInMap(player, maxDistance)
                         && HasHumanAudience(player, sender, maxDistance))
                         candidates.push_back(player);
                 }

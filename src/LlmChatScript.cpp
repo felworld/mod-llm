@@ -19,6 +19,7 @@
 #include "SharedDefines.h"
 #include "StringFormat.h"
 #include "TextEmoteCatalog.h"
+#include "World.h"
 
 namespace ModLlm
 {
@@ -117,6 +118,12 @@ namespace ModLlm
             if (receiver)
             {
                 if (!sLlmConfig->whispersEnabled || BotSelector::IsRealPlayer(receiver))
+                    return;
+                // Cross-faction whispers cannot happen for real players (GMs
+                // excepted); drop the ones bots produce by writing to the
+                // session directly.
+                if (!sWorld->getBoolConfig(CONFIG_ALLOW_TWO_SIDE_INTERACTION_CHAT)
+                    && sender->GetTeamId() != receiver->GetTeamId() && !sender->IsGameMaster())
                     return;
                 if (sLlmConfig->skipInCombat && receiver->IsInCombat())
                     return;
