@@ -22,7 +22,11 @@ Returning no tool calls is a valid outcome — most moments deserve no reaction.
 
 - **Reactive chat**: say/yell, whispers, party/raid, guild, and channel messages, with per-channel
   reply chances (separate for human vs bot senders), a name-mention override, and a bot cap.
-- **Emotes**: emotes aimed at a bot, or performed nearby.
+  Faction rules are honored: unless `AllowTwoSide.Interaction.Chat` is enabled, bots don't react
+  to opposite-faction speech (they couldn't understand it) and cross-faction whisper triggers are
+  dropped, GMs excepted.
+- **Emotes**: emotes aimed at a bot, or performed nearby — including cross-faction ones, since
+  text emotes are faction-agnostic for real players too.
 - **Game events**: kills, deaths, level-ups, quest completions, duels, achievements, notable loot.
 - **Initiative**: an idle scheduler gives each bot periodic opportunities to act unprompted,
   with an environment description in the prompt.
