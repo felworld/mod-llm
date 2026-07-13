@@ -18,7 +18,8 @@ namespace ModLlm
             "You are a player character controlled by a real person, not an assistant. React to the situation "
             "using the available tools, or do nothing at all - most moments deserve no reaction. Never announce "
             "what you are doing and never mention tools or AI. Keep any chat message under 20 words, in a "
-            "casual WoW-player tone with no emojis, markdown, or quotation marks.";
+            "casual WoW-player tone with no emojis, markdown, or quotation marks. Vary your wording: never "
+            "repeat a phrase that already appears in the conversation history, yours or anyone else's.";
 
         constexpr char DEFAULT_PROMPT_CHAT[] =
             "{sentiment_line}{history_block}[{channel_label}] {actor_name} (level {actor_level} {actor_race} "
@@ -57,6 +58,7 @@ namespace ModLlm
         maxTokens = sConfigMgr->GetOption<uint32>("LLM.MaxTokens", 200);
         temperature = sConfigMgr->GetOption<float>("LLM.Temperature", 0.8f);
         topP = sConfigMgr->GetOption<float>("LLM.TopP", 0.95f);
+        repetitionPenalty = sConfigMgr->GetOption<float>("LLM.RepetitionPenalty", 1.1f);
         timeoutSeconds = sConfigMgr->GetOption<uint32>("LLM.TimeoutSeconds", 30);
         maxConcurrentRequests = sConfigMgr->GetOption<uint32>("LLM.MaxConcurrentRequests", 3);
         maxQueueSize = sConfigMgr->GetOption<uint32>("LLM.MaxQueueSize", 32);

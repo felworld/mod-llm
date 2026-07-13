@@ -36,6 +36,7 @@ namespace ModLlm
         uint32 maxTokens = 200;
         float temperature = 0.8f;
         float topP = 0.95f;
+        float repetitionPenalty = 1.1f;
         uint32 timeoutSeconds = 30;
         uint32 maxConcurrentRequests = 3;
         uint32 maxQueueSize = 32;

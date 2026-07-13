@@ -67,6 +67,18 @@ LLM.Temperature = 0.8
 LLM.TopP = 0.95
 
 #
+#    LLM.RepetitionPenalty
+#        Description: Penalty applied to tokens already present in the prompt
+#                     or the response so far (> 1 discourages reuse). Counters
+#                     bots parroting phrases out of their own conversation
+#                     history. A vLLM extension: sent only when not 1.0, so
+#                     set 1.0 to disable for strict OpenAI-spec endpoints.
+#        Default:     1.1
+#
+
+LLM.RepetitionPenalty = 1.1
+
+#
 #    LLM.TimeoutSeconds
 #        Description: HTTP connect/read/write timeout per request.
 #        Default:     30
