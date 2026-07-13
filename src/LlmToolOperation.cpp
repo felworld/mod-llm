@@ -63,12 +63,12 @@ namespace ModLlm
         // feedback round below.
         std::vector<std::pair<bool, std::string>> outcomes;
         outcomes.reserve(calls.size());
-        auto finish = [&](std::string const& toolName, bool ok, std::string outcome)
+        auto finish = [&](ToolCall const& call, bool ok, std::string outcome)
         {
             if (sLlmConfig->debugEnabled)
-                LOG_INFO("module.llm", "Bot {} tool '{}': {}", bot->GetName(), toolName, outcome);
+                LOG_INFO("module.llm", "Bot {} tool '{}' {}: {}", bot->GetName(), call.name, call.arguments, outcome);
             else
-                LOG_DEBUG("module.llm", "Bot {} tool '{}': {}", bot->GetName(), toolName, outcome);
+                LOG_DEBUG("module.llm", "Bot {} tool '{}' {}: {}", bot->GetName(), call.name, call.arguments, outcome);
             outcomes.emplace_back(ok, std::move(outcome));
         };
 
@@ -78,44 +78,44 @@ namespace ModLlm
             ToolSpec const* spec = sLlmToolRegistry->Find(call.name);
             if (!spec)
             {
-                finish(call.name, false, "unknown tool");
+                finish(call, false, "unknown tool");
                 continue;
             }
 
             if (!(spec->triggerMask & _trigger.kind))
             {
-                finish(call.name, false, "not allowed for this trigger");
+                finish(call, false, "not allowed for this trigger");
                 continue;
             }
 
             if (spec->requiresActor && !actor)
             {
-                finish(call.name, false, "the actor is gone");
+                finish(call, false, "the actor is gone");
                 continue;
             }
 
             nlohmann::json args = nlohmann::json::parse(call.arguments, nullptr, false);
             if (args.is_discarded())
             {
-                finish(call.name, false, "malformed arguments");
+                finish(call, false, "malformed arguments");
                 continue;
             }
 
             std::string error;
             if (!ToolRegistry::ValidateArgs(spec->parameters, args, error))
             {
-                finish(call.name, false, Acore::StringFormat("rejected: {}", error));
+                finish(call, false, Acore::StringFormat("rejected: {}", error));
                 continue;
             }
 
             if (spec->execute(context, args, error))
             {
                 anySucceeded = true;
-                finish(call.name, true, "executed");
+                finish(call, true, "executed");
             }
             else
             {
-                finish(call.name, false, Acore::StringFormat("failed: {}", error));
+                finish(call, false, Acore::StringFormat("failed: {}", error));
             }
         }
 
