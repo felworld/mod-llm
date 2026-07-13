@@ -39,6 +39,30 @@ TEST(ToolRegistryTest, BuildToolsArrayFiltersByTriggerMask)
     EXPECT_EQ(initiativeTools[0]["function"]["name"], "everywhere");
 }
 
+TEST(ToolRegistryTest, BuildToolsArrayOmitsActorToolsWithoutActor)
+{
+    ToolRegistry registry;
+    registry.Register({ "needs_actor", "", { { "type", "object" } }, TRIGGER_ALL, true, nullptr });
+    registry.Register({ "standalone", "", { { "type", "object" } }, TRIGGER_ALL, false, nullptr });
+
+    nlohmann::json tools = registry.BuildToolsArray(TRIGGER_ALL, nullptr, nullptr);
+    ASSERT_EQ(tools.size(), 1u);
+    EXPECT_EQ(tools[0]["function"]["name"], "standalone");
+}
+
+TEST(ToolRegistryTest, BuildToolsArrayHonorsAvailabilityPredicate)
+{
+    ToolRegistry registry;
+    registry.Register({ "hidden", "", { { "type", "object" } }, TRIGGER_ALL, false, nullptr,
+        [](Player*, Player*) { return false; } });
+    registry.Register({ "offered", "", { { "type", "object" } }, TRIGGER_ALL, false, nullptr,
+        [](Player*, Player*) { return true; } });
+
+    nlohmann::json tools = registry.BuildToolsArray(TRIGGER_ALL, nullptr, nullptr);
+    ASSERT_EQ(tools.size(), 1u);
+    EXPECT_EQ(tools[0]["function"]["name"], "offered");
+}
+
 TEST(ToolRegistryTest, FindLocatesRegisteredTool)
 {
     ToolRegistry registry;

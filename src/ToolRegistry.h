@@ -33,6 +33,12 @@ namespace ModLlm
     // Returns true on success; on failure sets `error` (logged at debug level).
     using ToolExecutor = std::function<bool(ToolExecContext&, nlohmann::json const& args, std::string& error)>;
 
+    // Evaluated on the world thread when the tool list for a request is built,
+    // so tools that cannot possibly succeed (invite while already grouped,
+    // duel a dead player, ...) are never offered to the model. State can still
+    // change before execution, so executors keep their own checks.
+    using ToolAvailability = std::function<bool(Player* bot, Player* actor)>;
+
     struct ToolSpec
     {
         std::string name;
@@ -41,6 +47,7 @@ namespace ModLlm
         uint32 triggerMask = TRIGGER_ALL;
         bool requiresActor = false;
         ToolExecutor execute;
+        ToolAvailability available;  // optional; unset = always offered
     };
 
     // Adding a new bot capability = registering one ToolSpec (see LlmTools.cpp).
@@ -56,8 +63,10 @@ namespace ModLlm
 
         ToolSpec const* Find(std::string const& name) const;
 
-        // OpenAI "tools" array of every tool available for the given trigger.
-        nlohmann::json BuildToolsArray(uint32 triggerMask) const;
+        // OpenAI "tools" array of every tool available for the given trigger
+        // and game state. Call on the thread that owns bot/actor; actor may be
+        // nullptr (tools that require one are then omitted).
+        nlohmann::json BuildToolsArray(uint32 triggerMask, Player* bot = nullptr, Player* actor = nullptr) const;
 
         // Validates a parsed arguments object against a tool's schema:
         // object-ness, required keys, declared keys, primitive types, enums.

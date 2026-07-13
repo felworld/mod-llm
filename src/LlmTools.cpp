@@ -88,6 +88,68 @@ namespace ModLlm::LlmTools
 
             return true;
         }
+
+        // The next two helpers back both a tool's availability predicate (so
+        // impossible actions are never offered to the model) and its executor
+        // (state can change between prompt and execution).
+
+        bool InviteBlocked(Player* bot, Player* actor, std::string& error)
+        {
+            if (bot->GetTeamId() != actor->GetTeamId())
+            {
+                error = "they are on the opposing faction";
+                return true;
+            }
+            if (Group* group = bot->GetGroup())
+            {
+                if (actor->GetGroup() == group)
+                {
+                    error = "they are already in your group";
+                    return true;
+                }
+                if (!group->IsLeader(bot->GetGUID()))
+                {
+                    error = "you are not the group leader";
+                    return true;
+                }
+                if (group->IsFull())
+                {
+                    error = "your group is full";
+                    return true;
+                }
+            }
+            if (actor->GetGroup() || actor->GetGroupInvite())
+            {
+                error = "they are already in another group or have a pending invite";
+                return true;
+            }
+            return false;
+        }
+
+        bool DuelBlocked(Player* bot, Player* actor, std::string& error)
+        {
+            if (!bot->IsAlive() || !actor->IsAlive())
+            {
+                error = "someone is dead";
+                return true;
+            }
+            if (bot->duel || actor->duel)
+            {
+                error = "a duel is already pending";
+                return true;
+            }
+            if (bot->IsInCombat() || actor->IsInCombat())
+            {
+                error = "someone is in combat";
+                return true;
+            }
+            if (!bot->IsWithinDistInMap(actor, 10.0f))
+            {
+                error = "they are too far away";
+                return true;
+            }
+            return false;
+        }
     }
 
     std::string SanitizeChatText(std::string text)
@@ -218,38 +280,19 @@ namespace ModLlm::LlmTools
             true,
             [](ToolExecContext& context, nlohmann::json const& /*args*/, std::string& error)
             {
-                Player* bot = context.bot;
-                Player* actor = context.actor;
-
-                if (bot->GetTeamId() != actor->GetTeamId())
-                {
-                    error = "actor is on the opposing faction";
+                if (InviteBlocked(context.bot, context.actor, error))
                     return false;
-                }
-                if (actor->GetGroup() || actor->GetGroupInvite())
-                {
-                    error = "actor is already grouped or has a pending invite";
-                    return false;
-                }
-                if (Group* group = bot->GetGroup())
-                {
-                    if (!group->IsLeader(bot->GetGUID()))
-                    {
-                        error = "bot is not the group leader";
-                        return false;
-                    }
-                    if (group->IsFull())
-                    {
-                        error = "group is full";
-                        return false;
-                    }
-                }
 
                 WorldPacket packet;
-                packet << actor->GetName();
+                packet << context.actor->GetName();
                 packet << uint32(0); // roles mask
-                bot->GetSession()->HandleGroupInviteOpcode(packet);
+                context.bot->GetSession()->HandleGroupInviteOpcode(packet);
                 return true;
+            },
+            [](Player* bot, Player* actor)
+            {
+                std::string ignored;
+                return !InviteBlocked(bot, actor, ignored);
             }
         });
 
@@ -266,33 +309,17 @@ namespace ModLlm::LlmTools
             true,
             [](ToolExecContext& context, nlohmann::json const& /*args*/, std::string& error)
             {
-                Player* bot = context.bot;
-                Player* actor = context.actor;
-
-                if (!bot->IsAlive() || !actor->IsAlive())
-                {
-                    error = "someone is dead";
+                if (DuelBlocked(context.bot, context.actor, error))
                     return false;
-                }
-                if (bot->duel || actor->duel)
-                {
-                    error = "a duel is already pending";
-                    return false;
-                }
-                if (bot->IsInCombat() || actor->IsInCombat())
-                {
-                    error = "someone is in combat";
-                    return false;
-                }
-                if (!bot->IsWithinDistInMap(actor, 10.0f))
-                {
-                    error = "actor is too far away";
-                    return false;
-                }
 
                 constexpr uint32 SPELL_DUEL_CHALLENGE = 7266;
-                bot->CastSpell(actor, SPELL_DUEL_CHALLENGE, false);
+                context.bot->CastSpell(context.actor, SPELL_DUEL_CHALLENGE, false);
                 return true;
+            },
+            [](Player* bot, Player* actor)
+            {
+                std::string ignored;
+                return !DuelBlocked(bot, actor, ignored);
             }
         });
 

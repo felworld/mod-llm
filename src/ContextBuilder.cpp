@@ -62,8 +62,31 @@ namespace ModLlm::ContextBuilder
             snapshot.botZone = PlayerbotAI::GetLocalizedAreaName(botAI->GetCurrentZone());
         }
 
+        // A player sees every group member's name in the party/raid frames,
+        // so the bot gets the full roster too (and can tell that the person
+        // it is talking to is already a groupmate).
         if (Group* group = bot->GetGroup())
-            snapshot.botGroup = Acore::StringFormat("You are in a group of {}. ", group->GetMembersCount());
+        {
+            std::string members;
+            for (Group::MemberSlot const& slot : group->GetMemberSlots())
+            {
+                if (slot.guid == bot->GetGUID())
+                    continue;
+                if (!members.empty())
+                    members += ", ";
+                members += slot.name;
+                if (slot.guid == group->GetLeaderGUID())
+                    members += " (leader)";
+            }
+
+            char const* kind = group->isRaidGroup() ? "raid" : "party";
+            if (members.empty())
+                snapshot.botGroup = Acore::StringFormat("You are in a {} with nobody else in it yet. ", kind);
+            else if (group->IsLeader(bot->GetGUID()))
+                snapshot.botGroup = Acore::StringFormat("You lead a {} with {}. ", kind, members);
+            else
+                snapshot.botGroup = Acore::StringFormat("You are in a {} with {}. ", kind, members);
+        }
 
         if (Guild* guild = sGuildMgr->GetGuildById(bot->GetGuildId()))
             snapshot.botGuild = Acore::StringFormat("You are a member of the guild <{}>. ", guild->GetName());
@@ -126,13 +149,6 @@ namespace ModLlm::ContextBuilder
                 description += "; ";
             description += Acore::StringFormat("a {} nearby", unit->GetName());
             break;
-        }
-
-        if (Group* group = bot->GetGroup())
-        {
-            if (!description.empty())
-                description += "; ";
-            description += Acore::StringFormat("grouped with {} others", group->GetMembersCount() - 1);
         }
 
         if (description.empty())

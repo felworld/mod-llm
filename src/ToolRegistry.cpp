@@ -35,12 +35,18 @@ namespace ModLlm
         return nullptr;
     }
 
-    nlohmann::json ToolRegistry::BuildToolsArray(uint32 triggerMask) const
+    nlohmann::json ToolRegistry::BuildToolsArray(uint32 triggerMask, Player* bot, Player* actor) const
     {
         nlohmann::json tools = nlohmann::json::array();
         for (ToolSpec const& tool : _tools)
         {
             if (!(tool.triggerMask & triggerMask))
+                continue;
+
+            if (tool.requiresActor && !actor)
+                continue;
+
+            if (tool.available && !tool.available(bot, actor))
                 continue;
 
             tools.push_back({

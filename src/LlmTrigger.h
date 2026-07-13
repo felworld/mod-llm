@@ -28,6 +28,22 @@ namespace ModLlm
         TRIGGER_ALL          = 0xFF
     };
 
+    constexpr char const* TriggerKindName(uint32 kind)
+    {
+        switch (kind)
+        {
+            case TRIGGER_CHAT_SAY:     return "say";
+            case TRIGGER_CHAT_WHISPER: return "whisper";
+            case TRIGGER_CHAT_PARTY:   return "party";
+            case TRIGGER_CHAT_GUILD:   return "guild";
+            case TRIGGER_CHAT_CHANNEL: return "channel";
+            case TRIGGER_EMOTE:        return "emote";
+            case TRIGGER_GAME_EVENT:   return "event";
+            case TRIGGER_INITIATIVE:   return "initiative";
+            default:                   return "unknown";
+        }
+    }
+
     // Snapshot of a trigger, safe to carry across threads: GUIDs and strings
     // only, never game object pointers.
     struct TriggerContext

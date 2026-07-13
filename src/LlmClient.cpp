@@ -14,7 +14,6 @@
 #include "SharedDefines.h"
 #include "StringFormat.h"
 #include "ToolCallParser.h"
-#include "ToolRegistry.h"
 #include "WorldPacket.h"
 #include "WorldSessionMgr.h"
 
@@ -260,10 +259,9 @@ namespace ModLlm
         if (sLlmConfig->repetitionPenalty != 1.0f)
             body["repetition_penalty"] = sLlmConfig->repetitionPenalty;
 
-        nlohmann::json tools = sLlmToolRegistry->BuildToolsArray(request.toolMask);
-        if (!tools.empty())
+        if (!request.tools.empty())
         {
-            body["tools"] = std::move(tools);
+            body["tools"] = request.tools;
             body["tool_choice"] = "auto";
         }
 

@@ -125,7 +125,8 @@ LLM.Announce.Enable = 1
 
 #
 #    LLM.Debug.Enable / LLM.Debug.LogPrompts
-#        Description: Verbose response logging / full prompt logging.
+#        Description: Verbose trigger/response/tool-outcome logging / full
+#                     prompt logging.
 #        Default:     0 / 0
 #
 

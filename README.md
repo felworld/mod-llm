@@ -16,7 +16,15 @@ to do:
 | `invite_to_party` | Invite the player, via a synthetic client packet so all core validation runs |
 | `challenge_duel` | Challenge the player to a duel |
 
-Returning no tool calls is a valid outcome — most moments deserve no reaction.
+Returning no tool calls is a valid outcome — most moments deserve no reaction. The tool list
+offered with each request is filtered by trigger kind *and* by live game state — a bot is never
+offered `invite_to_party` for someone already in its group (or otherwise uninvitable), nor
+`challenge_duel` when a duel can't start. Executors still re-validate at execution time, since
+state can change while the request is in flight.
+
+The guiding rule for prompt context: anything a player would see on their screen belongs in it.
+Today that's the bot's zone, its full party/raid roster (names and leader), guild, its lasting
+sentiment toward the other player, and recent conversation history.
 
 ## Triggers
 

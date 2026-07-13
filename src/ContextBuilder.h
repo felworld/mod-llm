@@ -26,7 +26,7 @@ namespace ModLlm
         std::string botFaction;
         std::string botArea;
         std::string botZone;
-        std::string botGroup;   // "" or "You are in a group of N. "
+        std::string botGroup;   // "" or "You are in a party with X (leader), Y. "
         std::string botGuild;   // "" or "You are a member of the guild <X>. "
 
         std::string actorName;

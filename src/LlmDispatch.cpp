@@ -8,8 +8,10 @@
 #include "ContextBuilder.h"
 #include "LlmClient.h"
 #include "LlmConfig.h"
+#include "Log.h"
 #include "ObjectAccessor.h"
 #include "Player.h"
+#include "ToolRegistry.h"
 
 #include <vector>
 
@@ -35,9 +37,22 @@ namespace ModLlm::Dispatch
             trigger.actorName = actor->GetName();
         }
 
+        // What triggered a bot surfaces at INFO under LLM.Debug.Enable, so the
+        // debug log pairs each "Bot X response" with what the bot reacted to.
+        if (!trigger.message.empty())
+        {
+            std::string source = trigger.actorName.empty() ? "" : " from " + trigger.actorName;
+            if (sLlmConfig->debugEnabled)
+                LOG_INFO("module.llm", "Bot {} trigger {}{}: '{}'",
+                    bot->GetName(), TriggerKindName(trigger.kind), source, trigger.message);
+            else
+                LOG_DEBUG("module.llm", "Bot {} trigger {}{}: '{}'",
+                    bot->GetName(), TriggerKindName(trigger.kind), source, trigger.message);
+        }
+
         LlmRequest request;
         request.snapshot = ContextBuilder::Build(bot, actor, trigger);
-        request.toolMask = trigger.kind;
+        request.tools = sLlmToolRegistry->BuildToolsArray(trigger.kind, bot, actor);
         request.trigger = std::move(trigger);
 
         return sLlmClient->Submit(std::move(request));

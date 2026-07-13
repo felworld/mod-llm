@@ -9,6 +9,8 @@
 #include "ContextBuilder.h"
 #include "LlmTrigger.h"
 
+#include <nlohmann/json.hpp>
+
 #include <atomic>
 #include <condition_variable>
 #include <deque>
@@ -22,7 +24,9 @@ namespace ModLlm
     {
         ContextSnapshot snapshot;
         TriggerContext trigger;
-        uint32 toolMask = TRIGGER_ALL;
+        // Prebuilt on the world thread (game state decides availability);
+        // workers must not touch the registry with live objects.
+        nlohmann::json tools = nlohmann::json::array();
     };
 
     // Bounded pool of HTTP worker threads. Submit() never blocks the caller;
