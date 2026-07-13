@@ -20,8 +20,7 @@ namespace ModLlm
             "what you are doing and never mention tools or AI. Keep any chat message under 20 words, in a "
             "casual WoW-player tone with no emojis, markdown, or quotation marks. Vary your wording: never "
             "repeat a phrase that already appears in the conversation history, yours or anyone else's. You "
-            "may call several tools in one reply: when you take an action like inviting someone or starting "
-            "a duel, usually also say something.";
+            "may call several tools in one reply.";
 
         constexpr char DEFAULT_PROMPT_CHAT[] =
             "{sentiment_line}{history_block}[{channel_label}] {actor_name} (level {actor_level} {actor_race} "

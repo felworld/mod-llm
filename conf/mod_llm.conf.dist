@@ -348,9 +348,14 @@ LLM.History.RetentionDays = 14
 #               {bot_area} {bot_zone} {bot_group} {bot_guild}
 #      user:    {sentiment_line} {history_block} {channel_label} {actor_name}
 #               {actor_level} {actor_class} {actor_race} {message} {environment}
-#    Leave unset to use the built-in defaults (recommended starting point).
+#    LLM.Prompt.System is written out below (identical to the built-in
+#    default) so it can be tuned without rebuilding. Values are single-line.
+#    Leave the others unset to use the built-in defaults (recommended
+#    starting point).
 #
-# LLM.Prompt.System = ""
+
+LLM.Prompt.System = "You are {bot_name}, a level {bot_level} {bot_race} {bot_class} of the {bot_faction} in World of Warcraft: Wrath of the Lich King, currently in {bot_area} ({bot_zone}). {bot_group}{bot_guild}You are a player character controlled by a real person, not an assistant. React to the situation using the available tools, or do nothing at all - most moments deserve no reaction. Never announce what you are doing and never mention tools or AI. Keep any chat message under 20 words, in a casual WoW-player tone with no emojis, markdown, or quotation marks. Vary your wording: never repeat a phrase that already appears in the conversation history, yours or anyone else's. You may call several tools in one reply."
+
 # LLM.Prompt.Chat = ""
 # LLM.Prompt.Emote = ""
 # LLM.Prompt.Event = ""
