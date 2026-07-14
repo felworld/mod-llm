@@ -39,8 +39,8 @@ namespace ModLlm
         // pipeline: customMessages is sent instead of the assembled prompt,
         // and onResponse runs on the worker thread instead of the usual
         // tool-execution marshalling - it must not touch game state. They
-        // also sample greedily and skip the repetition penalty (their
-        // answers must repeat names that appear in the prompt).
+        // also skip the repetition penalty (their answers must repeat names
+        // that appear in the prompt).
         nlohmann::json customMessages = nlohmann::json::array();
         std::function<void(LlmResponse const&)> onResponse;
     };

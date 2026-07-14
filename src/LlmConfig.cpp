@@ -67,8 +67,9 @@ namespace ModLlm
         apiKey = sConfigMgr->GetOption<std::string>("LLM.ApiKey", "");
         model = sConfigMgr->GetOption<std::string>("LLM.Model", "felworld");
         maxTokens = sConfigMgr->GetOption<uint32>("LLM.MaxTokens", 200);
-        temperature = sConfigMgr->GetOption<float>("LLM.Temperature", 0.8f);
-        topP = sConfigMgr->GetOption<float>("LLM.TopP", 0.95f);
+        temperature = sConfigMgr->GetOption<float>("LLM.Temperature", -1.0f);
+        topP = sConfigMgr->GetOption<float>("LLM.TopP", -1.0f);
+        topK = sConfigMgr->GetOption<uint32>("LLM.TopK", 0);
         repetitionPenalty = sConfigMgr->GetOption<float>("LLM.RepetitionPenalty", 1.1f);
         timeoutSeconds = sConfigMgr->GetOption<uint32>("LLM.TimeoutSeconds", 30);
         maxConcurrentRequests = sConfigMgr->GetOption<uint32>("LLM.MaxConcurrentRequests", 3);

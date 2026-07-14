@@ -58,13 +58,23 @@ LLM.Model = "felworld"
 LLM.MaxTokens = 200
 
 #
-#    LLM.Temperature / LLM.TopP
-#        Description: Sampling parameters.
-#        Default:     0.8 / 0.95
+#    LLM.Temperature / LLM.TopP / LLM.TopK
+#        Description: Sampling overrides. Left unset, nothing is sent and
+#                     the endpoint applies the model's own generation
+#                     defaults - the values it was tuned for - with no conf
+#                     edit needed when swapping models. (vLLM reads them
+#                     from the model repo's generation_config.json; NB: not
+#                     every repo ships one - the QuantTrio Qwen3.5 AWQ does,
+#                     the official Qwen3.5 repo does not, and without one
+#                     vLLM falls back to neutral defaults.) Set to override:
+#                     negative unsets Temperature/TopP, 0 unsets TopK (a
+#                     vLLM extension, never sent when unset).
+#        Default:     (unset - use the model's defaults)
 #
 
-LLM.Temperature = 0.8
-LLM.TopP = 0.95
+# LLM.Temperature = 0.7
+# LLM.TopP = 0.8
+# LLM.TopK = 20
 
 #
 #    LLM.RepetitionPenalty

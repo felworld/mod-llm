@@ -261,13 +261,25 @@ namespace ModLlm
         nlohmann::json body = {
             { "model", sLlmConfig->model },
             { "messages", std::move(messages) },
-            { "temperature", control ? 0.0f : sLlmConfig->temperature },
-            { "top_p", sLlmConfig->topP },
             { "max_tokens", sLlmConfig->maxTokens }
         };
 
-        // vLLM extension (penalizes prompt tokens too, unlike frequency_penalty);
-        // omitted at the neutral value so strict OpenAI-spec servers still work.
+        // Sampling parameters are only sent when explicitly configured;
+        // otherwise the endpoint applies the model's own generation defaults
+        // (vLLM reads the model repo's generation_config.json), which tracks
+        // whatever the served model was tuned for across model swaps.
+        if (sLlmConfig->temperature >= 0.0f)
+            body["temperature"] = sLlmConfig->temperature;
+        if (sLlmConfig->topP >= 0.0f)
+            body["top_p"] = sLlmConfig->topP;
+        if (sLlmConfig->topK > 0)
+            body["top_k"] = sLlmConfig->topK;
+
+        // vLLM extension (penalizes prompt tokens too, unlike
+        // frequency_penalty), countering history parroting; omitted at the
+        // neutral value so strict OpenAI-spec servers still work - and never
+        // sent on control requests, whose answers must repeat names that
+        // appear in the prompt.
         if (!control && sLlmConfig->repetitionPenalty != 1.0f)
             body["repetition_penalty"] = sLlmConfig->repetitionPenalty;
 

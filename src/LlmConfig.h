@@ -34,8 +34,12 @@ namespace ModLlm
         std::string apiKey;
         std::string model;
         uint32 maxTokens = 200;
-        float temperature = 0.8f;
-        float topP = 0.95f;
+        // Negative (0 for topK) = not sent: the endpoint then applies the
+        // model's own generation defaults (vLLM reads the model repo's
+        // generation_config.json).
+        float temperature = -1.0f;
+        float topP = -1.0f;
+        uint32 topK = 0;
         float repetitionPenalty = 1.1f;
         uint32 timeoutSeconds = 30;
         uint32 maxConcurrentRequests = 3;
