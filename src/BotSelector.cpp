@@ -62,7 +62,7 @@ namespace ModLlm::BotSelector
         }
 
         std::vector<Player*> PickByChanceAndMention(std::vector<Player*>& candidates, Player* sender,
-            uint32 triggerKind, std::string const& message)
+            uint32 triggerKind, std::string const& message, size_t maxPick)
         {
             bool senderIsBot = !IsRealPlayer(sender);
             uint32 chance = ReplyChance(triggerKind, senderIsBot);
@@ -81,7 +81,7 @@ namespace ModLlm::BotSelector
 
             for (Player* candidate : candidates)
             {
-                if (picked.size() >= sLlmConfig->maxBotsToPick)
+                if (picked.size() >= maxPick)
                     break;
                 if (!picked.empty() && picked[0] == candidate)
                     continue;
@@ -234,7 +234,19 @@ namespace ModLlm::BotSelector
             return candidates;
 
         Acore::Containers::RandomShuffle(candidates);
-        return PickByChanceAndMention(candidates, sender, triggerKind, message);
+
+        // A plain party is small enough to ask every bot in it: when a real
+        // player speaks, whoever passes the (normally 100%) roll gets asked
+        // and the model itself decides whether the message deserves a reply.
+        // Raids and battlegrounds keep the cap - asking dozens of bots per
+        // message would swamp the request queue - and their prompt biases
+        // hard toward silence instead.
+        size_t maxPick = sLlmConfig->maxBotsToPick;
+        if (triggerKind == TRIGGER_CHAT_PARTY && IsRealPlayer(sender)
+            && !group->isRaidGroup() && !group->isBGGroup() && !group->isBFGroup())
+            maxPick = candidates.size();
+
+        return PickByChanceAndMention(candidates, sender, triggerKind, message, maxPick);
     }
 
     std::vector<Player*> SelectNearby(Player* source, float distance, uint32 maxBots, bool includeSource)

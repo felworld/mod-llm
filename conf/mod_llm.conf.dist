@@ -161,7 +161,10 @@ LLM.Chat.YellDistance = 100
 
 #
 #    LLM.Chat.MaxBotsToPick
-#        Description: Cap on bots reacting to one message.
+#        Description: Cap on bots reacting to one message. Party chat from a
+#                     real player is exempt: every bot in the party is asked
+#                     and the model decides who answers (raid and
+#                     battleground chat keep the cap).
 #        Default:     2
 #
 
@@ -191,10 +194,17 @@ LLM.Chat.SkipInCombat = 1
 #    LLM.Chat.PlayerReplyChance.* / LLM.Chat.BotReplyChance.*
 #        Description: Percent chance per candidate bot to react, split by
 #                     whether the sender is a human player or another bot.
+#                     Party covers party, raid, and battleground chat; at the
+#                     default 100 every asked bot gets the message and the
+#                     model itself decides whether to answer - the prompt
+#                     tells bots to stay silent unless the message concerns
+#                     them, and pushes harder toward silence in raids and
+#                     battlegrounds. Lower it to put dice back in front of
+#                     the model.
 #
 
 LLM.Chat.PlayerReplyChance.Say = 90
-LLM.Chat.PlayerReplyChance.Party = 90
+LLM.Chat.PlayerReplyChance.Party = 100
 LLM.Chat.PlayerReplyChance.Guild = 70
 LLM.Chat.PlayerReplyChance.Channel = 60
 LLM.Chat.BotReplyChance.Say = 10
@@ -351,6 +361,8 @@ LLM.History.RetentionDays = 14
 #               {bot_area} {bot_zone} {bot_group} {bot_guild}
 #      user:    {sentiment_line} {history_block} {channel_label} {actor_name}
 #               {actor_level} {actor_class} {actor_race} {message} {environment}
+#               {reply_guidance} (party/raid/bg chat: reminds the bot the
+#               whole group heard the message and silence is a fine answer)
 #    LLM.Prompt.System is written out below (identical to the built-in
 #    default) so it can be tuned without rebuilding. Values are single-line.
 #    Leave the others unset to use the built-in defaults (recommended

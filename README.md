@@ -30,8 +30,12 @@ sentiment toward the other player, and recent conversation history.
 
 ## Triggers
 
-- **Reactive chat**: say/yell, whispers, party/raid, guild, and channel messages, with per-channel
-  reply chances (separate for human vs bot senders), a name-mention override, and a bot cap.
+- **Reactive chat**: say/yell, whispers, party/raid/battleground, guild, and channel messages, with
+  per-channel reply chances (separate for human vs bot senders), a name-mention override, and a bot
+  cap. Party chat from a real player skips the dice and the cap: every bot in the party is asked and
+  the model itself decides whether the message concerns it — the prompt reminds it the whole party
+  heard the message and silence is a fine answer. Raid and battleground chat work the same way but
+  keep the bot cap (large groups would swamp the request queue) and push harder toward silence.
   When several bots react to one message their replies are staggered (`LLM.Chat.StaggerSeconds`),
   and each later bot's context is rebuilt when its turn comes, so it can respond to the earlier
   replies instead of echoing them. To keep bots from parroting phrases out of their own

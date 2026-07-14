@@ -55,7 +55,7 @@ namespace ModLlm
         uint32 chatStaggerSeconds = 5;
         bool skipInCombat = true;
         uint32 playerReplyChanceSay = 90;
-        uint32 playerReplyChanceParty = 90;
+        uint32 playerReplyChanceParty = 100;
         uint32 playerReplyChanceGuild = 70;
         uint32 playerReplyChanceChannel = 60;
         uint32 botReplyChanceSay = 10;

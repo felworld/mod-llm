@@ -40,6 +40,7 @@ namespace ModLlm
         std::string pairHistory;   // preformatted transcript lines, may be empty
         std::string roomHistory;
         std::string channelLabel;  // "say", "party", "guild - <name>", channel name, ...
+        std::string replyGuidance; // group chat only: reminds the bot the whole group heard it
         std::string environment;   // initiative triggers only
     };
 

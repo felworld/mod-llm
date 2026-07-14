@@ -7,6 +7,7 @@
 
 #include "Channel.h"
 #include "ChannelMgr.h"
+#include "Chat.h"
 #include "Group.h"
 #include "HistoryStore.h"
 #include "LlmConfig.h"
@@ -27,6 +28,24 @@ namespace ModLlm::LlmTools
 {
     namespace
     {
+        // Playerbots has no battleground-chat helper, so mirror its
+        // SayToParty/SayToRaid: build the packet and hand it to every real
+        // player in the group (other bots hear replies through history).
+        bool SayToBattleground(ToolExecContext& context, std::string const& message)
+        {
+            if (!context.bot->GetGroup())
+                return false;
+
+            WorldPacket data;
+            ChatHandler::BuildChatPacket(data, CHAT_MSG_BATTLEGROUND, message, LANG_UNIVERSAL,
+                CHAT_TAG_NONE, context.bot->GetGUID(), context.bot->GetName());
+
+            for (Player* receiver : context.ai->GetRealPlayersInGroup())
+                receiver->GetSession()->SendPacket(&data);
+
+            return true;
+        }
+
         // Sends `message` back into the channel the trigger came from. The
         // audience is bound by the trigger, never chosen by the model.
         bool RouteSay(ToolExecContext& context, std::string const& message, std::string& error)
@@ -40,7 +59,9 @@ namespace ModLlm::LlmTools
                     sent = context.ai->Whisper(message, trigger.actorName);
                     break;
                 case TRIGGER_CHAT_PARTY:
-                    if (trigger.chatType == CHAT_MSG_RAID || trigger.chatType == CHAT_MSG_RAID_LEADER
+                    if (trigger.chatType == CHAT_MSG_BATTLEGROUND || trigger.chatType == CHAT_MSG_BATTLEGROUND_LEADER)
+                        sent = SayToBattleground(context, message);
+                    else if (trigger.chatType == CHAT_MSG_RAID || trigger.chatType == CHAT_MSG_RAID_LEADER
                         || trigger.chatType == CHAT_MSG_RAID_WARNING)
                         sent = context.ai->SayToRaid(message);
                     else

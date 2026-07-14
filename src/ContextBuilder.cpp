@@ -34,8 +34,11 @@ namespace ModLlm::ContextBuilder
                 case TRIGGER_CHAT_WHISPER:
                     return "whisper";
                 case TRIGGER_CHAT_PARTY:
-                    return trigger.chatType == CHAT_MSG_PARTY || trigger.chatType == CHAT_MSG_PARTY_LEADER
-                        ? "party" : "raid";
+                    if (trigger.chatType == CHAT_MSG_PARTY || trigger.chatType == CHAT_MSG_PARTY_LEADER)
+                        return "party";
+                    if (trigger.chatType == CHAT_MSG_BATTLEGROUND || trigger.chatType == CHAT_MSG_BATTLEGROUND_LEADER)
+                        return "battleground";
+                    return "raid";
                 case TRIGGER_CHAT_GUILD:
                     return "guild";
                 case TRIGGER_CHAT_CHANNEL:
@@ -47,6 +50,24 @@ namespace ModLlm::ContextBuilder
                         return "party";
                     return "say";
             }
+        }
+
+        // Group channels reach every bot in the audience, so the model - not
+        // a dice roll - decides who actually answers. The bigger the
+        // audience, the harder the push toward silence.
+        std::string ReplyGuidance(TriggerContext const& trigger)
+        {
+            if (trigger.kind != TRIGGER_CHAT_PARTY)
+                return "";
+
+            if (trigger.chatType == CHAT_MSG_PARTY || trigger.chatType == CHAT_MSG_PARTY_LEADER)
+                return " Everyone in the party heard this and someone else may answer."
+                    " Reply only if it is meant for you or you have something worth saying; otherwise stay silent.";
+
+            bool bg = trigger.chatType == CHAT_MSG_BATTLEGROUND || trigger.chatType == CHAT_MSG_BATTLEGROUND_LEADER;
+            return Acore::StringFormat(" Everyone in the {} heard this. You are one voice among many:"
+                " stay silent unless you are directly addressed or have something that truly needs saying.",
+                bg ? "battleground" : "raid");
         }
     }
 
@@ -120,6 +141,7 @@ namespace ModLlm::ContextBuilder
         }
 
         snapshot.channelLabel = ChannelLabel(trigger);
+        snapshot.replyGuidance = ReplyGuidance(trigger);
 
         if (trigger.kind == TRIGGER_INITIATIVE)
             snapshot.environment = DescribeEnvironment(bot);

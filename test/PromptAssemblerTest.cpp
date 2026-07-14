@@ -97,6 +97,18 @@ TEST(PromptAssemblerTest, HistoryBlockIncluded)
     EXPECT_NE(user.find("Thundertusk: yo"), std::string::npos);
 }
 
+TEST(PromptAssemblerTest, ReplyGuidanceRendered)
+{
+    ResetTemplates();
+    sLlmConfig->promptChat = "{actor_name}: \"{message}\"{reply_guidance}";
+
+    ContextSnapshot snapshot = TestSnapshot();
+    snapshot.replyGuidance = " Everyone in the party heard this.";
+
+    std::string user = PromptAssembler::BuildMessages(snapshot, TestTrigger())[1]["content"].get<std::string>();
+    EXPECT_NE(user.find("hello there\" Everyone in the party heard this."), std::string::npos);
+}
+
 TEST(PromptAssemblerTest, TriggerKindSelectsTemplate)
 {
     ResetTemplates();

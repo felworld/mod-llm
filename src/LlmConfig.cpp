@@ -24,7 +24,7 @@ namespace ModLlm
 
         constexpr char DEFAULT_PROMPT_CHAT[] =
             "{sentiment_line}{history_block}[{channel_label}] {actor_name} (level {actor_level} {actor_race} "
-            "{actor_class}) says: \"{message}\"";
+            "{actor_class}) says: \"{message}\"{reply_guidance}";
 
         constexpr char DEFAULT_PROMPT_EMOTE[] =
             "{sentiment_line}{history_block}{actor_name} (level {actor_level} {actor_race} {actor_class}) "
@@ -77,7 +77,7 @@ namespace ModLlm
         chatStaggerSeconds = sConfigMgr->GetOption<uint32>("LLM.Chat.StaggerSeconds", 5);
         skipInCombat = sConfigMgr->GetOption<bool>("LLM.Chat.SkipInCombat", true);
         playerReplyChanceSay = sConfigMgr->GetOption<uint32>("LLM.Chat.PlayerReplyChance.Say", 90);
-        playerReplyChanceParty = sConfigMgr->GetOption<uint32>("LLM.Chat.PlayerReplyChance.Party", 90);
+        playerReplyChanceParty = sConfigMgr->GetOption<uint32>("LLM.Chat.PlayerReplyChance.Party", 100);
         playerReplyChanceGuild = sConfigMgr->GetOption<uint32>("LLM.Chat.PlayerReplyChance.Guild", 70);
         playerReplyChanceChannel = sConfigMgr->GetOption<uint32>("LLM.Chat.PlayerReplyChance.Channel", 60);
         botReplyChanceSay = sConfigMgr->GetOption<uint32>("LLM.Chat.BotReplyChance.Say", 10);
