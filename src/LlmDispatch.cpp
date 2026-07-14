@@ -65,12 +65,18 @@ namespace ModLlm::Dispatch
 
     void SubmitDelayed(Player* bot, Player* actor, TriggerContext trigger, uint32 delayMs)
     {
-        trigger.botGuid = bot->GetGUID();
         if (actor)
         {
             trigger.actorGuid = actor->GetGUID();
             trigger.actorName = actor->GetName();
         }
+
+        SubmitDelayed(bot->GetGUID(), std::move(trigger), delayMs);
+    }
+
+    void SubmitDelayed(ObjectGuid botGuid, TriggerContext trigger, uint32 delayMs)
+    {
+        trigger.botGuid = botGuid;
 
         std::lock_guard<std::mutex> lock(_pendingMutex);
         _pending.push_back({ delayMs, std::move(trigger) });

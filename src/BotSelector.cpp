@@ -138,6 +138,19 @@ namespace ModLlm::BotSelector
         return false;
     }
 
+    std::vector<Player*> CollectGroupBots(Player* sender, Group* group)
+    {
+        std::vector<Player*> bots;
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* player = ref->GetSource();
+            if (IsEligibleBot(player, sender)
+                && HasHumanAudience(player, sender, sLlmConfig->sayDistance))
+                bots.push_back(player);
+        }
+        return bots;
+    }
+
     uint32 ReplyChance(uint32 triggerKind, bool senderIsBot)
     {
         switch (triggerKind)
@@ -180,15 +193,8 @@ namespace ModLlm::BotSelector
             }
             case TRIGGER_CHAT_PARTY:
             {
-                if (!group)
-                    break;
-                for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
-                {
-                    Player* player = ref->GetSource();
-                    if (IsEligibleBot(player, sender)
-                        && HasHumanAudience(player, sender, sLlmConfig->sayDistance))
-                        candidates.push_back(player);
-                }
+                if (group)
+                    candidates = CollectGroupBots(sender, group);
                 break;
             }
             case TRIGGER_CHAT_GUILD:

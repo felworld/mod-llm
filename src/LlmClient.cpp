@@ -246,21 +246,29 @@ namespace ModLlm
 
     void LlmClient::ProcessRequest(LlmRequest const& request)
     {
-        nlohmann::json messages = PromptAssembler::BuildMessages(request.snapshot, request.trigger);
-        for (nlohmann::json const& message : request.extraMessages)
-            messages.push_back(message);
+        bool control = bool(request.onResponse);
+
+        nlohmann::json messages;
+        if (!request.customMessages.empty())
+            messages = request.customMessages;
+        else
+        {
+            messages = PromptAssembler::BuildMessages(request.snapshot, request.trigger);
+            for (nlohmann::json const& message : request.extraMessages)
+                messages.push_back(message);
+        }
 
         nlohmann::json body = {
             { "model", sLlmConfig->model },
             { "messages", std::move(messages) },
-            { "temperature", sLlmConfig->temperature },
+            { "temperature", control ? 0.0f : sLlmConfig->temperature },
             { "top_p", sLlmConfig->topP },
             { "max_tokens", sLlmConfig->maxTokens }
         };
 
         // vLLM extension (penalizes prompt tokens too, unlike frequency_penalty);
         // omitted at the neutral value so strict OpenAI-spec servers still work.
-        if (sLlmConfig->repetitionPenalty != 1.0f)
+        if (!control && sLlmConfig->repetitionPenalty != 1.0f)
             body["repetition_penalty"] = sLlmConfig->repetitionPenalty;
 
         if (!request.tools.empty())
@@ -325,6 +333,12 @@ namespace ModLlm
             }
             LOG_INFO("module.llm", "Bot {} response: tools [{}], content '{}'",
                 request.snapshot.botName, toolNames, response.content);
+        }
+
+        if (request.onResponse)
+        {
+            request.onResponse(response);
+            return;
         }
 
         if (response.toolCalls.empty() && response.content.empty())

@@ -10,6 +10,7 @@
 #include "HistoryStore.h"
 #include "LlmConfig.h"
 #include "LlmDispatch.h"
+#include "LlmRouter.h"
 #include "ObjectAccessor.h"
 #include "Player.h"
 #include "PlayerbotAI.h"
@@ -169,6 +170,25 @@ namespace ModLlm
 
             if (!roomKey.empty())
                 sLlmHistoryStore->AddRoomLine(roomKey, sender->GetGUID(), sender->GetName(), msg);
+
+            // Raid and battleground messages from a real player go through
+            // the router: one cheap LLM call picks which bots the message is
+            // for (name, class, and role considered) instead of random dice.
+            if (group && sLlmConfig->groupRouterEnabled && BotSelector::IsRealPlayer(sender)
+                && (group->isRaidGroup() || group->isBGGroup() || group->isBFGroup()))
+            {
+                std::vector<Player*> candidates = BotSelector::CollectGroupBots(sender, group);
+                if (candidates.empty())
+                    return;
+
+                TriggerContext trigger;
+                trigger.kind = kind;
+                trigger.chatType = type;
+                trigger.roomKey = roomKey;
+                trigger.message = msg;
+                Router::RouteGroupMessage(sender, candidates, std::move(trigger));
+                return;
+            }
 
             std::vector<Player*> bots = BotSelector::SelectForChat(sender, kind, msg, group, guild,
                 channel, maxDistance);

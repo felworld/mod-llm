@@ -8,12 +8,14 @@
 
 #include "ContextBuilder.h"
 #include "LlmTrigger.h"
+#include "ToolCallParser.h"
 
 #include <nlohmann/json.hpp>
 
 #include <atomic>
 #include <condition_variable>
 #include <deque>
+#include <functional>
 #include <mutex>
 #include <thread>
 #include <vector>
@@ -32,6 +34,15 @@ namespace ModLlm
         // feedback rounds preceded this request (capped at one).
         nlohmann::json extraMessages = nlohmann::json::array();
         uint32 round = 0;
+
+        // Control requests (e.g. the group-chat router) bypass the standard
+        // pipeline: customMessages is sent instead of the assembled prompt,
+        // and onResponse runs on the worker thread instead of the usual
+        // tool-execution marshalling - it must not touch game state. They
+        // also sample greedily and skip the repetition penalty (their
+        // answers must repeat names that appear in the prompt).
+        nlohmann::json customMessages = nlohmann::json::array();
+        std::function<void(LlmResponse const&)> onResponse;
     };
 
     // Bounded pool of HTTP worker threads. Submit() never blocks the caller;

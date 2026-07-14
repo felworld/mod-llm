@@ -63,6 +63,7 @@ namespace ModLlm
         uint32 botReplyChanceGuild = 5;
         uint32 botReplyChanceChannel = 3;
         bool customChannelsEnabled = true;
+        bool groupRouterEnabled = true;
 
         // Emote reactions
         bool emoteEnabled = true;
@@ -117,6 +118,7 @@ namespace ModLlm
         std::string promptInitiative;
         std::string promptHistoryLine;
         std::string promptSentimentLine;
+        std::string promptRouter;
     };
 }
 

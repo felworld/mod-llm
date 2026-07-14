@@ -30,6 +30,11 @@ namespace ModLlm::BotSelector
     // Per-channel-kind reply chance (percent), split by sender type.
     uint32 ReplyChance(uint32 triggerKind, bool senderIsBot);
 
+    // Every eligible bot in the group that could react to `sender`'s message
+    // (bot AI attached, not the sender, in-combat skip, human audience). No
+    // chance roll or cap - callers decide how to narrow the list.
+    std::vector<Player*> CollectGroupBots(Player* sender, Group* group);
+
     // Picks the bots that should react to a chat message. Handles eligibility
     // (audience of the message + a real player involved), chance rolls, the
     // name-mention override, the in-combat skip, and the MaxBotsToPick cap.

@@ -37,6 +37,16 @@ namespace ModLlm
             "Nothing is being said to you. Around you: {environment}. You may make an idle remark, emote, or "
             "do nothing.";
 
+        constexpr char DEFAULT_PROMPT_ROUTER[] =
+            "You are routing a chat message between players in World of Warcraft. In {channel_label} chat, "
+            "{actor_name} says: \"{message}\"\n"
+            "Group members who could answer:\n"
+            "{roster}\n"
+            "Which of them, if any, is this message meant for or best placed to answer? Consider who is "
+            "addressed and which class or role the request needs; most such messages are for nobody in "
+            "particular. Reply with only a JSON array of at most {max_picks} names from the list, most "
+            "relevant first - for example [\"Name\"] - or [] if nobody in the list should answer.";
+
         constexpr char DEFAULT_PROMPT_HISTORY_LINE[] = "{speaker}: {message}";
 
         constexpr char DEFAULT_PROMPT_SENTIMENT_LINE[] =
@@ -85,6 +95,7 @@ namespace ModLlm
         botReplyChanceGuild = sConfigMgr->GetOption<uint32>("LLM.Chat.BotReplyChance.Guild", 5);
         botReplyChanceChannel = sConfigMgr->GetOption<uint32>("LLM.Chat.BotReplyChance.Channel", 3);
         customChannelsEnabled = sConfigMgr->GetOption<bool>("LLM.Chat.EnableCustomChannels", true);
+        groupRouterEnabled = sConfigMgr->GetOption<bool>("LLM.Chat.GroupRouter.Enable", true);
 
         emoteEnabled = sConfigMgr->GetOption<bool>("LLM.Emote.Enable", true);
         emoteTargetedChance = sConfigMgr->GetOption<uint32>("LLM.Emote.TargetedChance", 100);
@@ -133,6 +144,7 @@ namespace ModLlm
         promptInitiative = sConfigMgr->GetOption<std::string>("LLM.Prompt.Initiative", DEFAULT_PROMPT_INITIATIVE);
         promptHistoryLine = sConfigMgr->GetOption<std::string>("LLM.Prompt.HistoryLine", DEFAULT_PROMPT_HISTORY_LINE);
         promptSentimentLine = sConfigMgr->GetOption<std::string>("LLM.Prompt.SentimentLine", DEFAULT_PROMPT_SENTIMENT_LINE);
+        promptRouter = sConfigMgr->GetOption<std::string>("LLM.Prompt.Router", DEFAULT_PROMPT_ROUTER);
 
         LOG_INFO("module.llm", "mod-llm config loaded: enabled={}, endpoint={}, model={}",
             IsEnabled(), endpoint, model);

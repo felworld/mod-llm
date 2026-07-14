@@ -8,6 +8,8 @@
 
 #include "LlmTrigger.h"
 
+#include "ObjectGuid.h"
+
 class Player;
 
 namespace ModLlm::Dispatch
@@ -18,8 +20,12 @@ namespace ModLlm::Dispatch
 
     // Like Submit, but fires after `delayMs`. The snapshot is built at fire
     // time, so the bot sees replies other bots produced in the meantime.
-    // World thread only (the pending queue is unsynchronized).
+    // Safe from any thread; bot and actor are resolved when the delay ends.
     void SubmitDelayed(Player* bot, Player* actor, TriggerContext trigger, uint32 delayMs);
+
+    // Same, for callers that only hold GUIDs (e.g. the group-chat router's
+    // HTTP-worker callback). trigger.actorGuid/actorName must already be set.
+    void SubmitDelayed(ObjectGuid botGuid, TriggerContext trigger, uint32 delayMs);
 
     // Drives the delayed queue; call every world update.
     void UpdateDelayed(uint32 diff);

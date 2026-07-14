@@ -34,8 +34,11 @@ sentiment toward the other player, and recent conversation history.
   per-channel reply chances (separate for human vs bot senders), a name-mention override, and a bot
   cap. Party chat from a real player skips the dice and the cap: every bot in the party is asked and
   the model itself decides whether the message concerns it — the prompt reminds it the whole party
-  heard the message and silence is a fine answer. Raid and battleground chat work the same way but
-  keep the bot cap (large groups would swamp the request queue) and push harder toward silence.
+  heard the message and silence is a fine answer. A real player's raid/battleground messages instead
+  go through a **router**: one cheap LLM call reads the message plus a roster of the group's bots
+  (class, spec, role) and picks which of them the message is meant for, up to the bot cap — so "any
+  mages got water?" reaches the mage, not two random bots. Routed bots still decide for themselves
+  whether to answer, with a prompt that pushes harder toward silence in large groups.
   When several bots react to one message their replies are staggered (`LLM.Chat.StaggerSeconds`),
   and each later bot's context is rebuilt when its turn comes, so it can respond to the earlier
   replies instead of echoing them. To keep bots from parroting phrases out of their own
