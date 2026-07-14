@@ -5,14 +5,17 @@
 
 #include "BotSelector.h"
 #include "Creature.h"
+#include "Group.h"
 #include "Item.h"
 #include "ItemTemplate.h"
 #include "LlmConfig.h"
 #include "LlmDispatch.h"
+#include "ObjectAccessor.h"
 #include "Player.h"
 #include "QuestDef.h"
 #include "Random.h"
 #include "ScriptMgr.h"
+#include "SharedDefines.h"
 #include "StringFormat.h"
 
 #include <chrono>
@@ -162,9 +165,78 @@ namespace ModLlm
         std::mutex _cooldownMutex;
         std::unordered_map<uint64, std::chrono::steady_clock::time_point> _cooldowns;
     };
+
+    // A bot greets its new party or raid when it joins one - the LLM
+    // replacement for playerbots' canned "Hello" whisper on invite accept
+    // (which we keep disabled via AiPlayerbot.EnableGreet = 0).
+    //
+    // Bots joining fires this hook from the bot's AI update, which runs on
+    // map-update threads: only the joining bot (on this thread's map) is
+    // touched here; everyone else is read through the group's member slots.
+    class LlmGroupScript : public GroupScript
+    {
+    public:
+        LlmGroupScript() : GroupScript("LlmGroupScript", {
+            GROUPHOOK_ON_ADD_MEMBER
+        }) { }
+
+        void OnAddMember(Group* group, ObjectGuid guid) override
+        {
+            if (!sLlmConfig->IsEnabled() || !sLlmConfig->eventEnabled)
+                return;
+            if (group->isBGGroup() || group->isBFGroup())
+                return;
+
+            // The leader is "added" when the group is created; nobody to greet.
+            if (guid == group->GetLeaderGUID())
+                return;
+
+            Player* bot = ObjectAccessor::FindPlayer(guid);
+            if (!bot || BotSelector::IsRealPlayer(bot))
+                return;
+            if (urand(0, 99) >= sLlmConfig->eventChanceGroupJoin)
+                return;
+
+            // Don't greet into a group of nothing but bots.
+            if (!HasRealPlayerMember(group, guid))
+                return;
+
+            bool raid = group->isRaidGroup();
+
+            TriggerContext trigger;
+            trigger.kind = TRIGGER_GAME_EVENT;
+            trigger.eventType = "group_join";
+            trigger.chatType = raid ? CHAT_MSG_RAID : CHAT_MSG_PARTY;
+            trigger.roomKey = Acore::StringFormat("group:{}", group->GetGUID().GetCounter());
+            trigger.message = Acore::StringFormat("{} just joined {}'s {}",
+                bot->GetName(), group->GetLeaderName(), raid ? "raid" : "party");
+
+            // Leader guid/name come from group data rather than the leader's
+            // Player object (who may be updating on another map thread); the
+            // actor is re-resolved on the world thread when the trigger fires.
+            trigger.actorGuid = group->GetLeaderGUID();
+            trigger.actorName = group->GetLeaderName();
+
+            Dispatch::SubmitDelayed(bot, nullptr, std::move(trigger), urand(1500, 4000));
+        }
+
+    private:
+        static bool HasRealPlayerMember(Group* group, ObjectGuid except)
+        {
+            for (Group::MemberSlot const& slot : group->GetMemberSlots())
+            {
+                if (slot.guid == except)
+                    continue;
+                if (BotSelector::IsRealPlayer(ObjectAccessor::FindPlayer(slot.guid)))
+                    return true;
+            }
+            return false;
+        }
+    };
 }
 
 void AddSC_llm_event()
 {
     new ModLlm::LlmEventScript();
+    new ModLlm::LlmGroupScript();
 }

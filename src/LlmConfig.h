@@ -84,6 +84,7 @@ namespace ModLlm
         uint32 eventChanceDuel = 40;
         uint32 eventChanceAchievement = 40;
         uint32 eventChanceLoot = 15;
+        uint32 eventChanceGroupJoin = 100;
         uint32 eventLootMinQuality = 3; // ITEM_QUALITY_RARE
 
         // Initiative (unprompted idle behaviour)

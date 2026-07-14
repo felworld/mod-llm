@@ -41,6 +41,10 @@ namespace ModLlm::ContextBuilder
                 case TRIGGER_CHAT_CHANNEL:
                     return trigger.channelName;
                 default:
+                    if (trigger.chatType == CHAT_MSG_RAID)
+                        return "raid";
+                    if (trigger.chatType == CHAT_MSG_PARTY)
+                        return "party";
                     return "say";
             }
         }

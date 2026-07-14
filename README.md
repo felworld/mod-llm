@@ -42,6 +42,8 @@ sentiment toward the other player, and recent conversation history.
 - **Emotes**: emotes aimed at a bot, or performed nearby — including cross-faction ones, since
   text emotes are faction-agnostic for real players too.
 - **Game events**: kills, deaths, level-ups, quest completions, duels, achievements, notable loot.
+  Also group joins: a bot that joins a party or raid greets it in party/raid chat (this replaces
+  playerbots' canned "Hello" whisper, which we keep disabled via `AiPlayerbot.EnableGreet = 0`).
 - **Initiative**: an idle scheduler gives each bot periodic opportunities to act unprompted,
   with an environment description in the prompt.
 

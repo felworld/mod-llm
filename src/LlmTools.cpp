@@ -66,7 +66,13 @@ namespace ModLlm::LlmTools
                     }
                     break;
                 default:
-                    if (trigger.chatType == CHAT_MSG_YELL)
+                    // Game events normally reply in /say, but a trigger can
+                    // bind a group audience (e.g. greeting on group join).
+                    if (trigger.chatType == CHAT_MSG_RAID)
+                        sent = context.ai->SayToRaid(message);
+                    else if (trigger.chatType == CHAT_MSG_PARTY)
+                        sent = context.ai->SayToParty(message);
+                    else if (trigger.chatType == CHAT_MSG_YELL)
                         sent = context.ai->Yell(message);
                     else
                         sent = context.ai->Say(message);

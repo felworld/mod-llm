@@ -13,6 +13,7 @@
 #include "Player.h"
 #include "ToolRegistry.h"
 
+#include <mutex>
 #include <vector>
 
 namespace ModLlm::Dispatch
@@ -25,6 +26,10 @@ namespace ModLlm::Dispatch
             TriggerContext trigger;
         };
 
+        // Guarded: SubmitDelayed can be called from map-update threads (e.g.
+        // the group-join hook fires from a bot's AI update) while UpdateDelayed
+        // sweeps on the world thread.
+        std::mutex _pendingMutex;
         std::vector<PendingDispatch> _pending;
     }
 
@@ -67,23 +72,33 @@ namespace ModLlm::Dispatch
             trigger.actorName = actor->GetName();
         }
 
+        std::lock_guard<std::mutex> lock(_pendingMutex);
         _pending.push_back({ delayMs, std::move(trigger) });
     }
 
     void UpdateDelayed(uint32 diff)
     {
-        for (size_t i = 0; i < _pending.size();)
+        // Collect due triggers under the lock, submit outside it: Submit
+        // touches game state and the HTTP client and must not hold the lock.
+        std::vector<TriggerContext> due;
         {
-            if (_pending[i].remainingMs > diff)
+            std::lock_guard<std::mutex> lock(_pendingMutex);
+            for (size_t i = 0; i < _pending.size();)
             {
-                _pending[i].remainingMs -= diff;
-                ++i;
-                continue;
+                if (_pending[i].remainingMs > diff)
+                {
+                    _pending[i].remainingMs -= diff;
+                    ++i;
+                    continue;
+                }
+
+                due.push_back(std::move(_pending[i].trigger));
+                _pending.erase(_pending.begin() + i);
             }
+        }
 
-            TriggerContext trigger = std::move(_pending[i].trigger);
-            _pending.erase(_pending.begin() + i);
-
+        for (TriggerContext& trigger : due)
+        {
             Player* bot = ObjectAccessor::FindPlayer(trigger.botGuid);
             if (!bot || !bot->IsInWorld())
                 continue;
@@ -97,6 +112,7 @@ namespace ModLlm::Dispatch
 
     void ClearDelayed()
     {
+        std::lock_guard<std::mutex> lock(_pendingMutex);
         _pending.clear();
     }
 }
