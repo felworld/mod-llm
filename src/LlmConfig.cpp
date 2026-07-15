@@ -55,7 +55,7 @@ namespace ModLlm
 
         // <= 0 means "hear as far as players do": resolve to the server's
         // matching ListenRange.* value (loaded before this module's config).
-        float ResolveListenDistance(char const* option, WorldFloatConfigs listenRange)
+        float ResolveListenDistance(char const* option, ServerConfigs listenRange)
         {
             float value = sConfigMgr->GetOption<float>(option, 0.0f);
             return value > 0.0f ? value : sWorld->getFloatConfig(listenRange);
