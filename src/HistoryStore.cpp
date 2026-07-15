@@ -144,6 +144,19 @@ namespace ModLlm
         _pendingRoomRows.push_back({ roomKey, speakerGuid.GetCounter(), speakerName, text });
     }
 
+    void HistoryStore::AddOverheardLine(ObjectGuid botGuid, std::string const& speakerName,
+        std::string const& text)
+    {
+        if (!sLlmConfig->historyEnabled || !sLlmConfig->overhearEnabled)
+            return;
+
+        std::lock_guard<std::mutex> lock(_mutex);
+        auto& buffer = _overheard[botGuid.GetRawValue()];
+        buffer.push_back({ speakerName, text });
+        if (buffer.size() > MAX_BUFFER_LINES)
+            buffer.pop_front();
+    }
+
     std::string HistoryStore::FormatPair(ObjectGuid botGuid, ObjectGuid playerGuid, uint32 maxLines)
     {
         std::lock_guard<std::mutex> lock(_mutex);
@@ -156,6 +169,13 @@ namespace ModLlm
         std::lock_guard<std::mutex> lock(_mutex);
         auto it = _rooms.find(roomKey);
         return it != _rooms.end() ? FormatLines(it->second, maxLines) : "";
+    }
+
+    std::string HistoryStore::FormatOverheard(ObjectGuid botGuid, uint32 maxLines)
+    {
+        std::lock_guard<std::mutex> lock(_mutex);
+        auto it = _overheard.find(botGuid.GetRawValue());
+        return it != _overheard.end() ? FormatLines(it->second, maxLines) : "";
     }
 
     std::string HistoryStore::FormatLines(std::deque<Line> const& lines, uint32 maxLines)

@@ -16,6 +16,11 @@ class Group;
 class Guild;
 class Player;
 
+namespace ModLlm
+{
+    struct TriggerContext;
+}
+
 namespace ModLlm::BotSelector
 {
     // True for a human-controlled player (no bot AI attached).
@@ -23,6 +28,9 @@ namespace ModLlm::BotSelector
 
     // True if any human player is within `distance` of `bot` on its map.
     bool HasRealPlayerNearby(Player* bot, float distance);
+
+    // True if any human player is currently on the channel. World thread only.
+    bool HasRealPlayerInChannel(Channel* channel);
 
     // Case-insensitive whole-word search; pure, unit-tested.
     bool MentionsName(std::string const& message, std::string const& name);
@@ -46,6 +54,16 @@ namespace ModLlm::BotSelector
     // Same-map only (event hooks can run on map threads). No chance roll -
     // the caller owns per-event chances and cooldowns.
     std::vector<Player*> SelectNearby(Player* source, float distance, uint32 maxBots, bool includeSource);
+
+    // Every bot within `distance` of `speaker` (same map) that can understand
+    // it. Hearing is passive: no combat skip, no audience requirement.
+    std::vector<Player*> CollectListeners(Player* speaker, float distance);
+
+    // Points `trigger`'s reply at the bot's current zone General channel
+    // (chatType, channelName, roomKey) when the bot is on it and a real
+    // player is there to read it; returns false (trigger untouched)
+    // otherwise. World thread only (ChannelMgr access).
+    bool BindZoneChannel(Player* bot, TriggerContext& trigger);
 }
 
 #endif

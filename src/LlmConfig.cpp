@@ -7,6 +7,7 @@
 
 #include "Config.h"
 #include "Log.h"
+#include "World.h"
 
 namespace ModLlm
 {
@@ -31,11 +32,11 @@ namespace ModLlm
             "{message}.";
 
         constexpr char DEFAULT_PROMPT_EVENT[] =
-            "{sentiment_line}Something just happened nearby: {message}.";
+            "{sentiment_line}{history_block}Something just happened nearby: {message}.{reply_guidance}";
 
         constexpr char DEFAULT_PROMPT_INITIATIVE[] =
-            "Nothing is being said to you. Around you: {environment}. You may make an idle remark, emote, or "
-            "do nothing.";
+            "{history_block}Nothing is being said to you. Around you: {environment}. You may make an idle "
+            "remark, emote, or do nothing.{reply_guidance}";
 
         constexpr char DEFAULT_PROMPT_ROUTER[] =
             "You are routing a chat message between players in World of Warcraft. In {channel_label} chat, "
@@ -51,6 +52,14 @@ namespace ModLlm
 
         constexpr char DEFAULT_PROMPT_SENTIMENT_LINE[] =
             "Your disposition toward {actor_name} is {sentiment_word} ({sentiment_value} on a 0..1 scale). ";
+
+        // <= 0 means "hear as far as players do": resolve to the server's
+        // matching ListenRange.* value (loaded before this module's config).
+        float ResolveListenDistance(char const* option, WorldFloatConfigs listenRange)
+        {
+            float value = sConfigMgr->GetOption<float>(option, 0.0f);
+            return value > 0.0f ? value : sWorld->getFloatConfig(listenRange);
+        }
     }
 
     LlmConfig* LlmConfig::instance()
@@ -82,8 +91,8 @@ namespace ModLlm
 
         chatEnabled = sConfigMgr->GetOption<bool>("LLM.Chat.Enable", true);
         whispersEnabled = sConfigMgr->GetOption<bool>("LLM.Chat.EnableWhispers", true);
-        sayDistance = sConfigMgr->GetOption<float>("LLM.Chat.SayDistance", 30.0f);
-        yellDistance = sConfigMgr->GetOption<float>("LLM.Chat.YellDistance", 100.0f);
+        sayDistance = ResolveListenDistance("LLM.Chat.SayDistance", CONFIG_LISTEN_RANGE_SAY);
+        yellDistance = ResolveListenDistance("LLM.Chat.YellDistance", CONFIG_LISTEN_RANGE_YELL);
         maxBotsToPick = sConfigMgr->GetOption<uint32>("LLM.Chat.MaxBotsToPick", 2);
         chatStaggerSeconds = sConfigMgr->GetOption<uint32>("LLM.Chat.StaggerSeconds", 5);
         skipInCombat = sConfigMgr->GetOption<bool>("LLM.Chat.SkipInCombat", true);
@@ -97,11 +106,14 @@ namespace ModLlm
         botReplyChanceChannel = sConfigMgr->GetOption<uint32>("LLM.Chat.BotReplyChance.Channel", 3);
         customChannelsEnabled = sConfigMgr->GetOption<bool>("LLM.Chat.EnableCustomChannels", true);
         groupRouterEnabled = sConfigMgr->GetOption<bool>("LLM.Chat.GroupRouter.Enable", true);
+        overhearEnabled = sConfigMgr->GetOption<bool>("LLM.Chat.Overhear.Enable", true);
+        botTriggerEnabled = sConfigMgr->GetOption<bool>("LLM.Chat.BotTrigger.Enable", true);
+        botTriggerMaxChainDepth = sConfigMgr->GetOption<uint32>("LLM.Chat.BotTrigger.MaxChainDepth", 2);
 
         emoteEnabled = sConfigMgr->GetOption<bool>("LLM.Emote.Enable", true);
         emoteTargetedChance = sConfigMgr->GetOption<uint32>("LLM.Emote.TargetedChance", 100);
         emoteNearbyChance = sConfigMgr->GetOption<uint32>("LLM.Emote.NearbyChance", 10);
-        emoteDistance = sConfigMgr->GetOption<float>("LLM.Emote.Distance", 20.0f);
+        emoteDistance = ResolveListenDistance("LLM.Emote.Distance", CONFIG_LISTEN_RANGE_TEXTEMOTE);
 
         eventEnabled = sConfigMgr->GetOption<bool>("LLM.Event.Enable", true);
         eventBotDistance = sConfigMgr->GetOption<float>("LLM.Event.BotDistance", 40.0f);
@@ -117,12 +129,14 @@ namespace ModLlm
         eventChanceAchievement = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.Achievement", 40);
         eventChanceLoot = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.Loot", 15);
         eventChanceGroupJoin = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.GroupJoin", 100);
+        eventChannelChance = sConfigMgr->GetOption<uint32>("LLM.Event.ChannelChance", 10);
         eventLootMinQuality = sConfigMgr->GetOption<uint32>("LLM.Event.LootMinQuality", 3);
 
         initiativeEnabled = sConfigMgr->GetOption<bool>("LLM.Initiative.Enable", true);
         initiativeMinIntervalSeconds = sConfigMgr->GetOption<uint32>("LLM.Initiative.MinIntervalSeconds", 45);
         initiativeMaxIntervalSeconds = sConfigMgr->GetOption<uint32>("LLM.Initiative.MaxIntervalSeconds", 180);
         initiativeChance = sConfigMgr->GetOption<uint32>("LLM.Initiative.Chance", 5);
+        initiativeChannelChance = sConfigMgr->GetOption<uint32>("LLM.Initiative.ChannelChance", 25);
         initiativeRealPlayerDistance = sConfigMgr->GetOption<float>("LLM.Initiative.RealPlayerDistance", 200.0f);
         initiativeMaxBotsPerTick = sConfigMgr->GetOption<uint32>("LLM.Initiative.MaxBotsPerTick", 2);
 
@@ -135,6 +149,7 @@ namespace ModLlm
         historyEnabled = sConfigMgr->GetOption<bool>("LLM.History.Enable", true);
         historyMaxPairTurns = sConfigMgr->GetOption<uint32>("LLM.History.MaxPairTurns", 5);
         historyMaxRoomLines = sConfigMgr->GetOption<uint32>("LLM.History.MaxRoomLines", 20);
+        historyMaxOverheardLines = sConfigMgr->GetOption<uint32>("LLM.History.MaxOverheardLines", 10);
         historySaveIntervalSeconds = sConfigMgr->GetOption<uint32>("LLM.History.SaveIntervalSeconds", 60);
         historyRetentionDays = sConfigMgr->GetOption<uint32>("LLM.History.RetentionDays", 14);
 

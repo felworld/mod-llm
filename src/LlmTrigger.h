@@ -57,6 +57,9 @@ namespace ModLlm
         std::string roomKey;         // HistoryStore key of the shared room, empty if none
         std::string message;         // incoming chat text / emote description / event description
         std::string eventType;       // "creature_kill", "level_up", ... for TRIGGER_GAME_EVENT
+        uint32 chainDepth = 0;       // bot-to-bot hops so far (caps runaway bot conversations)
+        bool wantZoneChannel = false; // bind to the zone General channel at world-thread
+                                      // dispatch (ChannelMgr is unsafe on map threads)
     };
 }
 

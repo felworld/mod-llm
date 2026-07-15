@@ -67,6 +67,8 @@ namespace ModLlm::PromptAssembler
         std::string BuildHistoryBlock(ContextSnapshot const& snapshot)
         {
             std::string block;
+            if (!snapshot.overheardHistory.empty())
+                block += "Recently overheard around you:\n" + snapshot.overheardHistory;
             if (!snapshot.roomHistory.empty())
                 block += "Recent messages here:\n" + snapshot.roomHistory;
             if (!snapshot.pairHistory.empty())

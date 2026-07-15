@@ -12,6 +12,7 @@
 #include "LlmDispatch.h"
 #include "LlmRouter.h"
 #include "ObjectAccessor.h"
+#include "Overhear.h"
 #include "Player.h"
 #include "PlayerbotAI.h"
 #include "PlayerbotMgr.h"
@@ -166,6 +167,9 @@ namespace ModLlm
                 kind = TRIGGER_CHAT_SAY;
                 if (type == CHAT_MSG_YELL)
                     maxDistance = sLlmConfig->yellDistance;
+
+                // Every bot in earshot remembers the line, reacting or not.
+                Overhear::RecordSpeech(sender, msg, type == CHAT_MSG_YELL);
             }
 
             if (!roomKey.empty())

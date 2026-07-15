@@ -119,11 +119,19 @@ namespace ModLlm
                     continue;
                 if (player->IsInCombat())
                     continue;
-                if (!BotSelector::HasRealPlayerNearby(player, sLlmConfig->initiativeRealPlayerDistance))
-                    continue;
 
                 TriggerContext trigger;
                 trigger.kind = TRIGGER_INITIATIVE;
+
+                // Some remarks go to the zone's General channel instead of
+                // /say; the human-audience gate widens to "anyone in the
+                // channel" to match the wider reach.
+                bool channelBound = urand(0, 99) < sLlmConfig->initiativeChannelChance
+                    && BotSelector::BindZoneChannel(player, trigger);
+                if (!channelBound
+                    && !BotSelector::HasRealPlayerNearby(player, sLlmConfig->initiativeRealPlayerDistance))
+                    continue;
+
                 if (Dispatch::Submit(player, nullptr, std::move(trigger)))
                     ++submitted;
             }

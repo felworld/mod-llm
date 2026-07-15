@@ -16,11 +16,14 @@
 
 namespace ModLlm
 {
-    // Conversation transcripts, two kinds:
+    // Conversation transcripts, three kinds:
     //  - pair: one bot <-> one player (whispers, and any direct exchange)
     //  - room: a shared space (guild, group, named channel) keyed by string
-    // Ring buffers in memory, appended rows persisted to the characters DB on
-    // the save tick. Mutex-guarded: appends come from chat hooks and the
+    //  - overheard: per bot, every say/yell within its listen range - ambient
+    //    short-term memory, in-memory only (one say near a crowd of bots
+    //    would otherwise fan out into that many DB rows)
+    // Ring buffers in memory, pair/room rows persisted to the characters DB
+    // on the save tick. Mutex-guarded: appends come from chat hooks and the
     // world-thread tool executor.
     class HistoryStore
     {
@@ -34,11 +37,14 @@ namespace ModLlm
             std::string const& speakerName, std::string const& text);
         void AddRoomLine(std::string const& roomKey, ObjectGuid speakerGuid,
             std::string const& speakerName, std::string const& text);
+        void AddOverheardLine(ObjectGuid botGuid, std::string const& speakerName,
+            std::string const& text);
 
         // Transcripts preformatted with LLM.Prompt.HistoryLine, newest last,
         // one line per message. Empty string when there is no history.
         std::string FormatPair(ObjectGuid botGuid, ObjectGuid playerGuid, uint32 maxLines);
         std::string FormatRoom(std::string const& roomKey, uint32 maxLines);
+        std::string FormatOverheard(ObjectGuid botGuid, uint32 maxLines);
 
     private:
         struct Line
@@ -73,6 +79,7 @@ namespace ModLlm
         std::mutex _mutex;
         std::unordered_map<uint64, std::deque<Line>> _pairs;
         std::unordered_map<std::string, std::deque<Line>> _rooms;
+        std::unordered_map<uint64, std::deque<Line>> _overheard;
         std::vector<PendingPairRow> _pendingPairRows;
         std::vector<PendingRoomRow> _pendingRoomRows;
     };

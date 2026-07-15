@@ -44,6 +44,8 @@ namespace ModLlm::ContextBuilder
                 case TRIGGER_CHAT_CHANNEL:
                     return trigger.channelName;
                 default:
+                    if (trigger.chatType == CHAT_MSG_CHANNEL && !trigger.channelName.empty())
+                        return trigger.channelName;
                     if (trigger.chatType == CHAT_MSG_RAID)
                         return "raid";
                     if (trigger.chatType == CHAT_MSG_PARTY)
@@ -57,6 +59,14 @@ namespace ModLlm::ContextBuilder
         // audience, the harder the push toward silence.
         std::string ReplyGuidance(TriggerContext const& trigger)
         {
+            // An initiative remark or event comment pointed at the zone
+            // channel: make sure the model knows how far its words carry.
+            if ((trigger.kind == TRIGGER_INITIATIVE || trigger.kind == TRIGGER_GAME_EVENT)
+                && trigger.chatType == CHAT_MSG_CHANNEL && !trigger.channelName.empty())
+                return Acore::StringFormat(" If you say something, everyone in the zone-wide \"{}\" channel"
+                    " hears it: keep it something a player would genuinely broadcast there.",
+                    trigger.channelName);
+
             if (trigger.kind != TRIGGER_CHAT_PARTY)
                 return "";
 
@@ -138,6 +148,9 @@ namespace ModLlm::ContextBuilder
             if (!trigger.roomKey.empty())
                 snapshot.roomHistory = sLlmHistoryStore->FormatRoom(trigger.roomKey,
                     sLlmConfig->historyMaxRoomLines);
+            if (sLlmConfig->overhearEnabled)
+                snapshot.overheardHistory = sLlmHistoryStore->FormatOverheard(trigger.botGuid,
+                    sLlmConfig->historyMaxOverheardLines);
         }
 
         snapshot.channelLabel = ChannelLabel(trigger);

@@ -6,6 +6,7 @@
 #include "BotSelector.h"
 
 #include "Channel.h"
+#include "ChannelMgr.h"
 #include "Containers.h"
 #include "Group.h"
 #include "Guild.h"
@@ -17,6 +18,8 @@
 #include "PlayerbotAI.h"
 #include "PlayerbotMgr.h"
 #include "Random.h"
+#include "SharedDefines.h"
+#include "StringFormat.h"
 #include "World.h"
 
 #include <algorithm>
@@ -110,6 +113,14 @@ namespace ModLlm::BotSelector
             if (player && IsRealPlayer(player) && bot->IsWithinDistInMap(player, distance))
                 return true;
         }
+        return false;
+    }
+
+    bool HasRealPlayerInChannel(Channel* channel)
+    {
+        for (auto const& [guid, player] : ObjectAccessor::GetPlayers())
+            if (player->IsInWorld() && IsRealPlayer(player) && player->IsInChannel(channel))
+                return true;
         return false;
     }
 
@@ -222,14 +233,22 @@ namespace ModLlm::BotSelector
             {
                 if (!channel)
                     break;
+                // The audience for a channel message is the whole channel, so
+                // the human-witness requirement is channel membership rather
+                // than proximity to any particular bot.
+                bool channelHasHuman = false;
+                std::vector<Player*> channelBots;
                 for (auto const& [guid, player] : ObjectAccessor::GetPlayers())
                 {
                     if (!player->IsInWorld() || !player->IsInChannel(channel))
                         continue;
-                    if (IsEligibleBot(player, sender)
-                        && (IsRealPlayer(sender) || HasRealPlayerNearby(player, sLlmConfig->initiativeRealPlayerDistance)))
-                        candidates.push_back(player);
+                    if (IsRealPlayer(player))
+                        channelHasHuman = true;
+                    else if (IsEligibleBot(player, sender))
+                        channelBots.push_back(player);
                 }
+                if (channelHasHuman || IsRealPlayer(sender))
+                    candidates = std::move(channelBots);
                 break;
             }
             default:
@@ -283,5 +302,53 @@ namespace ModLlm::BotSelector
         if (bots.size() > maxBots)
             bots.resize(maxBots);
         return bots;
+    }
+
+    std::vector<Player*> CollectListeners(Player* speaker, float distance)
+    {
+        std::vector<Player*> listeners;
+
+        Map* map = speaker->FindMap();
+        if (!map)
+            return listeners;
+
+        for (MapReference const& ref : map->GetPlayers())
+        {
+            Player* player = ref.GetSource();
+            if (!player || player == speaker || !player->IsInWorld())
+                continue;
+            if (!GetBotAI(player))
+                continue;
+            if (!CanUnderstand(player, speaker))
+                continue;
+            if (!speaker->IsWithinDistInMap(player, distance))
+                continue;
+            listeners.push_back(player);
+        }
+        return listeners;
+    }
+
+    bool BindZoneChannel(Player* bot, TriggerContext& trigger)
+    {
+        ChannelMgr* mgr = ChannelMgr::forTeam(bot->GetTeamId());
+        if (!mgr)
+            return false;
+
+        // Playerbots keeps each bot joined to exactly its current zone's
+        // General channel, so the one it is on is the right one.
+        for (auto const& [name, channel] : mgr->GetChannels())
+        {
+            if (!channel || channel->GetChannelId() != ChatChannelId::GENERAL || !bot->IsInChannel(channel))
+                continue;
+            if (!HasRealPlayerInChannel(channel))
+                return false;
+
+            trigger.chatType = CHAT_MSG_CHANNEL;
+            trigger.channelName = channel->GetName();
+            trigger.roomKey = Acore::StringFormat("channel:{}:{}",
+                channel->GetName(), uint32(bot->GetTeamId()));
+            return true;
+        }
+        return false;
     }
 }

@@ -5,6 +5,7 @@
 
 #include "LlmDispatch.h"
 
+#include "BotSelector.h"
 #include "ContextBuilder.h"
 #include "LlmClient.h"
 #include "LlmConfig.h"
@@ -110,6 +111,15 @@ namespace ModLlm::Dispatch
                 continue;
             if (sLlmConfig->skipInCombat && bot->IsInCombat())
                 continue;
+
+            // Deferred from a map-thread hook: now that we are on the world
+            // thread the zone channel can be resolved. An unbound trigger
+            // just replies in /say.
+            if (trigger.wantZoneChannel)
+            {
+                trigger.wantZoneChannel = false;
+                BotSelector::BindZoneChannel(bot, trigger);
+            }
 
             Player* actor = trigger.actorGuid ? ObjectAccessor::FindPlayer(trigger.actorGuid) : nullptr;
             Submit(bot, actor, std::move(trigger));

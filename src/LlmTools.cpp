@@ -13,6 +13,7 @@
 #include "LlmConfig.h"
 #include "LlmTrigger.h"
 #include "Log.h"
+#include "Overhear.h"
 #include "Player.h"
 #include "PlayerbotAI.h"
 #include "SentimentStore.h"
@@ -46,12 +47,35 @@ namespace ModLlm::LlmTools
             return true;
         }
 
+        // Sends `message` into the exact channel named by the trigger.
+        // PlayerbotAI::SayToChannel would re-resolve builtin channels by the
+        // bot's current zone and report success even for a channel the bot
+        // is not on, where Channel::Say quietly drops the line.
+        bool SendToChannel(Player* bot, std::string const& channelName, std::string const& message)
+        {
+            if (ChannelMgr* mgr = ChannelMgr::forTeam(bot->GetTeamId()))
+            {
+                Channel* channel = mgr->GetChannel(channelName, bot, false);
+                if (channel && bot->IsInChannel(channel))
+                {
+                    channel->Say(bot->GetGUID(), message, LANG_UNIVERSAL);
+                    return true;
+                }
+            }
+            return false;
+        }
+
         // Sends `message` back into the channel the trigger came from. The
         // audience is bound by the trigger, never chosen by the model.
         bool RouteSay(ToolExecContext& context, std::string const& message, std::string& error)
         {
             TriggerContext const& trigger = *context.trigger;
             bool sent = false;
+
+            // How the message went out, for the overhear fan-out below.
+            bool spokeAloud = false; // /say or /yell, audible around the bot
+            bool yelled = false;
+            bool spokeInChannel = false;
 
             switch (trigger.kind)
             {
@@ -71,32 +95,22 @@ namespace ModLlm::LlmTools
                     sent = context.ai->SayToGuild(message);
                     break;
                 case TRIGGER_CHAT_CHANNEL:
-                    // Reply into the exact channel the message was heard in.
-                    // PlayerbotAI::SayToChannel would re-resolve builtin
-                    // channels by the bot's current zone and report success
-                    // even for a channel the bot is not on, where
-                    // Channel::Say quietly drops the line.
-                    if (ChannelMgr* mgr = ChannelMgr::forTeam(context.bot->GetTeamId()))
-                    {
-                        Channel* channel = mgr->GetChannel(trigger.channelName, context.bot, false);
-                        if (channel && context.bot->IsInChannel(channel))
-                        {
-                            channel->Say(context.bot->GetGUID(), message, LANG_UNIVERSAL);
-                            sent = true;
-                        }
-                    }
+                    sent = spokeInChannel = SendToChannel(context.bot, trigger.channelName, message);
                     break;
                 default:
                     // Game events normally reply in /say, but a trigger can
-                    // bind a group audience (e.g. greeting on group join).
-                    if (trigger.chatType == CHAT_MSG_RAID)
+                    // bind another audience (a group greeting on join, an
+                    // initiative remark pointed at the zone channel).
+                    if (trigger.chatType == CHAT_MSG_CHANNEL)
+                        sent = spokeInChannel = SendToChannel(context.bot, trigger.channelName, message);
+                    else if (trigger.chatType == CHAT_MSG_RAID)
                         sent = context.ai->SayToRaid(message);
                     else if (trigger.chatType == CHAT_MSG_PARTY)
                         sent = context.ai->SayToParty(message);
                     else if (trigger.chatType == CHAT_MSG_YELL)
-                        sent = context.ai->Yell(message);
+                        sent = spokeAloud = yelled = context.ai->Yell(message);
                     else
-                        sent = context.ai->Say(message);
+                        sent = spokeAloud = context.ai->Say(message);
                     break;
             }
 
@@ -112,6 +126,13 @@ namespace ModLlm::LlmTools
             if (!trigger.roomKey.empty())
                 sLlmHistoryStore->AddRoomLine(trigger.roomKey, trigger.botGuid,
                     context.bot->GetName(), message);
+
+            // Audible speech reaches bystander bots: they remember it and may
+            // (config permitting) react to it.
+            if (spokeAloud)
+                Overhear::OnBotSpeech(context.bot, trigger, message, yelled);
+            else if (spokeInChannel)
+                Overhear::OnBotChannelSpeech(context.bot, trigger, message);
 
             return true;
         }

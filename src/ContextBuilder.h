@@ -37,10 +37,11 @@ namespace ModLlm
         bool hasSentiment = false;
         float sentimentValue = 0.5f;
 
-        std::string pairHistory;   // preformatted transcript lines, may be empty
+        std::string pairHistory;      // preformatted transcript lines, may be empty
         std::string roomHistory;
-        std::string channelLabel;  // "say", "party", "guild - <name>", channel name, ...
-        std::string replyGuidance; // group chat only: reminds the bot the whole group heard it
+        std::string overheardHistory; // say/yell the bot witnessed nearby
+        std::string channelLabel;     // "say", "party", "guild - <name>", channel name, ...
+        std::string replyGuidance;    // audience reminder (group heard it / zone channel)
         std::string environment;   // initiative triggers only
     };
 

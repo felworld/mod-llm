@@ -139,7 +139,16 @@ namespace ModLlm
                 trigger.kind = TRIGGER_GAME_EVENT;
                 trigger.eventType = eventType;
                 trigger.message = description;
-                if (!Dispatch::Submit(bot, actor != bot ? actor : nullptr, std::move(trigger)))
+
+                // Some comments go to the zone's General channel instead of
+                // /say. Resolving the channel needs the world thread, so the
+                // wish rides along and the delayed dispatch binds it (falling
+                // back to /say if the bot has no channel or no human reads it).
+                trigger.wantZoneChannel = urand(0, 99) < sLlmConfig->eventChannelChance;
+
+                if (trigger.wantZoneChannel)
+                    Dispatch::SubmitDelayed(bot, actor != bot ? actor : nullptr, std::move(trigger), 1);
+                else if (!Dispatch::Submit(bot, actor != bot ? actor : nullptr, std::move(trigger)))
                     continue;
 
                 StartCooldown(bot->GetGUID());

@@ -162,12 +162,43 @@ LLM.Chat.EnableWhispers = 1
 
 #
 #    LLM.Chat.SayDistance / LLM.Chat.YellDistance
-#        Description: How far away a bot can "hear" /say and /yell.
-#        Default:     30 / 100
+#        Description: How far away a bot can "hear" /say and /yell. 0 = hear
+#                     exactly as far as players do (the server's
+#                     ListenRange.Say / ListenRange.Yell).
+#        Default:     0 / 0
 #
 
-LLM.Chat.SayDistance = 30
-LLM.Chat.YellDistance = 100
+LLM.Chat.SayDistance = 0
+LLM.Chat.YellDistance = 0
+
+#
+#    LLM.Chat.Overhear.Enable
+#        Description: Bots remember every say/yell within their hearing range
+#                     - not just messages they were picked to answer - and
+#                     recent overheard lines are included in their prompts.
+#                     In-memory only (cleared on restart).
+#        Default:     1
+#
+
+LLM.Chat.Overhear.Enable = 1
+
+#
+#    LLM.Chat.BotTrigger.Enable
+#        Description: A bot's own audible speech (say/yell) and channel
+#                     messages can trigger other bots to react, using the
+#                     LLM.Chat.BotReplyChance.* dice, so bots talk among
+#                     themselves when humans are around to see it. Disable to
+#                     make bots react to humans only.
+#        Default:     1
+#
+#    LLM.Chat.BotTrigger.MaxChainDepth
+#        Description: Cap on consecutive bot-to-bot hops from one origin
+#                     (higher = longer bot conversations, more LLM calls).
+#        Default:     2
+#
+
+LLM.Chat.BotTrigger.Enable = 1
+LLM.Chat.BotTrigger.MaxChainDepth = 2
 
 #
 #    LLM.Chat.MaxBotsToPick
@@ -210,8 +241,10 @@ LLM.Chat.SkipInCombat = 1
 #                     tells bots to stay silent unless the message concerns
 #                     them. Lower it to put dice back in front of the model.
 #                     (Real players' raid/battleground messages go through
-#                     the group router instead; bot senders use these dice
-#                     everywhere.)
+#                     the group router instead. BotReplyChance.Say/.Channel
+#                     drive bot-to-bot reactions via LLM.Chat.BotTrigger.*;
+#                     .Party/.Guild are reserved - bot group/guild chat is
+#                     delivered without re-entering the trigger pipeline.)
 #
 
 LLM.Chat.PlayerReplyChance.Say = 90
@@ -258,10 +291,15 @@ LLM.Emote.Enable = 1
 #                     performed nearby without a target.
 #        Default:     100 / 10
 #
+#    LLM.Emote.Distance
+#        Description: How far away a bot notices emotes. 0 = exactly as far
+#                     as players see them (the server's ListenRange.TextEmote).
+#        Default:     0
+#
 
 LLM.Emote.TargetedChance = 100
 LLM.Emote.NearbyChance = 10
-LLM.Emote.Distance = 20
+LLM.Emote.Distance = 0
 
 ########################################
 # Game events
@@ -305,6 +343,16 @@ LLM.Event.Chance.Loot = 15
 LLM.Event.Chance.GroupJoin = 100
 
 #
+#    LLM.Event.ChannelChance
+#        Description: Percent of event comments that go to the bot's zone
+#                     General channel instead of /say (when the bot is on the
+#                     channel and a real player is too; otherwise /say).
+#        Default:     10
+#
+
+LLM.Event.ChannelChance = 10
+
+#
 #    LLM.Event.LootMinQuality
 #        Description: Minimum item quality to trigger loot comments
 #                     (0 poor, 1 common, 2 uncommon, 3 rare, 4 epic, 5 legendary).
@@ -332,6 +380,19 @@ LLM.Initiative.Enable = 1
 LLM.Initiative.MinIntervalSeconds = 45
 LLM.Initiative.MaxIntervalSeconds = 180
 LLM.Initiative.Chance = 5
+
+#
+#    LLM.Initiative.ChannelChance
+#        Description: Percent of initiative remarks aimed at the bot's zone
+#                     General channel instead of /say - the idle "anyone else
+#                     lagging?" zone chatter real servers have. Requires the
+#                     bot on the channel with a real player also on it;
+#                     otherwise the remark stays /say (with its own
+#                     RealPlayerDistance gate).
+#        Default:     25
+#
+
+LLM.Initiative.ChannelChance = 25
 
 #
 #    LLM.Initiative.RealPlayerDistance
@@ -366,14 +427,17 @@ LLM.Sentiment.SaveIntervalSeconds = 60
 
 #
 #    LLM.History.*
-#        Description: Transcripts included in prompts: per bot<->player pair
-#                     and per shared room (party/guild/channel), persisted to
-#                     the characters DB.
+#        Description: Transcripts included in prompts: per bot<->player pair,
+#                     per shared room (party/guild/channel) - both persisted
+#                     to the characters DB - and per bot the overheard
+#                     say/yell buffer (in-memory; see LLM.Chat.Overhear).
+#                     MaxOverheardLines caps the overheard lines per prompt.
 #
 
 LLM.History.Enable = 1
 LLM.History.MaxPairTurns = 5
 LLM.History.MaxRoomLines = 20
+LLM.History.MaxOverheardLines = 10
 LLM.History.SaveIntervalSeconds = 60
 LLM.History.RetentionDays = 14
 
@@ -388,7 +452,11 @@ LLM.History.RetentionDays = 14
 #      user:    {sentiment_line} {history_block} {channel_label} {actor_name}
 #               {actor_level} {actor_class} {actor_race} {message} {environment}
 #               {reply_guidance} (party/raid/bg chat: reminds the bot the
-#               whole group heard the message and silence is a fine answer)
+#               whole group heard the message and silence is a fine answer;
+#               zone-channel remarks: reminds it the whole zone hears it)
+#               {history_block} includes, when present: overheard nearby
+#               say/yell, the shared room transcript, and the pair
+#               conversation with the actor
 #      router:  {channel_label} {actor_name} {message} {roster} {max_picks}
 #    LLM.Prompt.System is written out below (identical to the built-in
 #    default) so it can be tuned without rebuilding. Values are single-line.

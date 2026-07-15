@@ -26,7 +26,10 @@ new game state — so it can pick an alternative action (`LLM.ErrorFeedback.Enab
 
 The guiding rule for prompt context: anything a player would see on their screen belongs in it.
 Today that's the bot's zone, its full party/raid roster (names and leader), guild, its lasting
-sentiment toward the other player, and recent conversation history.
+sentiment toward the other player, recent conversation history, and everything said in /say or
+/yell within earshot lately — bots overhear like players do, whether or not they were picked to
+answer (`LLM.Chat.Overhear.Enable`). Hearing ranges default to the server's player listen ranges
+(`ListenRange.Say`/`.Yell`/`.TextEmote`); set the `LLM.*Distance` options to diverge.
 
 ## Triggers
 
@@ -46,6 +49,10 @@ sentiment toward the other player, and recent conversation history.
   repetition penalty (`LLM.RepetitionPenalty`) that also covers prompt tokens. Faction rules are honored: unless `AllowTwoSide.Interaction.Chat` is enabled, bots don't react
   to opposite-faction speech (they couldn't understand it) and cross-faction whisper triggers are
   dropped, GMs excepted.
+  Bots also hear each other: a bot's say/yell or channel message can trigger nearby bots to
+  answer (the `LLM.Chat.BotReplyChance.*` dice), so bot conversations happen in front of players.
+  The whole mechanism sits behind `LLM.Chat.BotTrigger.Enable`, chain-capped by
+  `LLM.Chat.BotTrigger.MaxChainDepth`, and still requires a human audience.
 - **Emotes**: emotes aimed at a bot, or performed nearby — including cross-faction ones, since
   text emotes are faction-agnostic for real players too.
 - **Game events**: kills, deaths, level-ups, quest completions, duels, achievements, notable loot.
@@ -53,6 +60,11 @@ sentiment toward the other player, and recent conversation history.
   playerbots' canned "Hello" whisper, which we keep disabled via `AiPlayerbot.EnableGreet = 0`).
 - **Initiative**: an idle scheduler gives each bot periodic opportunities to act unprompted,
   with an environment description in the prompt.
+
+Event comments and initiative remarks usually land in /say, but a configurable share
+(`LLM.Event.ChannelChance`, `LLM.Initiative.ChannelChance`) goes to the bot's zone **General
+channel** instead — the idle zone chatter real servers have — whenever the bot and at least one
+real player are on the channel.
 
 ## Architecture
 

@@ -97,6 +97,40 @@ TEST(PromptAssemblerTest, HistoryBlockIncluded)
     EXPECT_NE(user.find("Thundertusk: yo"), std::string::npos);
 }
 
+TEST(PromptAssemblerTest, OverheardHistoryIncludedFirst)
+{
+    ResetTemplates();
+
+    ContextSnapshot snapshot = TestSnapshot();
+    snapshot.overheardHistory = "Grok: anyone seen the caravan?\n";
+    snapshot.pairHistory = "Mera: hi\n";
+
+    std::string user = PromptAssembler::BuildMessages(snapshot, TestTrigger())[1]["content"].get<std::string>();
+    size_t overheard = user.find("Recently overheard around you:\nGrok: anyone seen the caravan?");
+    size_t pair = user.find("Your conversation with Mera:");
+    ASSERT_NE(overheard, std::string::npos);
+    ASSERT_NE(pair, std::string::npos);
+    EXPECT_LT(overheard, pair);
+}
+
+TEST(PromptAssemblerTest, OverheardReachesInitiativeTemplate)
+{
+    ResetTemplates();
+    sLlmConfig->promptInitiative = "{history_block}Idle. Around you: {environment}.";
+
+    ContextSnapshot snapshot = TestSnapshot();
+    snapshot.environment = "a kodo nearby";
+    snapshot.overheardHistory = "Grok: north road is rough\n";
+
+    TriggerContext trigger = TestTrigger();
+    trigger.kind = TRIGGER_INITIATIVE;
+    trigger.message.clear();
+
+    std::string user = PromptAssembler::BuildMessages(snapshot, trigger)[1]["content"].get<std::string>();
+    EXPECT_NE(user.find("Grok: north road is rough"), std::string::npos);
+    EXPECT_NE(user.find("a kodo nearby"), std::string::npos);
+}
+
 TEST(PromptAssemblerTest, ReplyGuidanceRendered)
 {
     ResetTemplates();

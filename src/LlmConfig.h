@@ -53,8 +53,10 @@ namespace ModLlm
         // Reactive chat
         bool chatEnabled = true;
         bool whispersEnabled = true;
-        float sayDistance = 30.0f;
-        float yellDistance = 100.0f;
+        // Resolved at Load: option value, or the server's matching
+        // ListenRange.* when the option is <= 0 (bots hear as far as players).
+        float sayDistance = 0.0f;
+        float yellDistance = 0.0f;
         uint32 maxBotsToPick = 2;
         uint32 chatStaggerSeconds = 5;
         bool skipInCombat = true;
@@ -68,12 +70,18 @@ namespace ModLlm
         uint32 botReplyChanceChannel = 3;
         bool customChannelsEnabled = true;
         bool groupRouterEnabled = true;
+        bool overhearEnabled = true;
+
+        // Bot speech triggering other bots (kept separate from the reply
+        // chances so the whole mechanism can be flipped or tuned in one place)
+        bool botTriggerEnabled = true;
+        uint32 botTriggerMaxChainDepth = 2;
 
         // Emote reactions
         bool emoteEnabled = true;
         uint32 emoteTargetedChance = 100;
         uint32 emoteNearbyChance = 10;
-        float emoteDistance = 20.0f;
+        float emoteDistance = 0.0f; // <= 0 resolves to ListenRange.TextEmote
 
         // Game events
         bool eventEnabled = true;
@@ -90,6 +98,7 @@ namespace ModLlm
         uint32 eventChanceAchievement = 40;
         uint32 eventChanceLoot = 15;
         uint32 eventChanceGroupJoin = 100;
+        uint32 eventChannelChance = 10;
         uint32 eventLootMinQuality = 3; // ITEM_QUALITY_RARE
 
         // Initiative (unprompted idle behaviour)
@@ -97,6 +106,7 @@ namespace ModLlm
         uint32 initiativeMinIntervalSeconds = 45;
         uint32 initiativeMaxIntervalSeconds = 180;
         uint32 initiativeChance = 5;
+        uint32 initiativeChannelChance = 25;
         float initiativeRealPlayerDistance = 200.0f;
         uint32 initiativeMaxBotsPerTick = 2;
 
@@ -111,6 +121,7 @@ namespace ModLlm
         bool historyEnabled = true;
         uint32 historyMaxPairTurns = 5;
         uint32 historyMaxRoomLines = 20;
+        uint32 historyMaxOverheardLines = 10;
         uint32 historySaveIntervalSeconds = 60;
         uint32 historyRetentionDays = 14;
 
