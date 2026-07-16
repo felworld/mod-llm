@@ -162,6 +162,25 @@ namespace ModLlm::BotSelector
         return bots;
     }
 
+    std::vector<Player*> CollectSayCandidates(Player* sender, float maxDistance)
+    {
+        std::vector<Player*> candidates;
+
+        Map* map = sender->FindMap();
+        if (!map)
+            return candidates;
+
+        for (MapReference const& ref : map->GetPlayers())
+        {
+            Player* player = ref.GetSource();
+            if (IsEligibleBot(player, sender) && CanUnderstand(player, sender)
+                && sender->IsWithinDistInMap(player, maxDistance)
+                && HasHumanAudience(player, sender, maxDistance))
+                candidates.push_back(player);
+        }
+        return candidates;
+    }
+
     uint32 ReplyChance(uint32 triggerKind, bool senderIsBot)
     {
         switch (triggerKind)
@@ -189,17 +208,7 @@ namespace ModLlm::BotSelector
             case TRIGGER_CHAT_SAY:
             {
                 // Audience is proximity on the sender's map.
-                Map* map = sender->FindMap();
-                if (!map)
-                    break;
-                for (MapReference const& ref : map->GetPlayers())
-                {
-                    Player* player = ref.GetSource();
-                    if (IsEligibleBot(player, sender) && CanUnderstand(player, sender)
-                        && sender->IsWithinDistInMap(player, maxDistance)
-                        && HasHumanAudience(player, sender, maxDistance))
-                        candidates.push_back(player);
-                }
+                candidates = CollectSayCandidates(sender, maxDistance);
                 break;
             }
             case TRIGGER_CHAT_PARTY:

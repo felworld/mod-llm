@@ -202,6 +202,25 @@ namespace ModLlm
                 return;
             }
 
+            // A real player's say/yell likewise goes through the router: with
+            // the recently-overheard conversation as context, one cheap LLM
+            // call picks whoever the message is actually meant for (or
+            // nobody) - so an undirected reply reaches the bot the player is
+            // talking to instead of rolling dice across bystanders.
+            if (kind == TRIGGER_CHAT_SAY && sLlmConfig->sayRouterEnabled && BotSelector::IsRealPlayer(sender))
+            {
+                std::vector<Player*> candidates = BotSelector::CollectSayCandidates(sender, maxDistance);
+                if (candidates.empty())
+                    return;
+
+                TriggerContext trigger;
+                trigger.kind = kind;
+                trigger.chatType = type;
+                trigger.message = msg;
+                Router::RouteSayMessage(sender, candidates, std::move(trigger));
+                return;
+            }
+
             std::vector<Player*> bots = BotSelector::SelectForChat(sender, kind, msg, group, guild,
                 channel, maxDistance);
 

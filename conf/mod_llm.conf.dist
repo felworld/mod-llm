@@ -240,8 +240,10 @@ LLM.Chat.SkipInCombat = 1
 #                     model itself decides whether to answer - the prompt
 #                     tells bots to stay silent unless the message concerns
 #                     them. Lower it to put dice back in front of the model.
-#                     (Real players' raid/battleground messages go through
-#                     the group router instead. BotReplyChance.Say/.Channel
+#                     (Real players' say/yell and raid/battleground messages
+#                     go through the say/group routers instead when those are
+#                     enabled - PlayerReplyChance.Say then only backs up an
+#                     unparseable router reply. BotReplyChance.Say/.Channel
 #                     drive bot-to-bot reactions via LLM.Chat.BotTrigger.*;
 #                     .Party/.Guild are reserved - bot group/guild chat is
 #                     delivered without re-entering the trigger pipeline.)
@@ -270,6 +272,22 @@ LLM.Chat.BotReplyChance.Channel = 3
 #
 
 LLM.Chat.GroupRouter.Enable = 1
+
+#
+#    LLM.Chat.SayRouter.Enable
+#        Description: Route a real player's say/yell through one extra LLM
+#                     call that reads the message, a roster of the bots in
+#                     earshot, and the conversation recently overheard
+#                     nearby, then picks which bots - if any - the message
+#                     is meant for, up to MaxBotsToPick. An undirected
+#                     "sure, how much?" right after a bot's offer reaches
+#                     that bot, and idle muttering reaches nobody. Bots
+#                     addressed by name are always picked. When disabled,
+#                     say/yell falls back to the PlayerReplyChance.Say dice.
+#        Default:     1
+#
+
+LLM.Chat.SayRouter.Enable = 1
 
 #
 #    LLM.Chat.EnableCustomChannels
@@ -458,6 +476,9 @@ LLM.History.RetentionDays = 14
 #               say/yell, the shared room transcript, and the pair
 #               conversation with the actor
 #      router:  {channel_label} {actor_name} {message} {roster} {max_picks}
+#      say router: {actor_name} {message} {roster} {history_block} {max_picks}
+#               ({history_block} is the say/yell recently overheard around
+#               the sender, ending with the message being routed)
 #    LLM.Prompt.System is written out below (identical to the built-in
 #    default) so it can be tuned without rebuilding. Values are single-line.
 #    Leave the others unset to use the built-in defaults (recommended
@@ -473,3 +494,4 @@ LLM.Prompt.System = "You are {bot_name}, a level {bot_level} {bot_race} {bot_cla
 # LLM.Prompt.HistoryLine = ""
 # LLM.Prompt.SentimentLine = ""
 # LLM.Prompt.Router = ""
+# LLM.Prompt.SayRouter = ""

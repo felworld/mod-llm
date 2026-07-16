@@ -48,6 +48,15 @@ namespace ModLlm
             "particular. Reply with only a JSON array of at most {max_picks} names from the list, most "
             "relevant first - for example [\"Name\"] - or [] if nobody in the list should answer.";
 
+        constexpr char DEFAULT_PROMPT_SAY_ROUTER[] =
+            "You are routing an overheard chat message between player characters in World of Warcraft. "
+            "Standing within earshot of {actor_name}:\n{roster}\n{history_block}"
+            "Now {actor_name} says: \"{message}\"\n"
+            "Which of the listed characters, if any, is this message meant for or would naturally answer? "
+            "If it continues an exchange visible above, pick whoever {actor_name} is talking to. Reply "
+            "with only a JSON array of at most {max_picks} names from the list, most relevant first - "
+            "for example [\"Name\"] - or [] if the message is for nobody in particular.";
+
         constexpr char DEFAULT_PROMPT_HISTORY_LINE[] = "{speaker}: {message}";
 
         constexpr char DEFAULT_PROMPT_SENTIMENT_LINE[] =
@@ -106,6 +115,7 @@ namespace ModLlm
         botReplyChanceChannel = sConfigMgr->GetOption<uint32>("LLM.Chat.BotReplyChance.Channel", 3);
         customChannelsEnabled = sConfigMgr->GetOption<bool>("LLM.Chat.EnableCustomChannels", true);
         groupRouterEnabled = sConfigMgr->GetOption<bool>("LLM.Chat.GroupRouter.Enable", true);
+        sayRouterEnabled = sConfigMgr->GetOption<bool>("LLM.Chat.SayRouter.Enable", true);
         overhearEnabled = sConfigMgr->GetOption<bool>("LLM.Chat.Overhear.Enable", true);
         botTriggerEnabled = sConfigMgr->GetOption<bool>("LLM.Chat.BotTrigger.Enable", true);
         botTriggerMaxChainDepth = sConfigMgr->GetOption<uint32>("LLM.Chat.BotTrigger.MaxChainDepth", 2);
@@ -161,6 +171,7 @@ namespace ModLlm
         promptHistoryLine = sConfigMgr->GetOption<std::string>("LLM.Prompt.HistoryLine", DEFAULT_PROMPT_HISTORY_LINE);
         promptSentimentLine = sConfigMgr->GetOption<std::string>("LLM.Prompt.SentimentLine", DEFAULT_PROMPT_SENTIMENT_LINE);
         promptRouter = sConfigMgr->GetOption<std::string>("LLM.Prompt.Router", DEFAULT_PROMPT_ROUTER);
+        promptSayRouter = sConfigMgr->GetOption<std::string>("LLM.Prompt.SayRouter", DEFAULT_PROMPT_SAY_ROUTER);
 
         LOG_INFO("module.llm", "mod-llm config loaded: enabled={}, endpoint={}, model={}",
             IsEnabled(), endpoint, model);

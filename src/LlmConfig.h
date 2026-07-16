@@ -70,6 +70,7 @@ namespace ModLlm
         uint32 botReplyChanceChannel = 3;
         bool customChannelsEnabled = true;
         bool groupRouterEnabled = true;
+        bool sayRouterEnabled = true;
         bool overhearEnabled = true;
 
         // Bot speech triggering other bots (kept separate from the reply
@@ -134,6 +135,7 @@ namespace ModLlm
         std::string promptHistoryLine;
         std::string promptSentimentLine;
         std::string promptRouter;
+        std::string promptSayRouter;
     };
 }
 

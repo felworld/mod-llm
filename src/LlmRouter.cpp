@@ -10,12 +10,14 @@
 #include "ChatHelper.h"
 #include "Common.h"
 #include "Containers.h"
+#include "HistoryStore.h"
 #include "LlmClient.h"
 #include "LlmConfig.h"
 #include "LlmDispatch.h"
 #include "Log.h"
 #include "Player.h"
 #include "PlayerbotAI.h"
+#include "Random.h"
 #include "SharedDefines.h"
 #include "StringFormat.h"
 
@@ -63,6 +65,102 @@ namespace ModLlm::Router
             return Acore::StringFormat("- {} (level {} {}, {})",
                 bot->GetName(), bot->GetLevel(), classDesc, RoleWord(bot));
         }
+
+        // One routing request: the assembled prompt plus everything its
+        // worker-thread callback needs to turn the reply into dispatches.
+        struct RouteRequest
+        {
+            std::string prompt;
+            std::string label;          // log name: "Group router" / "Say router"
+            std::vector<Candidate> roster;
+            TriggerContext trigger;
+            uint32 fallbackChance;      // per-candidate percent when the reply is unparseable
+            bool recordPairLines;       // picked bots remember the actor's line (say/yell)
+        };
+
+        bool SubmitRoute(RouteRequest&& route)
+        {
+            size_t maxPick = sLlmConfig->maxBotsToPick;
+            uint32 staggerMs = sLlmConfig->chatStaggerSeconds * IN_MILLISECONDS;
+
+            LlmRequest request;
+            request.snapshot.botName = Acore::StringFormat("router:{}",
+                route.trigger.roomKey.empty() ? "say:" + route.trigger.actorName : route.trigger.roomKey);
+            request.trigger = route.trigger;
+            request.customMessages = nlohmann::json::array({
+                { { "role", "user" }, { "content", route.prompt } }
+            });
+
+            // Runs on an HTTP worker thread: strings and GUIDs only, and the
+            // picked triggers re-enter the game through the (thread-safe)
+            // delayed-dispatch queue, which resolves players on the world
+            // thread. HistoryStore appends are mutex-guarded.
+            request.onResponse = [route = std::move(route), maxPick, staggerMs]
+                (LlmResponse const& response)
+            {
+                TriggerContext const& trigger = route.trigger;
+
+                std::vector<size_t> picks;
+                auto addPick = [&](size_t index)
+                {
+                    if (picks.size() < maxPick && std::find(picks.begin(), picks.end(), index) == picks.end())
+                        picks.push_back(index);
+                };
+
+                // The deterministic guarantee routing must not lose: a bot
+                // addressed by name is always asked (first mention wins).
+                for (size_t i = 0; i < route.roster.size(); ++i)
+                {
+                    if (BotSelector::MentionsName(trigger.message, route.roster[i].name))
+                    {
+                        addPick(i);
+                        break;
+                    }
+                }
+
+                if (std::optional<std::vector<std::string>> names = ParseRouterReply(response.content))
+                {
+                    for (std::string const& name : *names)
+                        for (size_t i = 0; i < route.roster.size(); ++i)
+                            if (EqualsIgnoreCase(name, route.roster[i].name))
+                                addPick(i);
+                }
+                else
+                {
+                    // Unparseable reply: degrade to the pre-router behaviour,
+                    // rolling the caller's dice down the (shuffled) roster.
+                    LOG_WARN("module.llm", "{} reply not parseable, rolling dice: '{}'",
+                        route.label, response.content);
+                    for (size_t i = 0; i < route.roster.size() && picks.size() < maxPick; ++i)
+                        if (urand(0, 99) < route.fallbackChance)
+                            addPick(i);
+                }
+
+                if (sLlmConfig->debugEnabled)
+                {
+                    std::string picked;
+                    for (size_t i : picks)
+                    {
+                        if (!picked.empty())
+                            picked += ", ";
+                        picked += route.roster[i].name;
+                    }
+                    LOG_INFO("module.llm", "{} for '{}' picked [{}]", route.label, trigger.message, picked);
+                }
+
+                uint32 index = 0;
+                for (size_t i : picks)
+                {
+                    if (route.recordPairLines && trigger.actorGuid)
+                        sLlmHistoryStore->AddPairLine(route.roster[i].guid, trigger.actorGuid, false,
+                            trigger.actorName, trigger.message);
+                    Dispatch::SubmitDelayed(route.roster[i].guid, trigger, index * staggerMs);
+                    ++index;
+                }
+            };
+
+            return sLlmClient->Submit(std::move(request));
+        }
     }
 
     std::optional<std::vector<std::string>> ParseRouterReply(std::string const& content)
@@ -104,30 +202,26 @@ namespace ModLlm::Router
 
         bool bg = trigger.chatType == CHAT_MSG_BATTLEGROUND || trigger.chatType == CHAT_MSG_BATTLEGROUND_LEADER;
 
-        std::vector<Candidate> roster;
+        RouteRequest route;
         std::string rosterText;
         for (Player* bot : shuffled)
         {
-            roster.push_back({ bot->GetGUID(), bot->GetName() });
+            route.roster.push_back({ bot->GetGUID(), bot->GetName() });
             if (!rosterText.empty())
                 rosterText += "\n";
             rosterText += RosterLine(bot);
         }
-
-        size_t maxPick = sLlmConfig->maxBotsToPick;
-        uint32 staggerMs = sLlmConfig->chatStaggerSeconds * IN_MILLISECONDS;
 
         fmt::dynamic_format_arg_store<fmt::format_context> args;
         args.push_back(fmt::arg("channel_label", bg ? "battleground" : "raid"));
         args.push_back(fmt::arg("actor_name", trigger.actorName));
         args.push_back(fmt::arg("message", trigger.message));
         args.push_back(fmt::arg("roster", rosterText));
-        args.push_back(fmt::arg("max_picks", maxPick));
+        args.push_back(fmt::arg("max_picks", sLlmConfig->maxBotsToPick));
 
-        std::string prompt;
         try
         {
-            prompt = fmt::vformat(sLlmConfig->promptRouter, args);
+            route.prompt = fmt::vformat(sLlmConfig->promptRouter, args);
         }
         catch (std::exception const& e)
         {
@@ -135,74 +229,72 @@ namespace ModLlm::Router
             return false;
         }
 
-        LlmRequest request;
-        request.snapshot.botName = Acore::StringFormat("router:{}", trigger.roomKey);
-        request.trigger = trigger;
-        request.customMessages = nlohmann::json::array({
-            { { "role", "user" }, { "content", std::move(prompt) } }
-        });
+        route.label = "Group router";
+        route.trigger = std::move(trigger);
+        // Pre-router behaviour was asking the first shuffled bots up to the
+        // cap, i.e. a 100% roll per entry.
+        route.fallbackChance = 100;
+        route.recordPairLines = false;
+        return SubmitRoute(std::move(route));
+    }
 
-        // Runs on an HTTP worker thread: strings and GUIDs only, and the
-        // picked triggers re-enter the game through the (thread-safe)
-        // delayed-dispatch queue, which resolves players on the world thread.
-        request.onResponse = [roster = std::move(roster), trigger = std::move(trigger), maxPick, staggerMs]
-            (LlmResponse const& response)
+    bool RouteSayMessage(Player* sender, std::vector<Player*> const& candidates, TriggerContext trigger)
+    {
+        trigger.actorGuid = sender->GetGUID();
+        trigger.actorName = sender->GetName();
+
+        // Shuffled up front so the no-parse fallback (dice down the roster)
+        // matches the router-off behaviour.
+        std::vector<Player*> shuffled = candidates;
+        Acore::Containers::RandomShuffle(shuffled);
+
+        // Everyone in earshot of the sender heard roughly the same recent
+        // conversation, so the overheard buffer of the candidate nearest the
+        // sender stands in for "what was recently said here". Its last line
+        // is the message being routed (RecordSpeech ran before us).
+        Player* nearest = *std::min_element(shuffled.begin(), shuffled.end(),
+            [sender](Player* a, Player* b) { return sender->GetDistance(a) < sender->GetDistance(b); });
+        std::string history = sLlmHistoryStore->FormatOverheard(nearest->GetGUID(),
+            sLlmConfig->historyMaxOverheardLines);
+
+        std::string historyBlock;
+        if (!history.empty())
+            historyBlock = "Recently said nearby:\n" + history;
+
+        RouteRequest route;
+        std::string rosterText;
+        for (Player* bot : shuffled)
         {
-            std::vector<size_t> picks;
-            auto addPick = [&](size_t index)
-            {
-                if (picks.size() < maxPick && std::find(picks.begin(), picks.end(), index) == picks.end())
-                    picks.push_back(index);
-            };
+            route.roster.push_back({ bot->GetGUID(), bot->GetName() });
+            if (!rosterText.empty())
+                rosterText += "\n";
+            rosterText += RosterLine(bot);
+        }
 
-            // The deterministic guarantee routing must not lose: a bot
-            // addressed by name is always asked (first mention wins).
-            for (size_t i = 0; i < roster.size(); ++i)
-            {
-                if (BotSelector::MentionsName(trigger.message, roster[i].name))
-                {
-                    addPick(i);
-                    break;
-                }
-            }
+        fmt::dynamic_format_arg_store<fmt::format_context> args;
+        args.push_back(fmt::arg("actor_name", trigger.actorName));
+        args.push_back(fmt::arg("message", trigger.message));
+        args.push_back(fmt::arg("roster", rosterText));
+        args.push_back(fmt::arg("history_block", historyBlock));
+        args.push_back(fmt::arg("max_picks", sLlmConfig->maxBotsToPick));
 
-            if (std::optional<std::vector<std::string>> names = ParseRouterReply(response.content))
-            {
-                for (std::string const& name : *names)
-                    for (size_t i = 0; i < roster.size(); ++i)
-                        if (EqualsIgnoreCase(name, roster[i].name))
-                            addPick(i);
-            }
-            else
-            {
-                // Unparseable reply: degrade to the pre-router behaviour of
-                // asking the first (shuffled) bots up to the cap.
-                LOG_WARN("module.llm", "Group router reply not parseable, picking at random: '{}'",
-                    response.content);
-                for (size_t i = 0; i < roster.size() && picks.size() < maxPick; ++i)
-                    addPick(i);
-            }
+        try
+        {
+            route.prompt = fmt::vformat(sLlmConfig->promptSayRouter, args);
+        }
+        catch (std::exception const& e)
+        {
+            LOG_ERROR("module.llm", "Bad say-router prompt template '{}': {}",
+                sLlmConfig->promptSayRouter, e.what());
+            return false;
+        }
 
-            if (sLlmConfig->debugEnabled)
-            {
-                std::string picked;
-                for (size_t i : picks)
-                {
-                    if (!picked.empty())
-                        picked += ", ";
-                    picked += roster[i].name;
-                }
-                LOG_INFO("module.llm", "Group router for '{}' picked [{}]", trigger.message, picked);
-            }
-
-            uint32 index = 0;
-            for (size_t i : picks)
-            {
-                Dispatch::SubmitDelayed(roster[i].guid, trigger, index * staggerMs);
-                ++index;
-            }
-        };
-
-        return sLlmClient->Submit(std::move(request));
+        route.label = "Say router";
+        route.trigger = std::move(trigger);
+        // Router-off behaviour rolls the say dice per candidate.
+        route.fallbackChance = BotSelector::ReplyChance(TRIGGER_CHAT_SAY, false);
+        // Direct exchanges (say/yell) also feed the pair transcript.
+        route.recordPairLines = true;
+        return SubmitRoute(std::move(route));
     }
 }

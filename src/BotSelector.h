@@ -43,6 +43,11 @@ namespace ModLlm::BotSelector
     // chance roll or cap - callers decide how to narrow the list.
     std::vector<Player*> CollectGroupBots(Player* sender, Group* group);
 
+    // Every eligible bot in earshot of `sender`'s say/yell (same map, can
+    // understand the sender's faction, human audience). No chance roll or
+    // cap - callers decide how to narrow the list.
+    std::vector<Player*> CollectSayCandidates(Player* sender, float maxDistance);
+
     // Picks the bots that should react to a chat message. Handles eligibility
     // (audience of the message + a real player involved), chance rolls, the
     // name-mention override, the in-combat skip, and the MaxBotsToPick cap.

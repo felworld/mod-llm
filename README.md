@@ -41,7 +41,10 @@ answer (`LLM.Chat.Overhear.Enable`). Hearing ranges default to the server's play
   go through a **router**: one cheap LLM call reads the message plus a roster of the group's bots
   (class, spec, role) and picks which of them the message is meant for, up to the bot cap — so "any
   mages got water?" reaches the mage, not two random bots. Routed bots still decide for themselves
-  whether to answer, with a prompt that pushes harder toward silence in large groups.
+  whether to answer, with a prompt that pushes harder toward silence in large groups. A real
+  player's say/yell is routed the same way, and the say router additionally sees the conversation
+  recently overheard around the sender — so an undirected "sure, how much?" right after a bot's
+  offer reaches that bot, and idle muttering reaches nobody.
   When several bots react to one message their replies are staggered (`LLM.Chat.StaggerSeconds`),
   and each later bot's context is rebuilt when its turn comes, so it can respond to the earlier
   replies instead of echoing them. To keep bots from parroting phrases out of their own
