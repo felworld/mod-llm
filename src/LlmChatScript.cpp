@@ -15,6 +15,7 @@
 #include "Overhear.h"
 #include "Player.h"
 #include "PlayerbotAI.h"
+#include "PlayerbotAIConfig.h"
 #include "PlayerbotMgr.h"
 #include "Random.h"
 #include "ScriptMgr.h"
@@ -114,6 +115,13 @@ namespace ModLlm
             if (!sLlmConfig->IsEnabled() || !sLlmConfig->chatEnabled)
                 return;
             if (lang == LANG_ADDON || msg.empty())
+                return;
+
+            // A message starting with AiPlayerbot.CommandPrefix is a bot
+            // command (mod-playerbots executes it), not conversation: no
+            // replies, and it stays out of every transcript.
+            std::string const& commandPrefix = sPlayerbotAIConfig.commandPrefix;
+            if (!commandPrefix.empty() && msg.rfind(commandPrefix, 0) == 0)
                 return;
 
             // Whispers: only the addressed bot may react, and always does.

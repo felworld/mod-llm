@@ -49,6 +49,8 @@ answer (`LLM.Chat.Overhear.Enable`). Hearing ranges default to the server's play
   repetition penalty (`LLM.RepetitionPenalty`) that also covers prompt tokens. Faction rules are honored: unless `AllowTwoSide.Interaction.Chat` is enabled, bots don't react
   to opposite-faction speech (they couldn't understand it) and cross-faction whisper triggers are
   dropped, GMs excepted.
+  Messages starting with the playerbots command prefix (`AiPlayerbot.CommandPrefix`) are bot
+  commands, not conversation: they trigger no replies and stay out of every transcript.
   Bots also hear each other: a bot's say/yell or channel message can trigger nearby bots to
   answer (the `LLM.Chat.BotReplyChance.*` dice), so bot conversations happen in front of players.
   The whole mechanism sits behind `LLM.Chat.BotTrigger.Enable`, chain-capped by
