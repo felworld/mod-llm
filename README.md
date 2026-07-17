@@ -117,6 +117,11 @@ In-game administration: `.llm status | enable | disable | reload`.
 Unit tests (tool-call parsing, schema validation, prompt assembly, mention matching) register
 with the core `unit_tests` target; configure the build with `-DBUILD_TESTING=ON`.
 
+`tools/voice_harness.py` iterates on the *voice* without a server: it assembles the same request
+the module sends (system prompt + style exemplars from a conf file) for a canned battery of
+situations — sycophancy bait, refusal bait, small talk — and prints each bot reply, so prompt
+revisions can be A/B-compared against a live LLM endpoint. See its docstring.
+
 ## License
 
 MIT (see LICENSE). Bundles nlohmann/json and cpp-httplib, both MIT.
