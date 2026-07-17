@@ -14,10 +14,10 @@
 #include "GuildMgr.h"
 #include "HistoryStore.h"
 #include "LlmConfig.h"
+#include "MemoryStore.h"
 #include "Player.h"
 #include "PlayerbotAI.h"
 #include "PlayerbotMgr.h"
-#include "SentimentStore.h"
 #include "SharedDefines.h"
 #include "StringFormat.h"
 
@@ -134,11 +134,9 @@ namespace ModLlm::ContextBuilder
             snapshot.actorRace = ChatHelper::FormatRace(actor->getRace());
         }
 
-        if (sLlmConfig->sentimentEnabled && trigger.actorGuid)
-        {
-            snapshot.hasSentiment = true;
-            snapshot.sentimentValue = sLlmSentimentStore->Get(trigger.botGuid, trigger.actorGuid);
-        }
+        if (sLlmConfig->memoryEnabled)
+            snapshot.memoryBlock = sLlmMemoryStore->Format(trigger.botGuid,
+                trigger.actorGuid.GetCounter(), sLlmConfig->memoryMaxInjectedLines);
 
         if (sLlmConfig->historyEnabled)
         {

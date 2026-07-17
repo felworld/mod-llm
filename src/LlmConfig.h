@@ -111,12 +111,13 @@ namespace ModLlm
         float initiativeRealPlayerDistance = 200.0f;
         uint32 initiativeMaxBotsPerTick = 2;
 
-        // Sentiment tracking
-        bool sentimentEnabled = true;
-        float sentimentDefault = 0.5f;
-        float sentimentStepSmall = 0.05f;
-        float sentimentStepLarge = 0.15f;
-        uint32 sentimentSaveIntervalSeconds = 60;
+        // Memory scratchpad (remember/forget tools)
+        bool memoryEnabled = true;
+        uint32 memoryMaxNotesPerBot = 40;
+        uint32 memoryMaxNotesPerSubject = 8;
+        uint32 memoryMaxContentLength = 300;
+        uint32 memoryMaxInjectedLines = 10;
+        uint32 memorySaveIntervalSeconds = 60;
 
         // Conversation history
         bool historyEnabled = true;
@@ -134,7 +135,6 @@ namespace ModLlm
         std::string promptEvent;
         std::string promptInitiative;
         std::string promptHistoryLine;
-        std::string promptSentimentLine;
         std::string promptRouter;
         std::string promptSayRouter;
     };

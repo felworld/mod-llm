@@ -13,10 +13,10 @@
 #include "LlmConfig.h"
 #include "LlmTrigger.h"
 #include "Log.h"
+#include "MemoryStore.h"
 #include "Overhear.h"
 #include "Player.h"
 #include "PlayerbotAI.h"
-#include "SentimentStore.h"
 #include "SharedDefines.h"
 #include "TextEmoteCatalog.h"
 #include "ToolRegistry.h"
@@ -283,34 +283,75 @@ namespace ModLlm::LlmTools
             });
         }
 
-        // adjust_sentiment - the bot's lasting opinion of the actor.
+        // remember - upsert one note in the bot's private scratchpad.
         sLlmToolRegistry->Register({
-            "adjust_sentiment",
-            "Adjust your lasting opinion of the player you are interacting with. Use when they are "
-            "notably friendly, helpful, rude, or hostile toward you.",
+            "remember",
+            "Save a short private note to your memory; notes are shown back to you later. A note with "
+            "the same slug is overwritten, so reuse a slug to update a note. Set about_player=true when "
+            "the note is about the player you are interacting with, so it comes back whenever you meet "
+            "them again. Use it for people you meet, promises, grudges, and plans.",
             {
                 { "type", "object" },
                 { "properties", {
-                    { "direction", { { "type", "string" }, { "enum", { "up", "down" } } } },
-                    { "intensity", { { "type", "string" }, { "enum", { "slight", "strong" } } } }
+                    { "slug", { { "type", "string" },
+                        { "description", "Short id for the note, lowercase words joined by dashes" } } },
+                    { "content", { { "type", "string" },
+                        { "description", "The note itself, one or two short sentences" } } },
+                    { "about_player", { { "type", "boolean" },
+                        { "description", "True when the note is about the player you are interacting with" } } }
                 } },
-                { "required", { "direction" } }
+                { "required", { "slug", "content" } }
             },
             TRIGGER_ALL,
-            true,
+            false,
             [](ToolExecContext& context, nlohmann::json const& args, std::string& error)
             {
-                if (!sLlmConfig->sentimentEnabled)
+                if (!sLlmConfig->memoryEnabled)
                 {
-                    error = "sentiment tracking is disabled";
+                    error = "memory is disabled";
                     return false;
                 }
 
-                bool up = args["direction"].get<std::string>() == "up";
-                bool strong = args.value("intensity", "slight") == "strong";
-                float step = strong ? sLlmConfig->sentimentStepLarge : sLlmConfig->sentimentStepSmall;
-                sLlmSentimentStore->Adjust(context.trigger->botGuid, context.trigger->actorGuid,
-                    up ? step : -step);
+                uint32 subjectGuid = 0;
+                if (args.value("about_player", false))
+                {
+                    if (!context.trigger->actorGuid)
+                    {
+                        error = "there is no player in this interaction to attach the note to";
+                        return false;
+                    }
+                    subjectGuid = context.trigger->actorGuid.GetCounter();
+                }
+
+                error = sLlmMemoryStore->Upsert(context.trigger->botGuid,
+                    args["slug"].get<std::string>(), subjectGuid, args["content"].get<std::string>());
+                return error.empty();
+            }
+        });
+
+        // forget - drop one note from the scratchpad.
+        sLlmToolRegistry->Register({
+            "forget",
+            "Delete one of your private notes by its slug, for notes that are stale or no longer matter.",
+            {
+                { "type", "object" },
+                { "properties", { { "slug", { { "type", "string" } } } } },
+                { "required", { "slug" } }
+            },
+            TRIGGER_ALL,
+            false,
+            [](ToolExecContext& context, nlohmann::json const& args, std::string& error)
+            {
+                if (!sLlmConfig->memoryEnabled)
+                {
+                    error = "memory is disabled";
+                    return false;
+                }
+                if (!sLlmMemoryStore->Forget(context.trigger->botGuid, args["slug"].get<std::string>()))
+                {
+                    error = "you have no note with that slug";
+                    return false;
+                }
                 return true;
             }
         });

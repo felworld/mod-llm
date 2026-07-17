@@ -7,7 +7,6 @@
 
 #include "LlmConfig.h"
 #include "Log.h"
-#include "SentimentStore.h"
 #include "StringFormat.h"
 
 #include <fmt/args.h>
@@ -52,17 +51,11 @@ namespace ModLlm::PromptAssembler
             return SafeFormat(sLlmConfig->promptSystem, args, fallback);
         }
 
-        std::string BuildSentimentLine(ContextSnapshot const& snapshot)
+        std::string BuildMemoryBlock(ContextSnapshot const& snapshot)
         {
-            if (!snapshot.hasSentiment)
+            if (snapshot.memoryBlock.empty())
                 return "";
-
-            fmt::dynamic_format_arg_store<fmt::format_context> args;
-            args.push_back(fmt::arg("actor_name", snapshot.actorName));
-            args.push_back(fmt::arg("sentiment_word", SentimentStore::Describe(snapshot.sentimentValue)));
-            args.push_back(fmt::arg("sentiment_value", Acore::StringFormat("{:.2f}", snapshot.sentimentValue)));
-
-            return SafeFormat(sLlmConfig->promptSentimentLine, args, "");
+            return "Your private notes:\n" + snapshot.memoryBlock;
         }
 
         std::string BuildHistoryBlock(ContextSnapshot const& snapshot)
@@ -80,7 +73,7 @@ namespace ModLlm::PromptAssembler
         std::string BuildUserMessage(ContextSnapshot const& snapshot, TriggerContext const& trigger)
         {
             fmt::dynamic_format_arg_store<fmt::format_context> args;
-            args.push_back(fmt::arg("sentiment_line", BuildSentimentLine(snapshot)));
+            args.push_back(fmt::arg("memory_block", BuildMemoryBlock(snapshot)));
             args.push_back(fmt::arg("history_block", BuildHistoryBlock(snapshot)));
             args.push_back(fmt::arg("channel_label", snapshot.channelLabel));
             args.push_back(fmt::arg("actor_name", snapshot.actorName));

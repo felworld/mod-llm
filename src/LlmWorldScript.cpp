@@ -10,11 +10,11 @@
 #include "LlmConfig.h"
 #include "LlmDispatch.h"
 #include "LlmTools.h"
+#include "MemoryStore.h"
 #include "ObjectAccessor.h"
 #include "Player.h"
 #include "Random.h"
 #include "ScriptMgr.h"
-#include "SentimentStore.h"
 
 #include <unordered_map>
 
@@ -44,7 +44,7 @@ namespace ModLlm
             // worker threads idle and `.llm enable` can flip the switch at
             // runtime without a restart.
             LlmTools::RegisterDefaultTools();
-            sLlmSentimentStore->Load();
+            sLlmMemoryStore->Load();
             sLlmHistoryStore->Load();
             sLlmClient->Start();
         }
@@ -66,11 +66,11 @@ namespace ModLlm
                 UpdateInitiative();
             }
 
-            _sentimentSaveTimer += diff;
-            if (_sentimentSaveTimer >= sLlmConfig->sentimentSaveIntervalSeconds * IN_MILLISECONDS)
+            _memorySaveTimer += diff;
+            if (_memorySaveTimer >= sLlmConfig->memorySaveIntervalSeconds * IN_MILLISECONDS)
             {
-                _sentimentSaveTimer = 0;
-                sLlmSentimentStore->SaveDirty();
+                _memorySaveTimer = 0;
+                sLlmMemoryStore->SaveDirty();
             }
 
             _historySaveTimer += diff;
@@ -84,7 +84,7 @@ namespace ModLlm
         void OnShutdown() override
         {
             sLlmClient->Stop();
-            sLlmSentimentStore->SaveDirty();
+            sLlmMemoryStore->SaveDirty();
             sLlmHistoryStore->SaveDirty();
         }
 
@@ -144,7 +144,7 @@ namespace ModLlm
         }
 
         uint32 _initiativeTimer = 0;
-        uint32 _sentimentSaveTimer = 0;
+        uint32 _memorySaveTimer = 0;
         uint32 _historySaveTimer = 0;
         std::unordered_map<uint64, time_t> _nextInitiative;
     };

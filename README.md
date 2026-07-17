@@ -12,7 +12,8 @@ to do:
 |---|---|
 | `say` | Send a chat message; the audience is bound by the trigger (whisper → whisper back, party → party, ...) |
 | `emote` | Perform a social emote (`/wave`, `/laugh`, ...) |
-| `adjust_sentiment` | Nudge the bot's persistent 0..1 opinion of the player up or down |
+| `remember` | Write a short note into the bot's persistent private scratchpad (upsert by slug, optionally tied to the player it concerns) |
+| `forget` | Delete one of the bot's notes by slug |
 | `invite_to_party` | Invite the player, via a synthetic client packet so all core validation runs |
 | `challenge_duel` | Challenge the player to a duel |
 
@@ -25,10 +26,10 @@ the model once — as OpenAI tool-result messages, with context and tool list re
 new game state — so it can pick an alternative action (`LLM.ErrorFeedback.Enable`).
 
 The guiding rule for prompt context: anything a player would see on their screen belongs in it.
-Today that's the bot's zone, its full party/raid roster (names and leader), guild, its lasting
-sentiment toward the other player, recent conversation history, and everything said in /say or
-/yell within earshot lately — bots overhear like players do, whether or not they were picked to
-answer (`LLM.Chat.Overhear.Enable`). Hearing ranges default to the server's player listen ranges
+Today that's the bot's zone, its full party/raid roster (names and leader), guild, its own memory
+notes (those about the player it's talking to, plus recent general ones), recent conversation
+history, and everything said in /say or /yell within earshot lately — bots overhear like players
+do, whether or not they were picked to answer (`LLM.Chat.Overhear.Enable`). Hearing ranges default to the server's player listen ranges
 (`ListenRange.Say`/`.Yell`/`.TextEmote`); set the `LLM.*Distance` options to diverge.
 
 ## Triggers
@@ -95,14 +96,19 @@ Adding a tool = one `ToolSpec` (name, JSON schema, trigger mask, executor lambda
 
 Two features persist to the characters DB (schema auto-applied at worldserver startup):
 
-- `mod_llm_sentiment` — per bot↔player disposition, fed into prompts, adjusted by the model.
+- `mod_llm_memory` — the per-bot scratchpad: short notes the model writes itself (`remember` /
+  `forget`), keyed by slug, optionally scoped to one player. Long-term continuity lives here —
+  "ninja'd my loot in deadmines" carries more than the 0..1 sentiment float it replaced.
 - `mod_llm_history_pair` / `mod_llm_history_room` — conversation transcripts fed into prompts.
+  Short-retention working memory for coherence; anything worth keeping belongs in a note.
 
 ## Configuration
 
 See `conf/mod_llm.conf.dist` for every option (`LLM.*` namespace): endpoint/model/sampling,
-concurrency, reply chances, distances, event chances/cooldowns, initiative pacing, sentiment
-steps, history caps, and prompt templates.
+concurrency, reply chances, distances, event chances/cooldowns, initiative pacing, memory caps,
+history caps, and prompt templates (including the style-exemplar block that sets the bots'
+WoW-player register — positive examples only, since negative examples can raise the very
+phrasings they forbid on small models).
 
 In-game administration: `.llm status | enable | disable | reload`.
 

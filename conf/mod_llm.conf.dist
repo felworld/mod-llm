@@ -5,8 +5,8 @@
 # (incoming chat, an emote, a game event, or an idle "initiative" tick) sends
 # the bot's situation plus a tool list to an OpenAI-compatible chat-completions
 # endpoint (vLLM by default). The model may call tools - send a message,
-# perform an emote, adjust its opinion of a player, invite to a party,
-# challenge to a duel - or do nothing at all.
+# perform an emote, write or delete a private memory note, invite to a
+# party, challenge to a duel - or do nothing at all.
 #
 
 [worldserver]
@@ -424,22 +424,28 @@ LLM.Initiative.RealPlayerDistance = 200
 LLM.Initiative.MaxBotsPerTick = 2
 
 ########################################
-# Sentiment tracking
+# Memory scratchpad
 ########################################
 
 #
-#    LLM.Sentiment.*
-#        Description: Bots keep a persistent 0..1 disposition toward each
-#                     player (0 hostile, 0.5 neutral, 1 friendly), included in
-#                     prompts and adjusted by the model via the
-#                     adjust_sentiment tool.
+#    LLM.Memory.*
+#        Description: Each bot keeps a private scratchpad of short notes it
+#                     writes itself via the remember/forget tools (people met,
+#                     promises, grudges, plans), persisted to the characters
+#                     DB. Prompts inject the bot's notes about the player it
+#                     is interacting with plus its most recent general notes
+#                     (MaxInjectedLines). When a bot hits MaxNotesPerBot (or
+#                     MaxNotesPerSubject for one player) a new note is
+#                     rejected with an error telling the model to forget or
+#                     overwrite one first.
 #
 
-LLM.Sentiment.Enable = 1
-LLM.Sentiment.Default = 0.5
-LLM.Sentiment.StepSmall = 0.05
-LLM.Sentiment.StepLarge = 0.15
-LLM.Sentiment.SaveIntervalSeconds = 60
+LLM.Memory.Enable = 1
+LLM.Memory.MaxNotesPerBot = 40
+LLM.Memory.MaxNotesPerSubject = 8
+LLM.Memory.MaxContentLength = 300
+LLM.Memory.MaxInjectedLines = 10
+LLM.Memory.SaveIntervalSeconds = 60
 
 ########################################
 # Conversation history
@@ -452,6 +458,9 @@ LLM.Sentiment.SaveIntervalSeconds = 60
 #                     to the characters DB - and per bot the overheard
 #                     say/yell buffer (in-memory; see LLM.Chat.Overhear).
 #                     MaxOverheardLines caps the overheard lines per prompt.
+#                     Retention is short: transcripts are working memory for
+#                     coherence; anything worth keeping longer belongs in the
+#                     bot's memory scratchpad (LLM.Memory.*).
 #
 
 LLM.History.Enable = 1
@@ -459,7 +468,7 @@ LLM.History.MaxPairTurns = 5
 LLM.History.MaxRoomLines = 20
 LLM.History.MaxOverheardLines = 10
 LLM.History.SaveIntervalSeconds = 60
-LLM.History.RetentionDays = 14
+LLM.History.RetentionDays = 2
 
 ########################################
 # Prompt templates
@@ -470,11 +479,13 @@ LLM.History.RetentionDays = 14
 #    newlines inside a template as the two-character sequence \n. Available:
 #      system:  {bot_name} {bot_level} {bot_class} {bot_race} {bot_faction}
 #               {bot_area} {bot_zone} {bot_group} {bot_guild} {style_examples}
-#      user:    {sentiment_line} {history_block} {channel_label} {actor_name}
+#      user:    {memory_block} {history_block} {channel_label} {actor_name}
 #               {actor_level} {actor_class} {actor_race} {message} {environment}
 #               {reply_guidance} (party/raid/bg chat: reminds the bot the
 #               whole group heard the message and silence is a fine answer;
 #               zone-channel remarks: reminds it the whole zone hears it)
+#               {memory_block} is the bot's own notes: those about the actor
+#               plus its most recent general notes (see LLM.Memory.*)
 #               {history_block} includes, when present: overheard nearby
 #               say/yell, the shared room transcript, and the pair
 #               conversation with the actor
@@ -490,7 +501,7 @@ LLM.History.RetentionDays = 14
 #    built-in defaults (recommended starting point).
 #
 
-LLM.Prompt.System = "You are {bot_name}, a level {bot_level} {bot_race} {bot_class} of the {bot_faction} in World of Warcraft: Wrath of the Lich King, currently in {bot_area} ({bot_zone}). {bot_group}{bot_guild}You are a real person playing your character at your keyboard - never an assistant. React to the situation using the available tools, or do nothing at all - most moments deserve no reaction. Never announce what you are doing and never mention tools or AI. You type like a WoW player in a hurry: mostly lowercase, light punctuation, netspeak and abbreviations where natural, usually just a few words and never more than 20, with no emojis, markdown, or quotation marks. Talk about the game the way players do - quests, mobs, drops, gold, specs, lag. You have your own goals and your own session going: you owe nobody help, and being busy, saying no, disagreeing, or ignoring people is all normal. Help when you feel like it, not to please. Skip apologies and compliments unless truly earned, and end a message with a question or an offer only when you actually want something. Reusing short casual words is fine, but vary your own wording rather than repeating whole phrases from the conversation history. You may call several tools in one reply.{style_examples}"
+LLM.Prompt.System = "You are {bot_name}, a level {bot_level} {bot_race} {bot_class} of the {bot_faction} in World of Warcraft: Wrath of the Lich King, currently in {bot_area} ({bot_zone}). {bot_group}{bot_guild}You are a real person playing your character at your keyboard - never an assistant. React to the situation using the available tools, or do nothing at all - most moments deserve no reaction. Never announce what you are doing and never mention tools or AI. You type like a WoW player in a hurry: mostly lowercase, light punctuation, netspeak and abbreviations where natural, usually just a few words and never more than 20, with no emojis, markdown, or quotation marks. Talk about the game the way players do - quests, mobs, drops, gold, specs, lag. You have your own goals and your own session going: you owe nobody help, and being busy, saying no, disagreeing, or ignoring people is all normal. Help when you feel like it, not to please. Skip apologies and compliments unless truly earned, and end a message with a question or an offer only when you actually want something. Reusing short casual words is fine, but vary your own wording rather than repeating whole phrases from the conversation history. Use the remember and forget tools to keep short private notes about people you meet and plans you make; whatever is relevant is shown back to you. You may call several tools in one reply.{style_examples}"
 
 LLM.Prompt.StyleExamples = "\n\nHow you type - examples of situation => message you might send:\nstranger begs for gold => lol no\ngroupmate dings => gz\nasked where a vendor is and you know => by the fountain, cant miss it\nasked for a summon while you are busy => busy atm sry\nstranger wants to duel and you do not care => nah\nyou finally finish a rough quest => that quest was awful lol\ninvited to group mid-quest => maybe after this quest\nguildie asks who is up for deadmines => id come, need the vc sword\nsomeone says thanks => np\nyou die to something dumb => wow im bad\nsomeone keeps pestering you => dude stop\nyou agree to meet someone => omw"
 
@@ -499,6 +510,5 @@ LLM.Prompt.StyleExamples = "\n\nHow you type - examples of situation => message 
 # LLM.Prompt.Event = ""
 # LLM.Prompt.Initiative = ""
 # LLM.Prompt.HistoryLine = ""
-# LLM.Prompt.SentimentLine = ""
 # LLM.Prompt.Router = ""
 # LLM.Prompt.SayRouter = ""

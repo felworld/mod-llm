@@ -34,9 +34,7 @@ namespace ModLlm
         std::string actorClass;
         std::string actorRace;
 
-        bool hasSentiment = false;
-        float sentimentValue = 0.5f;
-
+        std::string memoryBlock;      // preformatted "- [slug] content" note lines, may be empty
         std::string pairHistory;      // preformatted transcript lines, may be empty
         std::string roomHistory;
         std::string overheardHistory; // say/yell the bot witnessed nearby

@@ -14,7 +14,7 @@ namespace ModLlm
 
     namespace LlmTools
     {
-        // Registers the built-in tools: say, emote, adjust_sentiment,
+        // Registers the built-in tools: say, emote, remember, forget,
         // invite_to_party, challenge_duel. Called once at startup.
         void RegisterDefaultTools();
 

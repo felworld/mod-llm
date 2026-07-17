@@ -41,12 +41,11 @@ namespace
     {
         sLlmConfig->promptSystem = "You are {bot_name}, level {bot_level} {bot_race} {bot_class}.";
         sLlmConfig->promptStyleExamples = "";
-        sLlmConfig->promptChat = "{sentiment_line}{history_block}[{channel_label}] {actor_name}: \"{message}\"";
+        sLlmConfig->promptChat = "{memory_block}{history_block}[{channel_label}] {actor_name}: \"{message}\"";
         sLlmConfig->promptEmote = "{actor_name} {message}.";
         sLlmConfig->promptEvent = "Event: {message}.";
         sLlmConfig->promptInitiative = "Idle. Around you: {environment}.";
         sLlmConfig->promptHistoryLine = "{speaker}: {message}";
-        sLlmConfig->promptSentimentLine = "You find {actor_name} {sentiment_word}. ";
     }
 }
 
@@ -82,7 +81,7 @@ TEST(PromptAssemblerTest, StyleExamplesRenderedInSystemMessage)
     EXPECT_NE(system.find("someone says thanks => np"), std::string::npos);
 }
 
-TEST(PromptAssemblerTest, SentimentLineOnlyWhenPresent)
+TEST(PromptAssemblerTest, MemoryBlockOnlyWhenPresent)
 {
     ResetTemplates();
 
@@ -90,12 +89,11 @@ TEST(PromptAssemblerTest, SentimentLineOnlyWhenPresent)
     TriggerContext trigger = TestTrigger();
 
     std::string without = PromptAssembler::BuildMessages(snapshot, trigger)[1]["content"].get<std::string>();
-    EXPECT_EQ(without.find("You find"), std::string::npos);
+    EXPECT_EQ(without.find("Your private notes:"), std::string::npos);
 
-    snapshot.hasSentiment = true;
-    snapshot.sentimentValue = 0.9f;
+    snapshot.memoryBlock = "- [mera-friend] helped me clear the harpies\n";
     std::string with = PromptAssembler::BuildMessages(snapshot, trigger)[1]["content"].get<std::string>();
-    EXPECT_NE(with.find("You find Mera friendly"), std::string::npos);
+    EXPECT_NE(with.find("Your private notes:\n- [mera-friend] helped me clear the harpies"), std::string::npos);
 }
 
 TEST(PromptAssemblerTest, HistoryBlockIncluded)

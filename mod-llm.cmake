@@ -33,6 +33,7 @@ if(TARGET modules)
     set_property(GLOBAL APPEND PROPERTY ACORE_MODULE_TEST_SOURCES
         "${CMAKE_CURRENT_LIST_DIR}/test/ToolCallParserTest.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/test/ToolRegistryTest.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/test/MemoryStoreTest.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/test/PromptAssemblerTest.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/test/BotSelectorTest.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/test/LlmRouterTest.cpp"

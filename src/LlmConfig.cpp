@@ -26,7 +26,9 @@ namespace ModLlm
             "is all normal. Help when you feel like it, not to please. Skip apologies and compliments unless "
             "truly earned, and end a message with a question or an offer only when you actually want something. "
             "Reusing short casual words is fine, but vary your own wording rather than repeating whole phrases "
-            "from the conversation history. You may call several tools in one reply.{style_examples}";
+            "from the conversation history. Use the remember and forget tools to keep short private notes about "
+            "people you meet and plans you make; whatever is relevant is shown back to you. You may call "
+            "several tools in one reply.{style_examples}";
 
         constexpr char DEFAULT_PROMPT_STYLE_EXAMPLES[] =
             "\n\nHow you type - examples of situation => message you might send:\n"
@@ -44,19 +46,19 @@ namespace ModLlm
             "you agree to meet someone => omw";
 
         constexpr char DEFAULT_PROMPT_CHAT[] =
-            "{sentiment_line}{history_block}[{channel_label}] {actor_name} (level {actor_level} {actor_race} "
+            "{memory_block}{history_block}[{channel_label}] {actor_name} (level {actor_level} {actor_race} "
             "{actor_class}) says: \"{message}\"{reply_guidance}";
 
         constexpr char DEFAULT_PROMPT_EMOTE[] =
-            "{sentiment_line}{history_block}{actor_name} (level {actor_level} {actor_race} {actor_class}) "
+            "{memory_block}{history_block}{actor_name} (level {actor_level} {actor_race} {actor_class}) "
             "{message}.";
 
         constexpr char DEFAULT_PROMPT_EVENT[] =
-            "{sentiment_line}{history_block}Something just happened nearby: {message}.{reply_guidance}";
+            "{memory_block}{history_block}Something just happened nearby: {message}.{reply_guidance}";
 
         constexpr char DEFAULT_PROMPT_INITIATIVE[] =
-            "{history_block}Nothing is being said to you. Around you: {environment}. You may make an idle "
-            "remark, emote, or do nothing.{reply_guidance}";
+            "{memory_block}{history_block}Nothing is being said to you. Around you: {environment}. You may "
+            "make an idle remark, emote, or do nothing.{reply_guidance}";
 
         constexpr char DEFAULT_PROMPT_ROUTER[] =
             "You are routing a chat message between players in World of Warcraft. In {channel_label} chat, "
@@ -78,9 +80,6 @@ namespace ModLlm
             "for example [\"Name\"] - or [] if the message is for nobody in particular.";
 
         constexpr char DEFAULT_PROMPT_HISTORY_LINE[] = "{speaker}: {message}";
-
-        constexpr char DEFAULT_PROMPT_SENTIMENT_LINE[] =
-            "Your disposition toward {actor_name} is {sentiment_word} ({sentiment_value} on a 0..1 scale). ";
 
         // <= 0 means "hear as far as players do": resolve to the server's
         // matching ListenRange.* value (loaded before this module's config).
@@ -184,11 +183,12 @@ namespace ModLlm
         initiativeRealPlayerDistance = sConfigMgr->GetOption<float>("LLM.Initiative.RealPlayerDistance", 200.0f);
         initiativeMaxBotsPerTick = sConfigMgr->GetOption<uint32>("LLM.Initiative.MaxBotsPerTick", 2);
 
-        sentimentEnabled = sConfigMgr->GetOption<bool>("LLM.Sentiment.Enable", true);
-        sentimentDefault = sConfigMgr->GetOption<float>("LLM.Sentiment.Default", 0.5f);
-        sentimentStepSmall = sConfigMgr->GetOption<float>("LLM.Sentiment.StepSmall", 0.05f);
-        sentimentStepLarge = sConfigMgr->GetOption<float>("LLM.Sentiment.StepLarge", 0.15f);
-        sentimentSaveIntervalSeconds = sConfigMgr->GetOption<uint32>("LLM.Sentiment.SaveIntervalSeconds", 60);
+        memoryEnabled = sConfigMgr->GetOption<bool>("LLM.Memory.Enable", true);
+        memoryMaxNotesPerBot = sConfigMgr->GetOption<uint32>("LLM.Memory.MaxNotesPerBot", 40);
+        memoryMaxNotesPerSubject = sConfigMgr->GetOption<uint32>("LLM.Memory.MaxNotesPerSubject", 8);
+        memoryMaxContentLength = sConfigMgr->GetOption<uint32>("LLM.Memory.MaxContentLength", 300);
+        memoryMaxInjectedLines = sConfigMgr->GetOption<uint32>("LLM.Memory.MaxInjectedLines", 10);
+        memorySaveIntervalSeconds = sConfigMgr->GetOption<uint32>("LLM.Memory.SaveIntervalSeconds", 60);
 
         historyEnabled = sConfigMgr->GetOption<bool>("LLM.History.Enable", true);
         historyMaxPairTurns = sConfigMgr->GetOption<uint32>("LLM.History.MaxPairTurns", 5);
@@ -204,7 +204,6 @@ namespace ModLlm
         promptEvent = LoadPrompt("LLM.Prompt.Event", DEFAULT_PROMPT_EVENT);
         promptInitiative = LoadPrompt("LLM.Prompt.Initiative", DEFAULT_PROMPT_INITIATIVE);
         promptHistoryLine = LoadPrompt("LLM.Prompt.HistoryLine", DEFAULT_PROMPT_HISTORY_LINE);
-        promptSentimentLine = LoadPrompt("LLM.Prompt.SentimentLine", DEFAULT_PROMPT_SENTIMENT_LINE);
         promptRouter = LoadPrompt("LLM.Prompt.Router", DEFAULT_PROMPT_ROUTER);
         promptSayRouter = LoadPrompt("LLM.Prompt.SayRouter", DEFAULT_PROMPT_SAY_ROUTER);
 
