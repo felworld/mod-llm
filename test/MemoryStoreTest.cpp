@@ -11,7 +11,7 @@ using namespace ModLlm;
 
 namespace
 {
-    ObjectGuid const BOT = ObjectGuid(HighGuid::Player, 100);
+    ObjectGuid const BOT = ObjectGuid(HighGuid::Player, uint32(100));
     uint32 const SUBJECT = 200;
 
     void ResetStore()
