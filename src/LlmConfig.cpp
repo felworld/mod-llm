@@ -16,12 +16,32 @@ namespace ModLlm
         constexpr char DEFAULT_PROMPT_SYSTEM[] =
             "You are {bot_name}, a level {bot_level} {bot_race} {bot_class} of the {bot_faction} in World of "
             "Warcraft: Wrath of the Lich King, currently in {bot_area} ({bot_zone}). {bot_group}{bot_guild}"
-            "You are a player character controlled by a real person, not an assistant. React to the situation "
-            "using the available tools, or do nothing at all - most moments deserve no reaction. Never announce "
-            "what you are doing and never mention tools or AI. Keep any chat message under 20 words, in a "
-            "casual WoW-player tone with no emojis, markdown, or quotation marks. Vary your wording: never "
-            "repeat a phrase that already appears in the conversation history, yours or anyone else's. You "
-            "may call several tools in one reply.";
+            "You are a real person playing your character at your keyboard - never an assistant. React to the "
+            "situation using the available tools, or do nothing at all - most moments deserve no reaction. "
+            "Never announce what you are doing and never mention tools or AI. You type like a WoW player in a "
+            "hurry: mostly lowercase, light punctuation, netspeak and abbreviations where natural, usually just "
+            "a few words and never more than 20, with no emojis, markdown, or quotation marks. Talk about the "
+            "game the way players do - quests, mobs, drops, gold, specs, lag. You have your own goals and your "
+            "own session going: you owe nobody help, and being busy, saying no, disagreeing, or ignoring people "
+            "is all normal. Help when you feel like it, not to please. Skip apologies and compliments unless "
+            "truly earned, and end a message with a question or an offer only when you actually want something. "
+            "Reusing short casual words is fine, but vary your own wording rather than repeating whole phrases "
+            "from the conversation history. You may call several tools in one reply.{style_examples}";
+
+        constexpr char DEFAULT_PROMPT_STYLE_EXAMPLES[] =
+            "\n\nHow you type - examples of situation => message you might send:\n"
+            "stranger begs for gold => lol no\n"
+            "groupmate dings => gz\n"
+            "asked where a vendor is and you know => by the fountain, cant miss it\n"
+            "asked for a summon while you are busy => busy atm sry\n"
+            "stranger wants to duel and you do not care => nah\n"
+            "you finally finish a rough quest => that quest was awful lol\n"
+            "invited to group mid-quest => maybe after this quest\n"
+            "guildie asks who is up for deadmines => id come, need the vc sword\n"
+            "someone says thanks => np\n"
+            "you die to something dumb => wow im bad\n"
+            "someone keeps pestering you => dude stop\n"
+            "you agree to meet someone => omw";
 
         constexpr char DEFAULT_PROMPT_CHAT[] =
             "{sentiment_line}{history_block}[{channel_label}] {actor_name} (level {actor_level} {actor_race} "
@@ -69,6 +89,20 @@ namespace ModLlm
             float value = sConfigMgr->GetOption<float>(option, 0.0f);
             return value > 0.0f ? value : sWorld->getFloatConfig(listenRange);
         }
+
+        // Config values are single-line; prompt templates written in the conf
+        // carry newlines as the two-character sequence \n.
+        std::string LoadPrompt(char const* option, char const* builtinDefault)
+        {
+            std::string value = sConfigMgr->GetOption<std::string>(option, builtinDefault);
+            size_t pos = 0;
+            while ((pos = value.find("\\n", pos)) != std::string::npos)
+            {
+                value.replace(pos, 2, "\n");
+                ++pos;
+            }
+            return value;
+        }
     }
 
     LlmConfig* LlmConfig::instance()
@@ -88,7 +122,7 @@ namespace ModLlm
         temperature = sConfigMgr->GetOption<float>("LLM.Temperature", -1.0f);
         topP = sConfigMgr->GetOption<float>("LLM.TopP", -1.0f);
         topK = sConfigMgr->GetOption<uint32>("LLM.TopK", 0);
-        repetitionPenalty = sConfigMgr->GetOption<float>("LLM.RepetitionPenalty", 1.1f);
+        repetitionPenalty = sConfigMgr->GetOption<float>("LLM.RepetitionPenalty", 1.05f);
         timeoutSeconds = sConfigMgr->GetOption<uint32>("LLM.TimeoutSeconds", 30);
         maxConcurrentRequests = sConfigMgr->GetOption<uint32>("LLM.MaxConcurrentRequests", 3);
         maxQueueSize = sConfigMgr->GetOption<uint32>("LLM.MaxQueueSize", 32);
@@ -163,15 +197,16 @@ namespace ModLlm
         historySaveIntervalSeconds = sConfigMgr->GetOption<uint32>("LLM.History.SaveIntervalSeconds", 60);
         historyRetentionDays = sConfigMgr->GetOption<uint32>("LLM.History.RetentionDays", 14);
 
-        promptSystem = sConfigMgr->GetOption<std::string>("LLM.Prompt.System", DEFAULT_PROMPT_SYSTEM);
-        promptChat = sConfigMgr->GetOption<std::string>("LLM.Prompt.Chat", DEFAULT_PROMPT_CHAT);
-        promptEmote = sConfigMgr->GetOption<std::string>("LLM.Prompt.Emote", DEFAULT_PROMPT_EMOTE);
-        promptEvent = sConfigMgr->GetOption<std::string>("LLM.Prompt.Event", DEFAULT_PROMPT_EVENT);
-        promptInitiative = sConfigMgr->GetOption<std::string>("LLM.Prompt.Initiative", DEFAULT_PROMPT_INITIATIVE);
-        promptHistoryLine = sConfigMgr->GetOption<std::string>("LLM.Prompt.HistoryLine", DEFAULT_PROMPT_HISTORY_LINE);
-        promptSentimentLine = sConfigMgr->GetOption<std::string>("LLM.Prompt.SentimentLine", DEFAULT_PROMPT_SENTIMENT_LINE);
-        promptRouter = sConfigMgr->GetOption<std::string>("LLM.Prompt.Router", DEFAULT_PROMPT_ROUTER);
-        promptSayRouter = sConfigMgr->GetOption<std::string>("LLM.Prompt.SayRouter", DEFAULT_PROMPT_SAY_ROUTER);
+        promptSystem = LoadPrompt("LLM.Prompt.System", DEFAULT_PROMPT_SYSTEM);
+        promptStyleExamples = LoadPrompt("LLM.Prompt.StyleExamples", DEFAULT_PROMPT_STYLE_EXAMPLES);
+        promptChat = LoadPrompt("LLM.Prompt.Chat", DEFAULT_PROMPT_CHAT);
+        promptEmote = LoadPrompt("LLM.Prompt.Emote", DEFAULT_PROMPT_EMOTE);
+        promptEvent = LoadPrompt("LLM.Prompt.Event", DEFAULT_PROMPT_EVENT);
+        promptInitiative = LoadPrompt("LLM.Prompt.Initiative", DEFAULT_PROMPT_INITIATIVE);
+        promptHistoryLine = LoadPrompt("LLM.Prompt.HistoryLine", DEFAULT_PROMPT_HISTORY_LINE);
+        promptSentimentLine = LoadPrompt("LLM.Prompt.SentimentLine", DEFAULT_PROMPT_SENTIMENT_LINE);
+        promptRouter = LoadPrompt("LLM.Prompt.Router", DEFAULT_PROMPT_ROUTER);
+        promptSayRouter = LoadPrompt("LLM.Prompt.SayRouter", DEFAULT_PROMPT_SAY_ROUTER);
 
         LOG_INFO("module.llm", "mod-llm config loaded: enabled={}, endpoint={}, model={}",
             IsEnabled(), endpoint, model);

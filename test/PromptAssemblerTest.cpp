@@ -40,6 +40,7 @@ namespace
     void ResetTemplates()
     {
         sLlmConfig->promptSystem = "You are {bot_name}, level {bot_level} {bot_race} {bot_class}.";
+        sLlmConfig->promptStyleExamples = "";
         sLlmConfig->promptChat = "{sentiment_line}{history_block}[{channel_label}] {actor_name}: \"{message}\"";
         sLlmConfig->promptEmote = "{actor_name} {message}.";
         sLlmConfig->promptEvent = "Event: {message}.";
@@ -68,6 +69,17 @@ TEST(PromptAssemblerTest, BuildsSystemAndUserMessages)
     std::string user = messages[1]["content"].get<std::string>();
     EXPECT_NE(user.find("[say] Mera"), std::string::npos);
     EXPECT_NE(user.find("hello there"), std::string::npos);
+}
+
+TEST(PromptAssemblerTest, StyleExamplesRenderedInSystemMessage)
+{
+    ResetTemplates();
+    sLlmConfig->promptSystem = "You are {bot_name}.{style_examples}";
+    sLlmConfig->promptStyleExamples = "\n\nHow you type:\nsomeone says thanks => np";
+
+    std::string system = PromptAssembler::BuildMessages(TestSnapshot(), TestTrigger())[0]["content"].get<std::string>();
+    EXPECT_NE(system.find("You are Thundertusk."), std::string::npos);
+    EXPECT_NE(system.find("someone says thanks => np"), std::string::npos);
 }
 
 TEST(PromptAssemblerTest, SentimentLineOnlyWhenPresent)

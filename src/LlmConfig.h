@@ -40,7 +40,7 @@ namespace ModLlm
         float temperature = -1.0f;
         float topP = -1.0f;
         uint32 topK = 0;
-        float repetitionPenalty = 1.1f;
+        float repetitionPenalty = 1.05f;
         uint32 timeoutSeconds = 30;
         uint32 maxConcurrentRequests = 3;
         uint32 maxQueueSize = 32;
@@ -128,6 +128,7 @@ namespace ModLlm
 
         // Prompt templates (fmt named-argument placeholders)
         std::string promptSystem;
+        std::string promptStyleExamples;
         std::string promptChat;
         std::string promptEmote;
         std::string promptEvent;
