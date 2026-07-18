@@ -360,6 +360,9 @@ LLM.Event.MaxBotsPerEvent = 2
 #                     0 disables an event type entirely.
 #                     GroupJoin fires when a bot joins a party or raid with a
 #                     real player in it; the greeting goes to party/raid chat.
+#                     Healed fires only for the healed bot itself when a
+#                     player outside its group heals it; the thanks is said
+#                     aloud. Groupmate heals are routine and never draw one.
 #
 
 LLM.Event.Chance.Kill = 15
@@ -371,6 +374,7 @@ LLM.Event.Chance.Duel = 40
 LLM.Event.Chance.Achievement = 40
 LLM.Event.Chance.Loot = 15
 LLM.Event.Chance.GroupJoin = 100
+LLM.Event.Chance.Healed = 20
 
 #
 #    LLM.Event.ChannelChance

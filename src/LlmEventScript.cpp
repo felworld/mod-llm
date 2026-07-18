@@ -197,6 +197,80 @@ namespace ModLlm
         std::unordered_map<uint64, std::chrono::steady_clock::time_point> _cooldowns;
     };
 
+    // A bot thanks whoever heals it - the verbal half of the reaction
+    // (mod-playerbots adds the /thank emote and buff-back). Fires only for
+    // the healed bot itself, not bystanders: gratitude is personal.
+    //
+    // Same threading rules as LlmEventScript: OnHeal runs on map-update
+    // threads, healer and receiver share a map, and the cooldown map is
+    // mutex-guarded.
+    class LlmHealedScript : public UnitScript
+    {
+    public:
+        LlmHealedScript() : UnitScript("LlmHealedScript", true, {
+            UNITHOOK_ON_HEAL
+        }) { }
+
+        void OnHeal(Unit* healerUnit, Unit* receiverUnit, uint32& gain) override
+        {
+            if (!sLlmConfig->IsEnabled() || !sLlmConfig->eventEnabled || !sLlmConfig->eventChanceHealed || !gain)
+                return;
+            if (!healerUnit || !receiverUnit || healerUnit == receiverUnit)
+                return;
+
+            Player* healer = healerUnit->ToPlayer();
+            Player* bot = receiverUnit->ToPlayer();
+            if (!healer || !bot || BotSelector::IsRealPlayer(bot))
+                return;
+
+            if (urand(0, 99) >= sLlmConfig->eventChanceHealed)
+                return;
+            if (!BotSelector::CanUnderstand(bot, healer))
+                return;
+            if (IsOnCooldown(bot->GetGUID()))
+                return;
+
+            // A groupmate's heal is routine - thanking the party healer for
+            // every splash would be absurd. Only a stranger's kindness draws
+            // thanks, said aloud, which is only worth doing with a human in
+            // earshot.
+            Group* group = bot->GetGroup();
+            if (group && healer->GetGroup() == group)
+                return;
+            if (!BotSelector::HasRealPlayerNearby(bot, sLlmConfig->sayDistance))
+                return;
+
+            TriggerContext trigger;
+            trigger.kind = TRIGGER_GAME_EVENT;
+            trigger.eventType = "healed";
+            trigger.message = Acore::StringFormat("{} healed {}", healer->GetName(), bot->GetName());
+
+            if (!Dispatch::Submit(bot, healer, std::move(trigger)))
+                return;
+
+            StartCooldown(bot->GetGUID());
+        }
+
+    private:
+        bool IsOnCooldown(ObjectGuid botGuid)
+        {
+            std::lock_guard<std::mutex> lock(_cooldownMutex);
+            auto it = _cooldowns.find(botGuid.GetRawValue());
+            return it != _cooldowns.end()
+                && std::chrono::steady_clock::now() - it->second
+                    < std::chrono::seconds(sLlmConfig->eventCooldownSeconds);
+        }
+
+        void StartCooldown(ObjectGuid botGuid)
+        {
+            std::lock_guard<std::mutex> lock(_cooldownMutex);
+            _cooldowns[botGuid.GetRawValue()] = std::chrono::steady_clock::now();
+        }
+
+        std::mutex _cooldownMutex;
+        std::unordered_map<uint64, std::chrono::steady_clock::time_point> _cooldowns;
+    };
+
     // A bot greets its new party or raid when it joins one - the LLM
     // replacement for playerbots' canned "Hello" whisper on invite accept
     // (which we keep disabled via AiPlayerbot.EnableGreet = 0).
@@ -256,5 +330,6 @@ namespace ModLlm
 void AddSC_llm_event()
 {
     new ModLlm::LlmEventScript();
+    new ModLlm::LlmHealedScript();
     new ModLlm::LlmGroupScript();
 }

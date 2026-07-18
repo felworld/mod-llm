@@ -101,6 +101,7 @@ namespace ModLlm
         uint32 eventChanceAchievement = 40;
         uint32 eventChanceLoot = 15;
         uint32 eventChanceGroupJoin = 100;
+        uint32 eventChanceHealed = 20;
         uint32 eventChannelChance = 10;
         uint32 eventLootMinQuality = 3; // ITEM_QUALITY_RARE
 

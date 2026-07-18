@@ -173,6 +173,7 @@ namespace ModLlm
         eventChanceAchievement = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.Achievement", 40);
         eventChanceLoot = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.Loot", 15);
         eventChanceGroupJoin = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.GroupJoin", 100);
+        eventChanceHealed = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.Healed", 20);
         eventChannelChance = sConfigMgr->GetOption<uint32>("LLM.Event.ChannelChance", 10);
         eventLootMinQuality = sConfigMgr->GetOption<uint32>("LLM.Event.LootMinQuality", 3);
 

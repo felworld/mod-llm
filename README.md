@@ -69,7 +69,9 @@ do, whether or not they were picked to answer (`LLM.Chat.Overhear.Enable`). Hear
   A comment about a groupmate's deed goes to party/raid chat; enemy-faction deeds draw comment
   only on the same cross-faction dice. Also group joins: a bot that joins a party or raid greets
   it in party/raid chat (this replaces playerbots' canned "Hello" whisper, which we keep disabled
-  via `AiPlayerbot.EnableGreet = 0`).
+  via `AiPlayerbot.EnableGreet = 0`). And heals: a bot healed by a player outside its group thanks
+  them aloud (`LLM.Event.Chance.Healed`; groupmate heals are routine and never draw thanks;
+  mod-playerbots adds the /thank emote, and buff-capable bots buff back whoever buffs them).
 - **Initiative**: an idle scheduler gives each bot periodic opportunities to act unprompted,
   with an environment description in the prompt.
 
