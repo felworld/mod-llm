@@ -154,11 +154,15 @@ namespace ModLlm
             { "content", _bareContent },
             { "tool_calls", std::move(toolCallsJson) }
         });
+        // Failed attempts are invisible to everyone in the world; saying so
+        // keeps the model from working the failure into its chat.
         for (size_t i = 0; i < _toolCalls.size(); ++i)
             extra.push_back({
                 { "role", "tool" },
                 { "tool_call_id", _toolCalls[i].id },
-                { "content", outcomes[i].first ? "ok" : "error: " + outcomes[i].second }
+                { "content", outcomes[i].first ? "ok"
+                    : "error: " + outcomes[i].second
+                        + ". Nobody in the world saw this attempt; pick a different action, or do nothing." }
             });
 
         LlmRequest followUp;

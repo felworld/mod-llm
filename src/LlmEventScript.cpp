@@ -129,9 +129,6 @@ namespace ModLlm
                     break;
                 if (urand(0, 99) >= chance)
                     continue;
-                if (!BotSelector::IsRealPlayer(actor)
-                    && !BotSelector::HasRealPlayerNearby(bot, sLlmConfig->eventRealPlayerDistance))
-                    continue;
                 if (IsOnCooldown(bot->GetGUID()))
                     continue;
 
@@ -140,11 +137,36 @@ namespace ModLlm
                 trigger.eventType = eventType;
                 trigger.message = description;
 
-                // Some comments go to the zone's General channel instead of
-                // /say. Resolving the channel needs the world thread, so the
-                // wish rides along and the delayed dispatch binds it (falling
-                // back to /say if the bot has no channel or no human reads it).
-                trigger.wantZoneChannel = urand(0, 99) < sLlmConfig->eventChannelChance;
+                // An enemy's deed rarely draws words - there is no shared
+                // language. The occasional exception is deliberate: shouted
+                // cross-faction gibberish is a proud tradition.
+                if (bot != actor && !BotSelector::CanUnderstand(bot, actor))
+                {
+                    if (urand(0, 99) >= sLlmConfig->crossFactionChatChance)
+                        continue;
+                    trigger.crossFaction = true;
+                    trigger.crossFactionChatOk = true;
+                }
+
+                // A comment about a groupmate (or the bot's own feat while
+                // grouped) belongs in group chat. Otherwise some comments go
+                // to the zone's General channel - resolving it needs the world
+                // thread, so the wish rides along and the delayed dispatch
+                // binds it (falling back to /say when the bot has no channel
+                // or no human reads it). The rest is said aloud, which is
+                // only worth doing with a human in earshot.
+                Group* group = bot->GetGroup();
+                if (group && actor->GetGroup() == group && !group->isBGGroup() && !group->isBFGroup())
+                {
+                    if (!BotSelector::GroupHasRealPlayer(group))
+                        continue;
+                    trigger.chatType = group->isRaidGroup() ? CHAT_MSG_RAID : CHAT_MSG_PARTY;
+                    trigger.roomKey = Acore::StringFormat("group:{}", group->GetGUID().GetCounter());
+                }
+                else if (urand(0, 99) < sLlmConfig->eventChannelChance)
+                    trigger.wantZoneChannel = true;
+                else if (!BotSelector::HasRealPlayerNearby(bot, sLlmConfig->sayDistance))
+                    continue;
 
                 if (trigger.wantZoneChannel)
                     Dispatch::SubmitDelayed(bot, actor != bot ? actor : nullptr, std::move(trigger), 1);
@@ -207,7 +229,7 @@ namespace ModLlm
                 return;
 
             // Don't greet into a group of nothing but bots.
-            if (!HasRealPlayerMember(group, guid))
+            if (!BotSelector::GroupHasRealPlayer(group))
                 return;
 
             bool raid = group->isRaidGroup();
@@ -227,19 +249,6 @@ namespace ModLlm
             trigger.actorName = group->GetLeaderName();
 
             Dispatch::SubmitDelayed(bot, nullptr, std::move(trigger), urand(1500, 4000));
-        }
-
-    private:
-        static bool HasRealPlayerMember(Group* group, ObjectGuid except)
-        {
-            for (Group::MemberSlot const& slot : group->GetMemberSlots())
-            {
-                if (slot.guid == except)
-                    continue;
-                if (BotSelector::IsRealPlayer(ObjectAccessor::FindPlayer(slot.guid)))
-                    return true;
-            }
-            return false;
         }
     };
 }

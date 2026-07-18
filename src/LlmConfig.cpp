@@ -16,6 +16,7 @@ namespace ModLlm
         constexpr char DEFAULT_PROMPT_SYSTEM[] =
             "You are {bot_name}, a level {bot_level} {bot_race} {bot_class} of the {bot_faction} in World of "
             "Warcraft: Wrath of the Lich King, currently in {bot_area} ({bot_zone}). {bot_group}{bot_guild}"
+            "{bot_quests}"
             "You are a real person playing your character at your keyboard - never an assistant. React to the "
             "situation using the available tools, or do nothing at all - most moments deserve no reaction. "
             "Never announce what you are doing and never mention tools or AI. You type like a WoW player in a "
@@ -51,7 +52,7 @@ namespace ModLlm
 
         constexpr char DEFAULT_PROMPT_EMOTE[] =
             "{memory_block}{history_block}{actor_name} (level {actor_level} {actor_race} {actor_class}) "
-            "{message}.";
+            "{message}.{reply_guidance}";
 
         constexpr char DEFAULT_PROMPT_EVENT[] =
             "{memory_block}{history_block}Something just happened nearby: {message}.{reply_guidance}";
@@ -147,6 +148,7 @@ namespace ModLlm
         botReplyChanceGuild = sConfigMgr->GetOption<uint32>("LLM.Chat.BotReplyChance.Guild", 5);
         botReplyChanceChannel = sConfigMgr->GetOption<uint32>("LLM.Chat.BotReplyChance.Channel", 3);
         customChannelsEnabled = sConfigMgr->GetOption<bool>("LLM.Chat.EnableCustomChannels", true);
+        crossFactionChatChance = sConfigMgr->GetOption<uint32>("LLM.Chat.CrossFactionChatChance", 5);
         groupRouterEnabled = sConfigMgr->GetOption<bool>("LLM.Chat.GroupRouter.Enable", true);
         sayRouterEnabled = sConfigMgr->GetOption<bool>("LLM.Chat.SayRouter.Enable", true);
         overhearEnabled = sConfigMgr->GetOption<bool>("LLM.Chat.Overhear.Enable", true);
@@ -160,7 +162,6 @@ namespace ModLlm
 
         eventEnabled = sConfigMgr->GetOption<bool>("LLM.Event.Enable", true);
         eventBotDistance = sConfigMgr->GetOption<float>("LLM.Event.BotDistance", 40.0f);
-        eventRealPlayerDistance = sConfigMgr->GetOption<float>("LLM.Event.RealPlayerDistance", 40.0f);
         eventCooldownSeconds = sConfigMgr->GetOption<uint32>("LLM.Event.CooldownSeconds", 10);
         eventMaxBotsPerEvent = sConfigMgr->GetOption<uint32>("LLM.Event.MaxBotsPerEvent", 2);
         eventChanceKill = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.Kill", 15);
@@ -180,7 +181,6 @@ namespace ModLlm
         initiativeMaxIntervalSeconds = sConfigMgr->GetOption<uint32>("LLM.Initiative.MaxIntervalSeconds", 180);
         initiativeChance = sConfigMgr->GetOption<uint32>("LLM.Initiative.Chance", 5);
         initiativeChannelChance = sConfigMgr->GetOption<uint32>("LLM.Initiative.ChannelChance", 25);
-        initiativeRealPlayerDistance = sConfigMgr->GetOption<float>("LLM.Initiative.RealPlayerDistance", 200.0f);
         initiativeMaxBotsPerTick = sConfigMgr->GetOption<uint32>("LLM.Initiative.MaxBotsPerTick", 2);
 
         memoryEnabled = sConfigMgr->GetOption<bool>("LLM.Memory.Enable", true);

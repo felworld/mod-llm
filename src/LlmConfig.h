@@ -69,6 +69,9 @@ namespace ModLlm
         uint32 botReplyChanceGuild = 5;
         uint32 botReplyChanceChannel = 3;
         bool customChannelsEnabled = true;
+        // Percent chance an enemy-faction emote/event still lets the bot try
+        // to chat (mutually unreadable gibberish - the classic /say meme).
+        uint32 crossFactionChatChance = 5;
         bool groupRouterEnabled = true;
         bool sayRouterEnabled = true;
         bool overhearEnabled = true;
@@ -87,7 +90,6 @@ namespace ModLlm
         // Game events
         bool eventEnabled = true;
         float eventBotDistance = 40.0f;
-        float eventRealPlayerDistance = 40.0f;
         uint32 eventCooldownSeconds = 10;
         uint32 eventMaxBotsPerEvent = 2;
         uint32 eventChanceKill = 15;
@@ -108,7 +110,6 @@ namespace ModLlm
         uint32 initiativeMaxIntervalSeconds = 180;
         uint32 initiativeChance = 5;
         uint32 initiativeChannelChance = 25;
-        float initiativeRealPlayerDistance = 200.0f;
         uint32 initiativeMaxBotsPerTick = 2;
 
         // Memory scratchpad (remember/forget tools)

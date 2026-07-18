@@ -92,6 +92,7 @@ namespace ModLlm
                 TriggerContext trigger;
                 trigger.kind = TRIGGER_EMOTE;
                 trigger.message = Acore::StringFormat("performs the emote \"{}\" directed at you", emoteName);
+                MarkCrossFaction(trigger, target, player);
                 Dispatch::Submit(target, player, std::move(trigger));
                 return;
             }
@@ -104,11 +105,23 @@ namespace ModLlm
                 TriggerContext trigger;
                 trigger.kind = TRIGGER_EMOTE;
                 trigger.message = Acore::StringFormat("performs the emote \"{}\" nearby", emoteName);
+                MarkCrossFaction(trigger, bot, player);
                 Dispatch::Submit(bot, player, std::move(trigger));
             }
         }
 
     private:
+        // Emotes cross the faction line even though language does not: the
+        // bot may react, but chatting back only works out (as deliberate
+        // gibberish) when the cross-faction dice allow it.
+        static void MarkCrossFaction(TriggerContext& trigger, Player* bot, Player* actor)
+        {
+            if (BotSelector::CanUnderstand(bot, actor))
+                return;
+            trigger.crossFaction = true;
+            trigger.crossFactionChatOk = urand(0, 99) < sLlmConfig->crossFactionChatChance;
+        }
+
         void HandleChat(Player* sender, uint32 type, uint32 lang, std::string const& msg,
             Player* receiver, Group* group, Guild* guild, Channel* channel)
         {

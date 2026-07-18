@@ -26,7 +26,8 @@ the model once — as OpenAI tool-result messages, with context and tool list re
 new game state — so it can pick an alternative action (`LLM.ErrorFeedback.Enable`).
 
 The guiding rule for prompt context: anything a player would see on their screen belongs in it.
-Today that's the bot's zone, its full party/raid roster (names and leader), guild, its own memory
+Today that's the bot's zone, its full party/raid roster (names and leader), guild, its own quest
+log (titles plus ready-to-turn-in/failed markers, so quest talk stays honest), its own memory
 notes (those about the player it's talking to, plus recent general ones), recent conversation
 history, and everything said in /say or /yell within earshot lately — bots overhear like players
 do, whether or not they were picked to answer (`LLM.Chat.Overhear.Enable`). Hearing ranges default to the server's player listen ranges
@@ -60,14 +61,20 @@ do, whether or not they were picked to answer (`LLM.Chat.Overhear.Enable`). Hear
   The whole mechanism sits behind `LLM.Chat.BotTrigger.Enable`, chain-capped by
   `LLM.Chat.BotTrigger.MaxChainDepth`, and still requires a human audience.
 - **Emotes**: emotes aimed at a bot, or performed nearby — including cross-faction ones, since
-  text emotes are faction-agnostic for real players too.
+  text emotes are faction-agnostic for real players too. A cross-faction emote normally draws an
+  emote back (the prompt explains the language barrier); a small dice roll
+  (`LLM.Chat.CrossFactionChatChance`) occasionally lets the bot type at the enemy anyway, which
+  lands as the classic untranslated-gibberish taunt.
 - **Game events**: kills, deaths, level-ups, quest completions, duels, achievements, notable loot.
-  Also group joins: a bot that joins a party or raid greets it in party/raid chat (this replaces
-  playerbots' canned "Hello" whisper, which we keep disabled via `AiPlayerbot.EnableGreet = 0`).
+  A comment about a groupmate's deed goes to party/raid chat; enemy-faction deeds draw comment
+  only on the same cross-faction dice. Also group joins: a bot that joins a party or raid greets
+  it in party/raid chat (this replaces playerbots' canned "Hello" whisper, which we keep disabled
+  via `AiPlayerbot.EnableGreet = 0`).
 - **Initiative**: an idle scheduler gives each bot periodic opportunities to act unprompted,
   with an environment description in the prompt.
 
-Event comments and initiative remarks usually land in /say, but a configurable share
+Event comments and initiative remarks usually land in /say — which happens only with a human in
+actual earshot, here and wherever else a bot speaks aloud — but a configurable share
 (`LLM.Event.ChannelChance`, `LLM.Initiative.ChannelChance`) goes to the bot's zone **General
 channel** instead — the idle zone chatter real servers have — whenever the bot and at least one
 real player are on the channel.

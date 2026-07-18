@@ -78,6 +78,28 @@ namespace ModLlm::LlmTools
             return false;
         }
 
+        // Speaking aloud (/say, /yell) is only worth doing when a human is
+        // close enough to hear it, and only lands as words when the trigger's
+        // actor shares a language (unless the cross-faction dice said the bot
+        // may shout gibberish anyway).
+        bool SpeakAloudBlocked(ToolExecContext& context, bool yelled, std::string& error)
+        {
+            TriggerContext const& trigger = *context.trigger;
+            if (trigger.crossFaction && !trigger.crossFactionChatOk)
+            {
+                error = "you share no language with them; an emote is how to communicate";
+                return true;
+            }
+
+            float range = yelled ? sLlmConfig->yellDistance : sLlmConfig->sayDistance;
+            if (!BotSelector::HasRealPlayerNearby(context.bot, range))
+            {
+                error = "nobody is close enough to hear you";
+                return true;
+            }
+            return false;
+        }
+
         // Sends `message` back into the channel the trigger came from. The
         // audience is bound by the trigger, never chosen by the model.
         bool RouteSay(ToolExecContext& context, std::string const& message, std::string& error)
@@ -120,10 +142,13 @@ namespace ModLlm::LlmTools
                         sent = context.ai->SayToRaid(message);
                     else if (trigger.chatType == CHAT_MSG_PARTY)
                         sent = context.ai->SayToParty(message);
-                    else if (trigger.chatType == CHAT_MSG_YELL)
-                        sent = spokeAloud = yelled = context.ai->Yell(message);
                     else
-                        sent = spokeAloud = context.ai->Say(message);
+                    {
+                        yelled = trigger.chatType == CHAT_MSG_YELL;
+                        if (SpeakAloudBlocked(context, yelled, error))
+                            return false;
+                        sent = spokeAloud = yelled ? context.ai->Yell(message) : context.ai->Say(message);
+                    }
                     break;
             }
 
@@ -186,6 +211,8 @@ namespace ModLlm::LlmTools
             if (destination == "say" || destination == "yell")
             {
                 bool yelled = destination == "yell";
+                if (SpeakAloudBlocked(context, yelled, error))
+                    return false;
                 if (!(yelled ? context.ai->Yell(message) : context.ai->Say(message)))
                 {
                     error = "message could not be delivered";
@@ -476,14 +503,7 @@ namespace ModLlm::LlmTools
         bool GroupHasRealPlayer(Player* bot)
         {
             Group* group = bot->GetGroup();
-            if (!group)
-                return false;
-
-            for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
-                if (Player* member = ref->GetSource())
-                    if (member != bot && BotSelector::IsRealPlayer(member))
-                        return true;
-            return false;
+            return group && BotSelector::GroupHasRealPlayer(group);
         }
 
         // travel_to teleports like playerbots zone crossing does: only once no

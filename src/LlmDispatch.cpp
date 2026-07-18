@@ -114,11 +114,13 @@ namespace ModLlm::Dispatch
 
             // Deferred from a map-thread hook: now that we are on the world
             // thread the zone channel can be resolved. An unbound trigger
-            // just replies in /say.
+            // falls back to /say - worth doing only with a human in earshot.
             if (trigger.wantZoneChannel)
             {
                 trigger.wantZoneChannel = false;
-                BotSelector::BindZoneChannel(bot, trigger);
+                if (!BotSelector::BindZoneChannel(bot, trigger)
+                    && !BotSelector::HasRealPlayerNearby(bot, sLlmConfig->sayDistance))
+                    continue;
             }
 
             Player* actor = trigger.actorGuid ? ObjectAccessor::FindPlayer(trigger.actorGuid) : nullptr;

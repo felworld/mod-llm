@@ -46,15 +46,6 @@ namespace ModLlm::BotSelector
             return true;
         }
 
-        // Say/yell reaches the opposite faction only as untranslated gibberish,
-        // so unless the server allows cross-faction chat a bot cannot
-        // understand (or sensibly answer) the opposing team.
-        bool CanUnderstand(Player* bot, Player* sender)
-        {
-            return bot->GetTeamId() == sender->GetTeamId()
-                || sWorld->getBoolConfig(CONFIG_ALLOW_TWO_SIDE_INTERACTION_CHAT);
-        }
-
         // The trigger must involve a human somewhere: either the sender is
         // one, or one is close enough to the bot to witness the reaction.
         bool HasHumanAudience(Player* bot, Player* sender, float distance)
@@ -122,6 +113,23 @@ namespace ModLlm::BotSelector
             if (player->IsInWorld() && IsRealPlayer(player) && player->IsInChannel(channel))
                 return true;
         return false;
+    }
+
+    bool GroupHasRealPlayer(Group* group)
+    {
+        for (Group::MemberSlot const& slot : group->GetMemberSlots())
+            if (IsRealPlayer(ObjectAccessor::FindPlayer(slot.guid)))
+                return true;
+        return false;
+    }
+
+    // Say/yell reaches the opposite faction only as untranslated gibberish,
+    // so unless the server allows cross-faction chat a bot cannot understand
+    // (or sensibly answer) the opposing team.
+    bool CanUnderstand(Player* bot, Player* speaker)
+    {
+        return bot->GetTeamId() == speaker->GetTeamId()
+            || sWorld->getBoolConfig(CONFIG_ALLOW_TWO_SIDE_INTERACTION_CHAT);
     }
 
     bool MentionsName(std::string const& message, std::string const& name)

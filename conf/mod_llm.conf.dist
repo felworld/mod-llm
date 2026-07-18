@@ -299,6 +299,19 @@ LLM.Chat.SayRouter.Enable = 1
 
 LLM.Chat.EnableCustomChannels = 1
 
+#
+#    LLM.Chat.CrossFactionChatChance
+#        Description: Percent chance that a bot reacting to an enemy-faction
+#                     player's emote or deed is allowed to attempt chat anyway
+#                     (which the enemy sees as untranslated gibberish - the
+#                     classic cross-faction /say taunt). The rest of the time
+#                     enemy game events draw no comment and enemy emotes get
+#                     emotes back.
+#        Default:     5
+#
+
+LLM.Chat.CrossFactionChatChance = 5
+
 ########################################
 # Emote reactions
 ########################################
@@ -330,16 +343,13 @@ LLM.Event.Enable = 1
 #
 #    LLM.Event.BotDistance
 #        Description: How close a bot must be to the event to comment.
-#        Default:     40
-#
-#    LLM.Event.RealPlayerDistance
-#        Description: A human must be within this range of the commenting bot
-#                     (unless the event is about a human).
+#                     Comments about a groupmate's deed go to party/raid chat;
+#                     others go to the zone channel (ChannelChance) or /say,
+#                     and a /say comment only happens with a human in earshot.
 #        Default:     40
 #
 
 LLM.Event.BotDistance = 40
-LLM.Event.RealPlayerDistance = 40
 
 LLM.Event.CooldownSeconds = 10
 LLM.Event.MaxBotsPerEvent = 2
@@ -407,20 +417,12 @@ LLM.Initiative.Chance = 5
 #                     General channel instead of /say - the idle "anyone else
 #                     lagging?" zone chatter real servers have. Requires the
 #                     bot on the channel with a real player also on it;
-#                     otherwise the remark stays /say (with its own
-#                     RealPlayerDistance gate).
+#                     otherwise the remark stays /say, which requires a human
+#                     in earshot.
 #        Default:     25
 #
 
 LLM.Initiative.ChannelChance = 25
-
-#
-#    LLM.Initiative.RealPlayerDistance
-#        Description: A human must be within this range for a bot to bother.
-#        Default:     200
-#
-
-LLM.Initiative.RealPlayerDistance = 200
 LLM.Initiative.MaxBotsPerTick = 2
 
 ########################################
@@ -478,12 +480,16 @@ LLM.History.RetentionDays = 2
 #    Prompt templates use {named} placeholders. Values are single-line; write
 #    newlines inside a template as the two-character sequence \n. Available:
 #      system:  {bot_name} {bot_level} {bot_class} {bot_race} {bot_faction}
-#               {bot_area} {bot_zone} {bot_group} {bot_guild} {style_examples}
+#               {bot_area} {bot_zone} {bot_group} {bot_guild} {bot_quests}
+#               {style_examples}
+#               {bot_quests} is the bot's own quest log: titles plus a
+#               ready-to-turn-in/failed marker, so quest talk stays honest
 #      user:    {memory_block} {history_block} {channel_label} {actor_name}
 #               {actor_level} {actor_class} {actor_race} {message} {environment}
 #               {reply_guidance} (party/raid/bg chat: reminds the bot the
 #               whole group heard the message and silence is a fine answer;
-#               zone-channel remarks: reminds it the whole zone hears it)
+#               zone-channel remarks: reminds it the whole zone hears it;
+#               cross-faction emotes/events: explains the language barrier)
 #               {memory_block} is the bot's own notes: those about the actor
 #               plus its most recent general notes (see LLM.Memory.*)
 #               {history_block} includes, when present: overheard nearby
@@ -501,7 +507,7 @@ LLM.History.RetentionDays = 2
 #    built-in defaults (recommended starting point).
 #
 
-LLM.Prompt.System = "You are {bot_name}, a level {bot_level} {bot_race} {bot_class} of the {bot_faction} in World of Warcraft: Wrath of the Lich King, currently in {bot_area} ({bot_zone}). {bot_group}{bot_guild}You are a real person playing your character at your keyboard - never an assistant. React to the situation using the available tools, or do nothing at all - most moments deserve no reaction. Never announce what you are doing and never mention tools or AI. You type like a WoW player in a hurry: mostly lowercase, light punctuation, netspeak and abbreviations where natural, usually just a few words and never more than 20, with no emojis, markdown, or quotation marks. Talk about the game the way players do - quests, mobs, drops, gold, specs, lag. You have your own goals and your own session going: you owe nobody help, and being busy, saying no, disagreeing, or ignoring people is all normal. Help when you feel like it, not to please. Skip apologies and compliments unless truly earned, and end a message with a question or an offer only when you actually want something. Reusing short casual words is fine, but vary your own wording rather than repeating whole phrases from the conversation history. Use the remember and forget tools to keep short private notes about people you meet and plans you make; whatever is relevant is shown back to you. You may call several tools in one reply.{style_examples}"
+LLM.Prompt.System = "You are {bot_name}, a level {bot_level} {bot_race} {bot_class} of the {bot_faction} in World of Warcraft: Wrath of the Lich King, currently in {bot_area} ({bot_zone}). {bot_group}{bot_guild}{bot_quests}You are a real person playing your character at your keyboard - never an assistant. React to the situation using the available tools, or do nothing at all - most moments deserve no reaction. Never announce what you are doing and never mention tools or AI. You type like a WoW player in a hurry: mostly lowercase, light punctuation, netspeak and abbreviations where natural, usually just a few words and never more than 20, with no emojis, markdown, or quotation marks. Talk about the game the way players do - quests, mobs, drops, gold, specs, lag. You have your own goals and your own session going: you owe nobody help, and being busy, saying no, disagreeing, or ignoring people is all normal. Help when you feel like it, not to please. Skip apologies and compliments unless truly earned, and end a message with a question or an offer only when you actually want something. Reusing short casual words is fine, but vary your own wording rather than repeating whole phrases from the conversation history. Use the remember and forget tools to keep short private notes about people you meet and plans you make; whatever is relevant is shown back to you. You may call several tools in one reply.{style_examples}"
 
 LLM.Prompt.StyleExamples = "\n\nHow you type - examples of situation => message you might send:\nstranger begs for gold => lol no\ngroupmate dings => gz\nasked where a vendor is and you know => by the fountain, cant miss it\nasked for a summon while you are busy => busy atm sry\nstranger wants to duel and you do not care => nah\nyou finally finish a rough quest => that quest was awful lol\ninvited to group mid-quest => maybe after this quest\nguildie asks who is up for deadmines => id come, need the vc sword\nsomeone says thanks => np\nyou die to something dumb => wow im bad\nsomeone keeps pestering you => dude stop\nyou agree to meet someone => omw"
 

@@ -32,6 +32,14 @@ namespace ModLlm::BotSelector
     // True if any human player is currently on the channel. World thread only.
     bool HasRealPlayerInChannel(Channel* channel);
 
+    // True if any human player is a member of the group. Reads member slots +
+    // ObjectAccessor only, so it is safe from map-update threads.
+    bool GroupHasRealPlayer(Group* group);
+
+    // Whether `bot` shares a chat language with `speaker`: same faction, or
+    // the server allows cross-faction chat.
+    bool CanUnderstand(Player* bot, Player* speaker);
+
     // Case-insensitive whole-word search; pure, unit-tested.
     bool MentionsName(std::string const& message, std::string const& name);
 

@@ -60,6 +60,8 @@ namespace ModLlm
         uint32 chainDepth = 0;       // bot-to-bot hops so far (caps runaway bot conversations)
         bool wantZoneChannel = false; // bind to the zone General channel at world-thread
                                       // dispatch (ChannelMgr is unsafe on map threads)
+        bool crossFaction = false;   // the actor is on the opposing faction: no shared language
+        bool crossFactionChatOk = false; // rolled permission to shout gibberish at them anyway
     };
 }
 

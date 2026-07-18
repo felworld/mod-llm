@@ -15,9 +15,11 @@
 #include "HistoryStore.h"
 #include "LlmConfig.h"
 #include "MemoryStore.h"
+#include "ObjectMgr.h"
 #include "Player.h"
 #include "PlayerbotAI.h"
 #include "PlayerbotMgr.h"
+#include "QuestDef.h"
 #include "SharedDefines.h"
 #include "StringFormat.h"
 
@@ -126,6 +128,29 @@ namespace ModLlm::ContextBuilder
         if (Guild* guild = sGuildMgr->GetGuildById(bot->GetGuildId()))
             snapshot.botGuild = Acore::StringFormat("You are a member of the guild <{}>. ", guild->GetName());
 
+        // A player always knows what is in their quest log, so the bot does
+        // too - otherwise it invents quests it does not have.
+        std::string quests;
+        for (uint8 slot = 0; slot < MAX_QUEST_LOG_SIZE; ++slot)
+        {
+            uint32 questId = bot->GetQuestSlotQuestId(slot);
+            Quest const* quest = questId ? sObjectMgr->GetQuestTemplate(questId) : nullptr;
+            if (!quest)
+                continue;
+
+            if (!quests.empty())
+                quests += ", ";
+            quests += "\"" + quest->GetTitle() + "\"";
+
+            QuestStatus status = bot->GetQuestStatus(questId);
+            if (status == QUEST_STATUS_COMPLETE)
+                quests += " (ready to turn in)";
+            else if (status == QUEST_STATUS_FAILED)
+                quests += " (failed)";
+        }
+        if (!quests.empty())
+            snapshot.botQuests = Acore::StringFormat("Your quest log: {}. ", quests);
+
         snapshot.actorName = actor ? actor->GetName() : trigger.actorName;
         if (actor)
         {
@@ -153,6 +178,21 @@ namespace ModLlm::ContextBuilder
 
         snapshot.channelLabel = ChannelLabel(trigger);
         snapshot.replyGuidance = ReplyGuidance(trigger);
+
+        // No shared language across the faction line: steer the bot toward
+        // emotes, unless the dice granted it a round of deliberate gibberish.
+        if (trigger.crossFaction)
+        {
+            char const* enemyFaction = bot->GetTeamId() == TEAM_ALLIANCE ? "Horde" : "Alliance";
+            if (trigger.crossFactionChatOk)
+                snapshot.replyGuidance += Acore::StringFormat(" {} is {} - you share no language, and"
+                    " anything you type reaches them as gibberish. Emotes carry meaning; typed words"
+                    " are pure taunt value.", snapshot.actorName, enemyFaction);
+            else
+                snapshot.replyGuidance += Acore::StringFormat(" {} is {} - you share no language, and"
+                    " typed words reach them as unreadable gibberish. Emotes are how you communicate.",
+                    snapshot.actorName, enemyFaction);
+        }
 
         if (trigger.kind == TRIGGER_INITIATIVE)
             snapshot.environment = DescribeEnvironment(bot);
