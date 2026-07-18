@@ -46,7 +46,7 @@ namespace ModLlm::PromptAssembler
             args.push_back(fmt::arg("style_examples", sLlmConfig->promptStyleExamples));
 
             std::string fallback = Acore::StringFormat(
-                "You are {}, a level {} {} {} in World of Warcraft. React with the available tools or do nothing.",
+                "You are {}, a level {} (of 80 max) {} {} in World of Warcraft. React with the available tools or do nothing.",
                 snapshot.botName, snapshot.botLevel, snapshot.botRace, snapshot.botClass);
 
             return SafeFormat(sLlmConfig->promptSystem, args, fallback);
