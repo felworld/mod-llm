@@ -15,6 +15,7 @@
 #include "LlmTrigger.h"
 #include "Player.h"
 #include "SharedDefines.h"
+#include "StringFormat.h"
 
 namespace ModLlm::Overhear
 {
@@ -80,13 +81,13 @@ namespace ModLlm::Overhear
     }
 
     void OnBotChannelSpeech(Player* bot, TriggerContext const& sourceTrigger,
-        std::string const& message)
+        std::string const& channelName, std::string const& message)
     {
-        if (!ChainAllowed(sourceTrigger) || sourceTrigger.channelName.empty())
+        if (!ChainAllowed(sourceTrigger) || channelName.empty())
             return;
 
         ChannelMgr* mgr = ChannelMgr::forTeam(bot->GetTeamId());
-        Channel* channel = mgr ? mgr->GetChannel(sourceTrigger.channelName, bot, false) : nullptr;
+        Channel* channel = mgr ? mgr->GetChannel(channelName, bot, false) : nullptr;
         if (!channel)
             return;
 
@@ -96,10 +97,33 @@ namespace ModLlm::Overhear
         TriggerContext trigger;
         trigger.kind = TRIGGER_CHAT_CHANNEL;
         trigger.chatType = CHAT_MSG_CHANNEL;
-        trigger.channelName = sourceTrigger.channelName;
-        trigger.roomKey = sourceTrigger.roomKey;
+        trigger.channelName = channelName;
+        trigger.roomKey = Acore::StringFormat("channel:{}:{}", channelName, uint32(bot->GetTeamId()));
         trigger.message = message;
         trigger.chainDepth = sourceTrigger.chainDepth + 1;
         SubmitStaggered(bots, bot, std::move(trigger));
+    }
+
+    void OnBotWhisper(Player* bot, TriggerContext const& sourceTrigger,
+        Player* receiver, std::string const& message)
+    {
+        if (BotSelector::IsRealPlayer(receiver))
+            return;
+
+        // The receiving bot remembers the whisper whether or not it replies.
+        sLlmHistoryStore->AddPairLine(receiver->GetGUID(), bot->GetGUID(), false,
+            bot->GetName(), message);
+
+        if (!ChainAllowed(sourceTrigger) || !sLlmConfig->whispersEnabled)
+            return;
+        if (sLlmConfig->skipInCombat && receiver->IsInCombat())
+            return;
+
+        TriggerContext trigger;
+        trigger.kind = TRIGGER_CHAT_WHISPER;
+        trigger.chatType = CHAT_MSG_WHISPER;
+        trigger.message = message;
+        trigger.chainDepth = sourceTrigger.chainDepth + 1;
+        Dispatch::Submit(receiver, bot, std::move(trigger));
     }
 }

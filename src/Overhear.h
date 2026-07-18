@@ -32,9 +32,19 @@ namespace ModLlm
             std::string const& message, bool yell);
 
         // A bot just spoke in a named channel: maybe trigger other bots on
-        // the channel (the room transcript already records the line).
+        // the channel (the room transcript already records the line). The
+        // channel is passed explicitly because a say redirected via the
+        // `destination` argument can land somewhere other than the trigger's
+        // channel.
         void OnBotChannelSpeech(Player* bot, TriggerContext const& sourceTrigger,
-            std::string const& message);
+            std::string const& channelName, std::string const& message);
+
+        // A bot just whispered `receiver`: when the receiver is a bot too,
+        // record the line in its pair history and maybe trigger a reply
+        // (whispers between real players and bots flow through the chat
+        // hook instead; bot-sent whispers bypass it).
+        void OnBotWhisper(Player* bot, TriggerContext const& sourceTrigger,
+            Player* receiver, std::string const& message);
     }
 }
 

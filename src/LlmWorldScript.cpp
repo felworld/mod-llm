@@ -66,6 +66,13 @@ namespace ModLlm
                 UpdateInitiative();
             }
 
+            _travelTimer += diff;
+            if (_travelTimer >= 3000)
+            {
+                _travelTimer = 0;
+                LlmTools::UpdateTravel();
+            }
+
             _memorySaveTimer += diff;
             if (_memorySaveTimer >= sLlmConfig->memorySaveIntervalSeconds * IN_MILLISECONDS)
             {
@@ -144,6 +151,7 @@ namespace ModLlm
         }
 
         uint32 _initiativeTimer = 0;
+        uint32 _travelTimer = 0;
         uint32 _memorySaveTimer = 0;
         uint32 _historySaveTimer = 0;
         std::unordered_map<uint64, time_t> _nextInitiative;

@@ -5,25 +5,38 @@
 
 #include "LlmTools.h"
 
+#include "BotSelector.h"
 #include "Channel.h"
 #include "ChannelMgr.h"
 #include "Chat.h"
+#include "GameTime.h"
 #include "Group.h"
+#include "Guild.h"
 #include "HistoryStore.h"
 #include "LlmConfig.h"
 #include "LlmTrigger.h"
 #include "Log.h"
 #include "MemoryStore.h"
+#include "ObjectAccessor.h"
+#include "ObjectMgr.h"
 #include "Overhear.h"
 #include "Player.h"
 #include "PlayerbotAI.h"
+#include "PlayerbotMgr.h"
 #include "SharedDefines.h"
+#include "SpellMgr.h"
+#include "StringFormat.h"
 #include "TextEmoteCatalog.h"
 #include "ToolRegistry.h"
+#include "Util.h"
+#include "World.h"
 #include "WorldPacket.h"
 #include "WorldSession.h"
 
+#include <algorithm>
 #include <cctype>
+#include <unordered_map>
+#include <vector>
 
 namespace ModLlm::LlmTools
 {
@@ -132,9 +145,162 @@ namespace ModLlm::LlmTools
             if (spokeAloud)
                 Overhear::OnBotSpeech(context.bot, trigger, message, yelled);
             else if (spokeInChannel)
-                Overhear::OnBotChannelSpeech(context.bot, trigger, message);
+                Overhear::OnBotChannelSpeech(context.bot, trigger, trigger.channelName, message);
 
             return true;
+        }
+
+        // Finds a channel the bot is on by name; "General" matches the
+        // zone-local "General - Durotar" so the model can use the short name.
+        Channel* FindJoinedChannel(Player* bot, std::string const& name)
+        {
+            ChannelMgr* mgr = ChannelMgr::forTeam(bot->GetTeamId());
+            if (!mgr)
+                return nullptr;
+
+            Channel* prefixMatch = nullptr;
+            for (auto const& [key, channel] : mgr->GetChannels())
+            {
+                if (!channel || !bot->IsInChannel(channel))
+                    continue;
+                if (StringEqualI(channel->GetName(), name))
+                    return channel;
+                if (!prefixMatch && StringStartsWithI(channel->GetName(), name))
+                    prefixMatch = channel;
+            }
+            return prefixMatch;
+        }
+
+        // Sends `message` to an explicitly chosen audience (the say tool's
+        // `destination` argument): the one place the model may point a
+        // message somewhere other than where the trigger came from. Every
+        // branch validates the audience actually exists for this bot, and
+        // logs history/overhear against the destination, not the trigger.
+        bool RouteSayTo(ToolExecContext& context, std::string const& destination,
+            std::string const& whisperTo, std::string const& channelName,
+            std::string const& message, std::string& error)
+        {
+            TriggerContext const& trigger = *context.trigger;
+            Player* bot = context.bot;
+
+            if (destination == "say" || destination == "yell")
+            {
+                bool yelled = destination == "yell";
+                if (!(yelled ? context.ai->Yell(message) : context.ai->Say(message)))
+                {
+                    error = "message could not be delivered";
+                    return false;
+                }
+                Overhear::OnBotSpeech(bot, trigger, message, yelled);
+                return true;
+            }
+
+            if (destination == "party" || destination == "raid")
+            {
+                Group* group = bot->GetGroup();
+                if (!group)
+                {
+                    error = "you are not in a group";
+                    return false;
+                }
+
+                bool sent;
+                if (group->isBGGroup() || group->isBFGroup())
+                    sent = SayToBattleground(context, message);
+                else if (destination == "raid")
+                {
+                    if (!group->isRaidGroup())
+                    {
+                        error = "your group is not a raid";
+                        return false;
+                    }
+                    sent = context.ai->SayToRaid(message);
+                }
+                else
+                    sent = context.ai->SayToParty(message);
+
+                if (!sent)
+                {
+                    error = "message could not be delivered";
+                    return false;
+                }
+                sLlmHistoryStore->AddRoomLine(
+                    Acore::StringFormat("group:{}", group->GetGUID().GetCounter()),
+                    trigger.botGuid, bot->GetName(), message);
+                return true;
+            }
+
+            if (destination == "guild")
+            {
+                Guild* guild = bot->GetGuild();
+                if (!guild)
+                {
+                    error = "you are not in a guild";
+                    return false;
+                }
+                if (!context.ai->SayToGuild(message))
+                {
+                    error = "message could not be delivered";
+                    return false;
+                }
+                sLlmHistoryStore->AddRoomLine(Acore::StringFormat("guild:{}", guild->GetId()),
+                    trigger.botGuid, bot->GetName(), message);
+                return true;
+            }
+
+            if (destination == "whisper")
+            {
+                std::string name = whisperTo;
+                if (name.empty() || !normalizePlayerName(name))
+                {
+                    error = "whisper needs whisper_to set to a player name";
+                    return false;
+                }
+                Player* receiver = ObjectAccessor::FindPlayerByName(name);
+                if (!receiver)
+                {
+                    error = "no player with that name is online";
+                    return false;
+                }
+                if (receiver == bot)
+                {
+                    error = "that is your own name";
+                    return false;
+                }
+                if (!context.ai->Whisper(message, name))
+                {
+                    error = "you cannot whisper them";
+                    return false;
+                }
+                sLlmHistoryStore->AddPairLine(trigger.botGuid, receiver->GetGUID(), true,
+                    bot->GetName(), message);
+                Overhear::OnBotWhisper(bot, trigger, receiver, message);
+                return true;
+            }
+
+            if (destination == "channel")
+            {
+                if (channelName.empty())
+                {
+                    error = "channel needs channel_name";
+                    return false;
+                }
+                Channel* channel = FindJoinedChannel(bot, channelName);
+                if (!channel)
+                {
+                    error = "you are not on a channel with that name";
+                    return false;
+                }
+                channel->Say(bot->GetGUID(), message, LANG_UNIVERSAL);
+                sLlmHistoryStore->AddRoomLine(
+                    Acore::StringFormat("channel:{}:{}", channel->GetName(), uint32(bot->GetTeamId())),
+                    trigger.botGuid, bot->GetName(), message);
+                Overhear::OnBotChannelSpeech(bot, trigger, channel->GetName(), message);
+                return true;
+            }
+
+            error = "unknown destination";
+            return false;
         }
 
         // The next two helpers back both a tool's availability predicate (so
@@ -198,6 +364,146 @@ namespace ModLlm::LlmTools
             }
             return false;
         }
+
+        bool GuildInviteBlocked(Player* bot, Player* actor, std::string& error)
+        {
+            Guild* guild = bot->GetGuild();
+            if (!guild)
+            {
+                error = "you are not in a guild";
+                return true;
+            }
+            if (!guild->HasRankRight(bot, GR_RIGHT_INVITE))
+            {
+                error = "your guild rank cannot invite";
+                return true;
+            }
+            if (!sWorld->getBoolConfig(CONFIG_ALLOW_TWO_SIDE_INTERACTION_GUILD)
+                && bot->GetTeamId() != actor->GetTeamId())
+            {
+                error = "they are on the opposing faction";
+                return true;
+            }
+            if (actor->GetGuildId())
+            {
+                error = "they are already in a guild";
+                return true;
+            }
+            if (actor->GetGuildIdInvited())
+            {
+                error = "they already have a pending guild invite";
+                return true;
+            }
+            return false;
+        }
+
+        bool FollowBlocked(Player* bot, PlayerbotAI* ai, Player* actor, std::string& error)
+        {
+            if (!bot->GetGroup() || bot->GetGroup() != actor->GetGroup())
+            {
+                error = "you are not in a group together";
+                return true;
+            }
+            if (!ai || ai->GetMaster() != actor)
+            {
+                error = "you only follow the player leading you";
+                return true;
+            }
+            return false;
+        }
+
+        // The friendly buffs a bot can put on another player, by class. The
+        // first entry for a class is its signature buff, used when the model
+        // does not name one.
+        struct ClassBuff
+        {
+            uint8 playerClass;
+            char const* name;
+            uint32 firstRankSpellId;
+        };
+
+        constexpr ClassBuff CLASS_BUFFS[] =
+        {
+            { CLASS_MAGE,    "arcane intellect",      1459  },
+            { CLASS_PRIEST,  "power word: fortitude", 1243  },
+            { CLASS_PRIEST,  "divine spirit",         14752 },
+            { CLASS_DRUID,   "mark of the wild",      1126  },
+            { CLASS_DRUID,   "thorns",                467   },
+            { CLASS_PALADIN, "blessing of might",     19740 },
+            { CLASS_PALADIN, "blessing of wisdom",    19742 },
+            { CLASS_PALADIN, "blessing of kings",     20217 },
+            { CLASS_WARLOCK, "unending breath",       5697  },
+        };
+
+        // Every rank of `firstRank`'s chain the bot knows, ascending.
+        std::vector<uint32> KnownRanks(Player* bot, uint32 firstRank)
+        {
+            std::vector<uint32> ranks;
+            for (uint32 id = firstRank; id; id = sSpellMgr->GetNextSpellInChain(id))
+                if (bot->HasSpell(id))
+                    ranks.push_back(id);
+            return ranks;
+        }
+
+        bool KnowsAnyBuff(Player* bot)
+        {
+            for (ClassBuff const& buff : CLASS_BUFFS)
+                if (buff.playerClass == bot->getClass() && !KnownRanks(bot, buff.firstRankSpellId).empty())
+                    return true;
+            return false;
+        }
+
+        bool BuffBlocked(Player* bot, Player* actor, std::string& error)
+        {
+            if (bot->GetTeamId() != actor->GetTeamId())
+            {
+                error = "they are on the opposing faction";
+                return true;
+            }
+            if (!bot->IsAlive() || !actor->IsAlive())
+            {
+                error = "someone is dead";
+                return true;
+            }
+            if (!KnowsAnyBuff(bot))
+            {
+                error = "you have no buff spells";
+                return true;
+            }
+            return false;
+        }
+
+        bool GroupHasRealPlayer(Player* bot)
+        {
+            Group* group = bot->GetGroup();
+            if (!group)
+                return false;
+
+            for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+                if (Player* member = ref->GetSource())
+                    if (member != bot && BotSelector::IsRealPlayer(member))
+                        return true;
+            return false;
+        }
+
+        // travel_to teleports like playerbots zone crossing does: only once no
+        // human could watch the bot blink out, so it reads as "they made the
+        // trip" rather than "they teleported". Pending trips are polled from
+        // the world update. World thread only.
+        constexpr float TRAVEL_HIDE_DISTANCE = 120.0f;
+        constexpr time_t TRAVEL_EXPIRY_SECONDS = 600;
+
+        struct PendingTravel
+        {
+            uint32 mapId;
+            float x;
+            float y;
+            float z;
+            float orientation;
+            time_t expiry;
+        };
+
+        std::unordered_map<ObjectGuid, PendingTravel> pendingTravels;
     }
 
     std::string SanitizeChatText(std::string text)
@@ -224,15 +530,30 @@ namespace ModLlm::LlmTools
 
     void RegisterDefaultTools()
     {
-        // say - available on every trigger; audience bound by the trigger.
+        // say - available on every trigger. By default the audience is bound
+        // by the trigger; the optional `destination` lets the model move a
+        // message elsewhere (asked to pass something on to the guild, to
+        // whisper a name, ...), strictly validated in RouteSayTo.
         sLlmToolRegistry->Register({
             "say",
             "Send a chat message to whoever you are currently talking with (the same channel the "
             "conversation is happening in).",
             {
                 { "type", "object" },
-                { "properties", { { "message", { { "type", "string" },
-                    { "description", "The chat message to send, plain text" } } } } },
+                { "properties", {
+                    { "message", { { "type", "string" },
+                        { "description", "The chat message to send, plain text" } } },
+                    { "destination", { { "type", "string" },
+                        { "enum", { "say", "yell", "party", "raid", "guild", "whisper", "channel" } },
+                        { "description", "Where to send the message when it should go somewhere other "
+                            "than the current conversation, e.g. when asked to tell your guild "
+                            "something or to whisper someone. Omit to reply where you were spoken to." } } },
+                    { "whisper_to", { { "type", "string" },
+                        { "description", "Name of the player to whisper, with destination \"whisper\"" } } },
+                    { "channel_name", { { "type", "string" },
+                        { "description", "Channel to speak in, like General or Trade, with destination "
+                            "\"channel\"" } } }
+                } },
                 { "required", { "message" } }
             },
             TRIGGER_ALL,
@@ -245,7 +566,12 @@ namespace ModLlm::LlmTools
                     error = "empty message";
                     return false;
                 }
-                return RouteSay(context, message, error);
+
+                std::string destination = args.value("destination", "");
+                if (destination.empty())
+                    return RouteSay(context, message, error);
+                return RouteSayTo(context, destination, args.value("whisper_to", ""),
+                    args.value("channel_name", ""), message, error);
             }
         });
 
@@ -412,6 +738,306 @@ namespace ModLlm::LlmTools
             }
         });
 
+        // roll - the classic /roll, visible to the bot's group.
+        sLlmToolRegistry->Register({
+            "roll",
+            "Roll a random number like a player typing /roll (1-100 unless you pick another maximum). "
+            "Your group sees the result; use it to settle loot or play a game of chance.",
+            {
+                { "type", "object" },
+                { "properties", { { "max", { { "type", "integer" },
+                    { "description", "Upper bound of the roll, default 100" } } } } }
+            },
+            TRIGGER_ALL,
+            false,
+            [](ToolExecContext& context, nlohmann::json const& args, std::string& error)
+            {
+                if (!context.bot->GetGroup())
+                {
+                    error = "you are not in a group, nobody would see the roll";
+                    return false;
+                }
+                uint32 maxRoll = uint32(std::clamp<int64>(args.value("max", 100), 2, 1000000));
+                context.bot->DoRandomRoll(1, maxRoll);
+                return true;
+            },
+            [](Player* bot, Player* /*actor*/)
+            {
+                return bot && bot->GetGroup();
+            }
+        });
+
+        // leave_party - the graceful exit; bots that linger forever feel fake.
+        sLlmToolRegistry->Register({
+            "leave_party",
+            "Leave your current group, like a player who is done for the run. Say your goodbyes in "
+            "the same reply.",
+            {
+                { "type", "object" },
+                { "properties", nlohmann::json::object() }
+            },
+            TRIGGER_ALL,
+            false,
+            [](ToolExecContext& context, nlohmann::json const& /*args*/, std::string& error)
+            {
+                if (!context.bot->GetGroup())
+                {
+                    error = "you are not in a group";
+                    return false;
+                }
+                if (context.bot->InBattleground())
+                {
+                    error = "you cannot leave a battleground group";
+                    return false;
+                }
+
+                WorldPacket packet;
+                context.bot->GetSession()->HandleGroupDisbandOpcode(packet);
+                return true;
+            },
+            [](Player* bot, Player* /*actor*/)
+            {
+                return bot && bot->GetGroup() && !bot->InBattleground();
+            }
+        });
+
+        // follow_player / stop_following - reuse the playerbots chat
+        // shortcuts, so the follow behaves exactly like a master typing
+        // "follow" / "stay".
+        sLlmToolRegistry->Register({
+            "follow_player",
+            "Start following the player you are interacting with, like a player asked to 'follow me'.",
+            {
+                { "type", "object" },
+                { "properties", nlohmann::json::object() }
+            },
+            TRIGGER_CHAT_SAY | TRIGGER_CHAT_WHISPER | TRIGGER_CHAT_PARTY | TRIGGER_EMOTE,
+            true,
+            [](ToolExecContext& context, nlohmann::json const& /*args*/, std::string& error)
+            {
+                if (FollowBlocked(context.bot, context.ai, context.actor, error))
+                    return false;
+                if (!context.ai->DoSpecificAction("follow chat shortcut", Event(), true))
+                {
+                    error = "could not start following";
+                    return false;
+                }
+                return true;
+            },
+            [](Player* bot, Player* actor)
+            {
+                std::string ignored;
+                return !FollowBlocked(bot, sPlayerbotsMgr.GetPlayerbotAI(bot), actor, ignored);
+            }
+        });
+
+        sLlmToolRegistry->Register({
+            "stop_following",
+            "Stop following and stay where you are, like a player asked to 'wait here'.",
+            {
+                { "type", "object" },
+                { "properties", nlohmann::json::object() }
+            },
+            TRIGGER_CHAT_SAY | TRIGGER_CHAT_WHISPER | TRIGGER_CHAT_PARTY | TRIGGER_EMOTE,
+            true,
+            [](ToolExecContext& context, nlohmann::json const& /*args*/, std::string& error)
+            {
+                if (FollowBlocked(context.bot, context.ai, context.actor, error))
+                    return false;
+                if (!context.ai->DoSpecificAction("stay chat shortcut", Event(), true))
+                {
+                    error = "could not stop";
+                    return false;
+                }
+                return true;
+            },
+            [](Player* bot, Player* actor)
+            {
+                std::string ignored;
+                return !FollowBlocked(bot, sPlayerbotsMgr.GetPlayerbotAI(bot), actor, ignored);
+            }
+        });
+
+        // buff_player - cast a class buff on the actor, the iconic "can I
+        // get fort?" interaction. Highest known rank, stepped down when the
+        // target is too low-level for it.
+        sLlmToolRegistry->Register({
+            "buff_player",
+            "Cast one of your class buffs on the player you are interacting with, like answering "
+            "'buff me please'.",
+            {
+                { "type", "object" },
+                { "properties", { { "buff", { { "type", "string" },
+                    { "description", "Name of the buff they asked for. Omit to give your usual buff." } } } } }
+            },
+            TRIGGER_CHAT_SAY | TRIGGER_CHAT_WHISPER | TRIGGER_CHAT_PARTY | TRIGGER_CHAT_CHANNEL
+                | TRIGGER_EMOTE | TRIGGER_GAME_EVENT,
+            true,
+            [](ToolExecContext& context, nlohmann::json const& args, std::string& error)
+            {
+                if (BuffBlocked(context.bot, context.actor, error))
+                    return false;
+
+                std::string wanted = args.value("buff", "");
+                std::vector<uint32> ranks;
+                for (ClassBuff const& buff : CLASS_BUFFS)
+                {
+                    if (buff.playerClass != context.bot->getClass())
+                        continue;
+                    if (!wanted.empty() && !StringContainsStringI(buff.name, wanted))
+                        continue;
+                    ranks = KnownRanks(context.bot, buff.firstRankSpellId);
+                    if (!ranks.empty())
+                        break;
+                }
+                if (ranks.empty())
+                {
+                    error = wanted.empty() ? "you have no buff spells" : "you do not know that buff";
+                    return false;
+                }
+
+                SpellCastResult result = SPELL_CAST_OK;
+                for (auto it = ranks.rbegin(); it != ranks.rend(); ++it)
+                {
+                    result = context.bot->CastSpell(context.actor, *it, false);
+                    if (result != SPELL_FAILED_LOWLEVEL)
+                        break;
+                }
+                switch (result)
+                {
+                    case SPELL_CAST_OK:
+                        return true;
+                    case SPELL_FAILED_OUT_OF_RANGE:
+                    case SPELL_FAILED_LINE_OF_SIGHT:
+                        error = "they are too far away";
+                        return false;
+                    case SPELL_FAILED_NO_POWER:
+                        error = "you do not have enough mana";
+                        return false;
+                    case SPELL_FAILED_LOWLEVEL:
+                        error = "they are too low level for your buff";
+                        return false;
+                    default:
+                        error = "the spell did not work";
+                        return false;
+                }
+            },
+            [](Player* bot, Player* actor)
+            {
+                std::string ignored;
+                return !BuffBlocked(bot, actor, ignored);
+            }
+        });
+
+        // guild_invite - core's HandleInviteMember runs the full validation
+        // and delivers the invite dialog; GuildInviteBlocked pre-checks so
+        // the model gets a usable error instead of a silent no-op.
+        sLlmToolRegistry->Register({
+            "guild_invite",
+            "Invite the player you are interacting with to join your guild. Only use when they asked "
+            "to join or clearly want in.",
+            {
+                { "type", "object" },
+                { "properties", nlohmann::json::object() }
+            },
+            TRIGGER_CHAT_SAY | TRIGGER_CHAT_WHISPER | TRIGGER_CHAT_CHANNEL | TRIGGER_EMOTE
+                | TRIGGER_GAME_EVENT,
+            true,
+            [](ToolExecContext& context, nlohmann::json const& /*args*/, std::string& error)
+            {
+                if (GuildInviteBlocked(context.bot, context.actor, error))
+                    return false;
+
+                context.bot->GetGuild()->HandleInviteMember(context.bot->GetSession(),
+                    context.actor->GetName());
+                return true;
+            },
+            [](Player* bot, Player* actor)
+            {
+                std::string ignored;
+                return !GuildInviteBlocked(bot, actor, ignored);
+            }
+        });
+
+        // travel_to - the bot commits to a trip and teleports once nobody
+        // could see it happen (UpdateTravel), so it looks like it walked.
+        sLlmToolRegistry->Register({
+            "travel_to",
+            "Set out for a named place in the world, like a city, town, or zone. You make your own "
+            "way and arrive after a while; you cannot bring anyone along.",
+            {
+                { "type", "object" },
+                { "properties", { { "destination", { { "type", "string" },
+                    { "description", "Place name, like Orgrimmar or Crossroads" } } } } },
+                { "required", { "destination" } }
+            },
+            TRIGGER_ALL,
+            false,
+            [](ToolExecContext& context, nlohmann::json const& args, std::string& error)
+            {
+                GameTele const* tele = sObjectMgr->GetGameTele(args["destination"].get<std::string>());
+                if (!tele)
+                {
+                    error = "you do not know the way there";
+                    return false;
+                }
+                if (context.bot->GetMap()->Instanceable())
+                {
+                    error = "you cannot travel away from here";
+                    return false;
+                }
+                if (GroupHasRealPlayer(context.bot))
+                {
+                    error = "you cannot wander off while grouped with someone";
+                    return false;
+                }
+                if (tele->mapId == context.bot->GetMapId()
+                    && context.bot->IsWithinDist3d(tele->position_x, tele->position_y, tele->position_z, 100.0f))
+                {
+                    error = "you are already there";
+                    return false;
+                }
+
+                pendingTravels[context.trigger->botGuid] = { tele->mapId, tele->position_x,
+                    tele->position_y, tele->position_z, tele->orientation,
+                    GameTime::GetGameTime().count() + TRAVEL_EXPIRY_SECONDS };
+                return true;
+            },
+            [](Player* bot, Player* /*actor*/)
+            {
+                return bot && !bot->GetMap()->Instanceable() && !GroupHasRealPlayer(bot);
+            }
+        });
+
         LOG_INFO("module.llm", "Registered default LLM tools");
+    }
+
+    void UpdateTravel()
+    {
+        time_t now = GameTime::GetGameTime().count();
+        for (auto it = pendingTravels.begin(); it != pendingTravels.end();)
+        {
+            Player* bot = ObjectAccessor::FindPlayer(it->first);
+
+            // Conditions that void the trip entirely.
+            if (!bot || !bot->IsInWorld() || it->second.expiry <= now
+                || bot->GetMap()->Instanceable() || GroupHasRealPlayer(bot))
+            {
+                it = pendingTravels.erase(it);
+                continue;
+            }
+
+            // Conditions that merely postpone it.
+            if (!bot->IsAlive() || bot->IsInCombat() || bot->IsBeingTeleported()
+                || BotSelector::HasRealPlayerNearby(bot, TRAVEL_HIDE_DISTANCE))
+            {
+                ++it;
+                continue;
+            }
+
+            PendingTravel const& travel = it->second;
+            bot->TeleportTo(travel.mapId, travel.x, travel.y, travel.z, travel.orientation);
+            it = pendingTravels.erase(it);
+        }
     }
 }
