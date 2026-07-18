@@ -460,6 +460,15 @@ LLM.Memory.SaveIntervalSeconds = 60
 #                     to the characters DB - and per bot the overheard
 #                     say/yell buffer (in-memory; see LLM.Chat.Overhear).
 #                     MaxOverheardLines caps the overheard lines per prompt.
+#                     Every line is timestamped. Room and overheard lines
+#                     older than ScrollbackSeconds are left out of prompts -
+#                     like chat that has scrolled off a player's chat window -
+#                     so an event-woken bot only sees channel chatter that is
+#                     still live. Pair transcripts are memory of a
+#                     conversation with a person, so they stay, but lines
+#                     more than a couple of minutes old carry an age tag
+#                     ("(10 min ago)") so the bot picks the conversation up
+#                     rather than continuing it mid-sentence.
 #                     Retention is short: transcripts are working memory for
 #                     coherence; anything worth keeping longer belongs in the
 #                     bot's memory scratchpad (LLM.Memory.*).
@@ -469,6 +478,7 @@ LLM.History.Enable = 1
 LLM.History.MaxPairTurns = 5
 LLM.History.MaxRoomLines = 20
 LLM.History.MaxOverheardLines = 10
+LLM.History.ScrollbackSeconds = 300
 LLM.History.SaveIntervalSeconds = 60
 LLM.History.RetentionDays = 2
 

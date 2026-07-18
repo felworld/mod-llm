@@ -125,6 +125,7 @@ namespace ModLlm
         uint32 historyMaxPairTurns = 5;
         uint32 historyMaxRoomLines = 20;
         uint32 historyMaxOverheardLines = 10;
+        uint32 historyScrollbackSeconds = 300;
         uint32 historySaveIntervalSeconds = 60;
         uint32 historyRetentionDays = 14;
 

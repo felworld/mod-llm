@@ -8,6 +8,7 @@
 
 #include "ObjectGuid.h"
 
+#include <ctime>
 #include <deque>
 #include <mutex>
 #include <string>
@@ -42,6 +43,9 @@ namespace ModLlm
 
         // Transcripts preformatted with LLM.Prompt.HistoryLine, newest last,
         // one line per message. Empty string when there is no history.
+        // Room and overheard lines older than LLM.History.ScrollbackSeconds
+        // are omitted - like chat that has scrolled off a player's window -
+        // while pair lines stay but pick up an age tag once they are stale.
         std::string FormatPair(ObjectGuid botGuid, ObjectGuid playerGuid, uint32 maxLines);
         std::string FormatRoom(std::string const& roomKey, uint32 maxLines);
         std::string FormatOverheard(ObjectGuid botGuid, uint32 maxLines);
@@ -49,6 +53,7 @@ namespace ModLlm
     private:
         struct Line
         {
+            time_t at;
             std::string speakerName;
             std::string text;
         };
@@ -74,7 +79,7 @@ namespace ModLlm
             return (uint64(botGuid.GetCounter()) << 32) | playerGuid.GetCounter();
         }
 
-        static std::string FormatLines(std::deque<Line> const& lines, uint32 maxLines);
+        static std::string FormatLines(std::deque<Line> const& lines, uint32 maxLines, uint32 maxAgeSeconds);
 
         std::mutex _mutex;
         std::unordered_map<uint64, std::deque<Line>> _pairs;

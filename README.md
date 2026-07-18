@@ -108,6 +108,11 @@ Two features persist to the characters DB (schema auto-applied at worldserver st
   "ninja'd my loot in deadmines" carries more than the 0..1 sentiment float it replaced.
 - `mod_llm_history_pair` / `mod_llm_history_room` — conversation transcripts fed into prompts.
   Short-retention working memory for coherence; anything worth keeping belongs in a note.
+  Transcripts are recency-aware: room and overheard lines older than
+  `LLM.History.ScrollbackSeconds` are dropped from prompts — like chat that has scrolled off the
+  chat window, it no longer exists for the player — and stale pair lines carry an age tag
+  ("(10 min ago)"), so a bot greets an old acquaintance instead of resuming a dead conversation
+  mid-sentence.
 
 ## Configuration
 

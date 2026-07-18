@@ -194,6 +194,7 @@ namespace ModLlm
         historyMaxPairTurns = sConfigMgr->GetOption<uint32>("LLM.History.MaxPairTurns", 5);
         historyMaxRoomLines = sConfigMgr->GetOption<uint32>("LLM.History.MaxRoomLines", 20);
         historyMaxOverheardLines = sConfigMgr->GetOption<uint32>("LLM.History.MaxOverheardLines", 10);
+        historyScrollbackSeconds = sConfigMgr->GetOption<uint32>("LLM.History.ScrollbackSeconds", 300);
         historySaveIntervalSeconds = sConfigMgr->GetOption<uint32>("LLM.History.SaveIntervalSeconds", 60);
         historyRetentionDays = sConfigMgr->GetOption<uint32>("LLM.History.RetentionDays", 14);
 
