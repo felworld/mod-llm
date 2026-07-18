@@ -101,10 +101,10 @@ LLM.TimeoutSeconds = 30
 #
 #    LLM.MaxConcurrentRequests
 #        Description: Number of HTTP worker threads (concurrent LLM requests).
-#        Default:     3
+#        Default:     8
 #
 
-LLM.MaxConcurrentRequests = 3
+LLM.MaxConcurrentRequests = 8
 
 #
 #    LLM.MaxQueueSize
@@ -196,11 +196,11 @@ LLM.Chat.Overhear.Enable = 1
 #    LLM.Chat.BotTrigger.MaxChainDepth
 #        Description: Cap on consecutive bot-to-bot hops from one origin
 #                     (higher = longer bot conversations, more LLM calls).
-#        Default:     2
+#        Default:     3
 #
 
 LLM.Chat.BotTrigger.Enable = 1
-LLM.Chat.BotTrigger.MaxChainDepth = 2
+LLM.Chat.BotTrigger.MaxChainDepth = 3
 
 #
 #    LLM.Chat.MaxBotsToPick
@@ -255,10 +255,10 @@ LLM.Chat.PlayerReplyChance.Say = 90
 LLM.Chat.PlayerReplyChance.Party = 100
 LLM.Chat.PlayerReplyChance.Guild = 70
 LLM.Chat.PlayerReplyChance.Channel = 60
-LLM.Chat.BotReplyChance.Say = 10
-LLM.Chat.BotReplyChance.Party = 25
-LLM.Chat.BotReplyChance.Guild = 5
-LLM.Chat.BotReplyChance.Channel = 3
+LLM.Chat.BotReplyChance.Say = 35
+LLM.Chat.BotReplyChance.Party = 50
+LLM.Chat.BotReplyChance.Guild = 20
+LLM.Chat.BotReplyChance.Channel = 15
 
 #
 #    LLM.Chat.GroupRouter.Enable

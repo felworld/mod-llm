@@ -42,7 +42,7 @@ namespace ModLlm
         uint32 topK = 0;
         float repetitionPenalty = 1.05f;
         uint32 timeoutSeconds = 30;
-        uint32 maxConcurrentRequests = 3;
+        uint32 maxConcurrentRequests = 8;
         uint32 maxQueueSize = 32;
         bool treatBareContentAsSay = true;
         bool errorFeedbackEnabled = true;
@@ -64,10 +64,10 @@ namespace ModLlm
         uint32 playerReplyChanceParty = 100;
         uint32 playerReplyChanceGuild = 70;
         uint32 playerReplyChanceChannel = 60;
-        uint32 botReplyChanceSay = 10;
-        uint32 botReplyChanceParty = 25;
-        uint32 botReplyChanceGuild = 5;
-        uint32 botReplyChanceChannel = 3;
+        uint32 botReplyChanceSay = 35;
+        uint32 botReplyChanceParty = 50;
+        uint32 botReplyChanceGuild = 20;
+        uint32 botReplyChanceChannel = 15;
         bool customChannelsEnabled = true;
         // Percent chance an enemy-faction emote/event still lets the bot try
         // to chat (mutually unreadable gibberish - the classic /say meme).
@@ -79,7 +79,7 @@ namespace ModLlm
         // Bot speech triggering other bots (kept separate from the reply
         // chances so the whole mechanism can be flipped or tuned in one place)
         bool botTriggerEnabled = true;
-        uint32 botTriggerMaxChainDepth = 2;
+        uint32 botTriggerMaxChainDepth = 3;
 
         // Emote reactions
         bool emoteEnabled = true;
