@@ -54,6 +54,7 @@ namespace ModLlm
         std::string actorName;
         uint32 chatType = 0;         // CHAT_MSG_* of the incoming message (reply routing)
         std::string channelName;     // for TRIGGER_CHAT_CHANNEL replies
+        bool defenseChannel = false; // the channel is LocalDefense/WorldDefense: sightings and calls for help
         std::string roomKey;         // HistoryStore key of the shared room, empty if none
         std::string message;         // incoming chat text / emote description / event description
         std::string eventType;       // "creature_kill", "level_up", ... for TRIGGER_GAME_EVENT

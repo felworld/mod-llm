@@ -56,10 +56,10 @@ namespace ModLlm::BotSelector
         }
 
         std::vector<Player*> PickByChanceAndMention(std::vector<Player*>& candidates, Player* sender,
-            uint32 triggerKind, std::string const& message, size_t maxPick)
+            uint32 triggerKind, std::string const& message, size_t maxPick, bool defenseChannel = false)
         {
             bool senderIsBot = !IsRealPlayer(sender);
-            uint32 chance = ReplyChance(triggerKind, senderIsBot);
+            uint32 chance = ReplyChance(triggerKind, senderIsBot, defenseChannel);
 
             std::vector<Player*> picked;
 
@@ -189,7 +189,7 @@ namespace ModLlm::BotSelector
         return candidates;
     }
 
-    uint32 ReplyChance(uint32 triggerKind, bool senderIsBot)
+    uint32 ReplyChance(uint32 triggerKind, bool senderIsBot, bool defenseChannel)
     {
         switch (triggerKind)
         {
@@ -200,10 +200,20 @@ namespace ModLlm::BotSelector
             case TRIGGER_CHAT_GUILD:
                 return senderIsBot ? sLlmConfig->botReplyChanceGuild : sLlmConfig->playerReplyChanceGuild;
             case TRIGGER_CHAT_CHANNEL:
+                // Defense channels are mostly read, not chatted in: the many
+                // bots that would have nothing helpful to say simply abstain.
+                if (defenseChannel)
+                    return senderIsBot ? sLlmConfig->botReplyChanceDefense : sLlmConfig->playerReplyChanceDefense;
                 return senderIsBot ? sLlmConfig->botReplyChanceChannel : sLlmConfig->playerReplyChanceChannel;
             default:
                 return senderIsBot ? sLlmConfig->botReplyChanceSay : sLlmConfig->playerReplyChanceSay;
         }
+    }
+
+    bool IsDefenseChannel(Channel const* channel)
+    {
+        return channel && (channel->GetChannelId() == ChatChannelId::LOCAL_DEFENSE
+            || channel->GetChannelId() == ChatChannelId::WORLD_DEFENSE);
     }
 
     std::vector<Player*> SelectForChat(Player* sender, uint32 triggerKind, std::string const& message,
@@ -288,7 +298,8 @@ namespace ModLlm::BotSelector
             && !group->isRaidGroup() && !group->isBGGroup() && !group->isBFGroup())
             maxPick = candidates.size();
 
-        return PickByChanceAndMention(candidates, sender, triggerKind, message, maxPick);
+        return PickByChanceAndMention(candidates, sender, triggerKind, message, maxPick,
+            triggerKind == TRIGGER_CHAT_CHANNEL && IsDefenseChannel(channel));
     }
 
     std::vector<Player*> SelectNearby(Player* source, float distance, uint32 maxBots, bool includeSource)

@@ -58,7 +58,7 @@ namespace ModLlm::Dispatch
 
         LlmRequest request;
         request.snapshot = ContextBuilder::Build(bot, actor, trigger);
-        request.tools = sLlmToolRegistry->BuildToolsArray(trigger.kind, bot, actor);
+        request.tools = sLlmToolRegistry->BuildToolsArray(trigger.kind, bot, actor, &trigger);
         request.trigger = std::move(trigger);
 
         return sLlmClient->Submit(std::move(request));

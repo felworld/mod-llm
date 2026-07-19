@@ -1029,6 +1029,72 @@ namespace ModLlm::LlmTools
             }
         });
 
+        // go_defend - answer a defense-channel call for help by actually
+        // going: hands the trip to playerbots' "wpvp defend" command, which
+        // knows the reported ganker's position (defense board), simulates
+        // travel time, and brings the bot home when the fight is over. Only
+        // offered on defense-channel triggers, so "omw" and departure come
+        // from the same decision.
+        sLlmToolRegistry->Register({
+            "go_defend",
+            "Travel to a zone to fight off the reported enemy player, like actually answering a call "
+            "for help in a defense channel. You make your own way there and it takes a while.",
+            {
+                { "type", "object" },
+                { "properties", { { "zone", { { "type", "string" },
+                    { "description", "Zone under attack, like Redridge Mountains. Omit when the call "
+                        "is about this channel's own zone." } } } } }
+            },
+            TRIGGER_CHAT_CHANNEL,
+            false,
+            [](ToolExecContext& context, nlohmann::json const& args, std::string& error)
+            {
+                TriggerContext const& trigger = *context.trigger;
+                if (!trigger.defenseChannel)
+                {
+                    error = "this is not a defense channel";
+                    return false;
+                }
+                if (context.bot->GetMap()->Instanceable())
+                {
+                    error = "you cannot travel away from here";
+                    return false;
+                }
+                if (GroupHasRealPlayer(context.bot))
+                {
+                    error = "you cannot run off while grouped with someone";
+                    return false;
+                }
+
+                // LocalDefense channels are named "LocalDefense - <zone>":
+                // an omitted zone means the trouble is right here.
+                std::string zone = args.value("zone", "");
+                if (zone.empty())
+                {
+                    size_t separator = trigger.channelName.find(" - ");
+                    if (separator != std::string::npos)
+                        zone = trigger.channelName.substr(separator + 3);
+                }
+                if (zone.empty())
+                {
+                    error = "say which zone needs defending";
+                    return false;
+                }
+
+                if (!context.ai->DoSpecificAction("wpvp defend", Event("go_defend", zone, context.actor), true))
+                {
+                    error = "you do not know where to make a stand there";
+                    return false;
+                }
+                return true;
+            },
+            nullptr,
+            [](TriggerContext const& trigger)
+            {
+                return trigger.defenseChannel;
+            }
+        });
+
         LOG_INFO("module.llm", "Registered default LLM tools");
     }
 

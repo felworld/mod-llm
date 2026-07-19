@@ -249,16 +249,23 @@ LLM.Chat.SkipInCombat = 1
 #                     drive bot-to-bot reactions via LLM.Chat.BotTrigger.*;
 #                     .Party/.Guild are reserved - bot group/guild chat is
 #                     delivered without re-entering the trigger pipeline.)
+#                     .Defense overrides .Channel in the LocalDefense and
+#                     WorldDefense channels: those are mostly read, not
+#                     chatted in, so most bots stay silent - and the few who
+#                     do reply get defense-channel guidance (supportive tone,
+#                     the go_defend tool, "omw" only when actually going).
 #
 
 LLM.Chat.PlayerReplyChance.Say = 90
 LLM.Chat.PlayerReplyChance.Party = 100
 LLM.Chat.PlayerReplyChance.Guild = 70
 LLM.Chat.PlayerReplyChance.Channel = 60
+LLM.Chat.PlayerReplyChance.Defense = 15
 LLM.Chat.BotReplyChance.Say = 35
 LLM.Chat.BotReplyChance.Party = 50
 LLM.Chat.BotReplyChance.Guild = 20
 LLM.Chat.BotReplyChance.Channel = 15
+LLM.Chat.BotReplyChance.Defense = 5
 
 #
 #    LLM.Chat.GroupRouter.Enable
@@ -363,6 +370,15 @@ LLM.Event.MaxBotsPerEvent = 2
 #                     Healed fires only for the healed bot itself when a
 #                     player outside its group heals it; the thanks is said
 #                     aloud. Groupmate heals are routine and never draw one.
+#                     DefenseCallout/DefenseEscalation fire when playerbots'
+#                     wpvp callout system picks a bot to raise the alarm
+#                     (LocalDefense sighting / WorldDefense griefing-spree
+#                     shout): the chosen bot speaks in its own words instead
+#                     of the prebaked line (disabled in llm mode via
+#                     AiPlayerbot.WpvpCallouts = 0). Already throttled hard
+#                     on the playerbots side, hence the 100s. A LocalDefense
+#                     callout is skipped when no human is in the zone to read
+#                     it - travel responses ride the defense board either way.
 #
 
 LLM.Event.Chance.Kill = 15
@@ -375,6 +391,8 @@ LLM.Event.Chance.Achievement = 40
 LLM.Event.Chance.Loot = 15
 LLM.Event.Chance.GroupJoin = 100
 LLM.Event.Chance.Healed = 20
+LLM.Event.Chance.DefenseCallout = 100
+LLM.Event.Chance.DefenseEscalation = 100
 
 #
 #    LLM.Event.ChannelChance

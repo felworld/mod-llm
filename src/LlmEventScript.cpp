@@ -4,12 +4,14 @@
  */
 
 #include "BotSelector.h"
+#include "ChatHelper.h"
 #include "Creature.h"
 #include "Group.h"
 #include "Item.h"
 #include "ItemTemplate.h"
 #include "LlmConfig.h"
 #include "LlmDispatch.h"
+#include "Map.h"
 #include "ObjectAccessor.h"
 #include "Player.h"
 #include "QuestDef.h"
@@ -17,6 +19,7 @@
 #include "ScriptMgr.h"
 #include "SharedDefines.h"
 #include "StringFormat.h"
+#include "WpvpDefense.h"
 
 #include <chrono>
 #include <mutex>
@@ -325,6 +328,77 @@ namespace ModLlm
             Dispatch::SubmitDelayed(bot, nullptr, std::move(trigger), urand(1500, 4000));
         }
     };
+
+    // The LLM replacement for playerbots' prebaked defense-callout lines
+    // (which llm mode disables via AiPlayerbot.WpvpCallouts = 0): playerbots
+    // always fires this notification when a callout or escalation is
+    // claimed, and the claiming bot raises the alarm in its own words. The
+    // defense board and travel responses run in playerbots regardless - only
+    // the speech goes through the model.
+    //
+    // Fires on the speaker's map-update thread: everything is copied into
+    // the trigger and the LLM work is queued; only the speaker's own map is
+    // scanned for a human audience.
+    void OnWpvpCallout(WpvpCalloutNotification const& notification)
+    {
+        if (!sLlmConfig->IsEnabled() || !sLlmConfig->eventEnabled)
+            return;
+
+        bool escalation = notification.kind == WpvpCalloutKind::Escalation;
+        uint32 chance = escalation ? sLlmConfig->eventChanceDefenseEscalation
+                                   : sLlmConfig->eventChanceDefenseCallout;
+        if (!chance || urand(0, 99) >= chance)
+            return;
+
+        Player* bot = notification.speaker;
+        if (!bot || BotSelector::IsRealPlayer(bot))
+            return;
+
+        // LocalDefense only reaches its own zone: without a human there, the
+        // words have no audience (responder bots react to the defense board,
+        // not the text). WorldDefense is faction-global and escalations are
+        // rare, so they are always worth saying.
+        if (!escalation)
+        {
+            Map* map = bot->FindMap();
+            if (!map)
+                return;
+
+            bool humanInZone = false;
+            for (MapReference const& ref : map->GetPlayers())
+            {
+                Player* player = ref.GetSource();
+                if (player && BotSelector::IsRealPlayer(player) && player->GetZoneId() == notification.zoneId)
+                {
+                    humanInZone = true;
+                    break;
+                }
+            }
+            if (!humanInZone)
+                return;
+        }
+
+        std::string race = ChatHelper::FormatRace(notification.attackerRace);
+        std::string cls = ChatHelper::FormatClass(notification.attackerClass);
+
+        TriggerContext trigger;
+        trigger.kind = TRIGGER_GAME_EVENT;
+        trigger.eventType = escalation ? "defense_escalation" : "defense_callout";
+        trigger.chatType = CHAT_MSG_CHANNEL;
+        // Short names; the say tool resolves them to the joined channel
+        // ("LocalDefense" matches "LocalDefense - Redridge Mountains").
+        trigger.channelName = escalation ? "WorldDefense" : "LocalDefense";
+        trigger.defenseChannel = true;
+        trigger.message = escalation
+            ? Acore::StringFormat("the enemy {}, a level {} {} {}, has killed {} of your side in {} and nobody"
+                " has stopped them yet. Raise the alarm in the faction-wide WorldDefense channel so help comes",
+                notification.attackerName, notification.attackerLevel, race, cls, notification.killCount,
+                notification.areaName)
+            : Acore::StringFormat("you spotted an enemy attacking {}: {}, a level {} {} {}. Raise the alarm"
+                " in the zone's LocalDefense channel - name the attacker and where they are",
+                notification.areaName, notification.attackerName, notification.attackerLevel, race, cls);
+        Dispatch::Submit(bot, nullptr, std::move(trigger));
+    }
 }
 
 void AddSC_llm_event()
@@ -332,4 +406,5 @@ void AddSC_llm_event()
     new ModLlm::LlmEventScript();
     new ModLlm::LlmHealedScript();
     new ModLlm::LlmGroupScript();
+    RegisterWpvpCalloutListener(&ModLlm::OnWpvpCallout);
 }

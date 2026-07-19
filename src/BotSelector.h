@@ -43,8 +43,12 @@ namespace ModLlm::BotSelector
     // Case-insensitive whole-word search; pure, unit-tested.
     bool MentionsName(std::string const& message, std::string const& name);
 
-    // Per-channel-kind reply chance (percent), split by sender type.
-    uint32 ReplyChance(uint32 triggerKind, bool senderIsBot);
+    // Per-channel-kind reply chance (percent), split by sender type. Defense
+    // channels (LocalDefense/WorldDefense) get their own, much lower pair.
+    uint32 ReplyChance(uint32 triggerKind, bool senderIsBot, bool defenseChannel = false);
+
+    // LocalDefense or WorldDefense, by builtin channel id.
+    bool IsDefenseChannel(Channel const* channel);
 
     // Every eligible bot in the group that could react to `sender`'s message
     // (bot AI attached, not the sender, in-combat skip, human audience). No

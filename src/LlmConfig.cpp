@@ -44,7 +44,9 @@ namespace ModLlm
             "someone says thanks => np\n"
             "you die to something dumb => wow im bad\n"
             "someone keeps pestering you => dude stop\n"
-            "you agree to meet someone => omw";
+            "you agree to meet someone => omw\n"
+            "defense channel reports a ganker and you decide to go fight => hold on, omw\n"
+            "you spot an enemy player attacking a town => redridge under attack, lvl 60 rogue at the bridge";
 
         constexpr char DEFAULT_PROMPT_CHAT[] =
             "{memory_block}{history_block}[{channel_label}] {actor_name} (level {actor_level} {actor_race} "
@@ -147,6 +149,8 @@ namespace ModLlm
         botReplyChanceParty = sConfigMgr->GetOption<uint32>("LLM.Chat.BotReplyChance.Party", 50);
         botReplyChanceGuild = sConfigMgr->GetOption<uint32>("LLM.Chat.BotReplyChance.Guild", 20);
         botReplyChanceChannel = sConfigMgr->GetOption<uint32>("LLM.Chat.BotReplyChance.Channel", 15);
+        playerReplyChanceDefense = sConfigMgr->GetOption<uint32>("LLM.Chat.PlayerReplyChance.Defense", 15);
+        botReplyChanceDefense = sConfigMgr->GetOption<uint32>("LLM.Chat.BotReplyChance.Defense", 5);
         customChannelsEnabled = sConfigMgr->GetOption<bool>("LLM.Chat.EnableCustomChannels", true);
         crossFactionChatChance = sConfigMgr->GetOption<uint32>("LLM.Chat.CrossFactionChatChance", 5);
         groupRouterEnabled = sConfigMgr->GetOption<bool>("LLM.Chat.GroupRouter.Enable", true);
@@ -174,6 +178,8 @@ namespace ModLlm
         eventChanceLoot = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.Loot", 15);
         eventChanceGroupJoin = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.GroupJoin", 100);
         eventChanceHealed = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.Healed", 20);
+        eventChanceDefenseCallout = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.DefenseCallout", 100);
+        eventChanceDefenseEscalation = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.DefenseEscalation", 100);
         eventChannelChance = sConfigMgr->GetOption<uint32>("LLM.Event.ChannelChance", 10);
         eventLootMinQuality = sConfigMgr->GetOption<uint32>("LLM.Event.LootMinQuality", 3);
 

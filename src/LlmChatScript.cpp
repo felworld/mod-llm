@@ -257,7 +257,10 @@ namespace ModLlm
                 trigger.roomKey = roomKey;
                 trigger.message = msg;
                 if (channel)
+                {
                     trigger.channelName = channel->GetName();
+                    trigger.defenseChannel = BotSelector::IsDefenseChannel(channel);
+                }
 
                 if (uint32 delayMs = index * staggerMs)
                     Dispatch::SubmitDelayed(bot, sender, std::move(trigger), delayMs);

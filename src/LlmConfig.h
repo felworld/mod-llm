@@ -68,6 +68,8 @@ namespace ModLlm
         uint32 botReplyChanceParty = 50;
         uint32 botReplyChanceGuild = 20;
         uint32 botReplyChanceChannel = 15;
+        uint32 playerReplyChanceDefense = 15;
+        uint32 botReplyChanceDefense = 5;
         bool customChannelsEnabled = true;
         // Percent chance an enemy-faction emote/event still lets the bot try
         // to chat (mutually unreadable gibberish - the classic /say meme).
@@ -102,6 +104,8 @@ namespace ModLlm
         uint32 eventChanceLoot = 15;
         uint32 eventChanceGroupJoin = 100;
         uint32 eventChanceHealed = 20;
+        uint32 eventChanceDefenseCallout = 100;
+        uint32 eventChanceDefenseEscalation = 100;
         uint32 eventChannelChance = 10;
         uint32 eventLootMinQuality = 3; // ITEM_QUALITY_RARE
 

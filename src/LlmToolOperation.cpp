@@ -167,7 +167,7 @@ namespace ModLlm
 
         LlmRequest followUp;
         followUp.snapshot = ContextBuilder::Build(bot, actor, _trigger);
-        followUp.tools = sLlmToolRegistry->BuildToolsArray(_trigger.kind, bot, actor);
+        followUp.tools = sLlmToolRegistry->BuildToolsArray(_trigger.kind, bot, actor, &_trigger);
         followUp.trigger = _trigger;
         followUp.extraMessages = std::move(extra);
         followUp.round = _round + 1;
