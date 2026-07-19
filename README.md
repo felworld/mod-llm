@@ -44,8 +44,10 @@ do, whether or not they were picked to answer (`LLM.Chat.Overhear.Enable`). Hear
   offer reaches that bot), and the room router for guild and named channels sees the room
   transcript. All routers know that the bigger the crowd, the less likely any one bystander was
   being addressed; rosters are capped at `LLM.Chat.Router.MaxRoster` per call, a name-mention
-  always picks that bot, and the `LLM.Chat.*ReplyChance.*` dice survive only as the fallback when a
-  router reply is unparseable or a router is disabled. Party chat from a real player skips routing
+  always picks that bot, and the `LLM.Chat.*ReplyChance.*` dice roll only when a router is
+  disabled — an unparseable router reply routes to nobody and logs an error, so a misbehaving
+  router model is loud in the logs instead of masked by fallback chatter. Party chat from a real
+  player skips routing
   the other way: every bot in the party is asked and the model itself decides whether the message
   concerns it — the prompt reminds it the whole party heard the message and silence is a fine
   answer. Routed bots, too, still decide for themselves whether to answer, with a prompt that

@@ -17,7 +17,6 @@
 #include "Log.h"
 #include "Player.h"
 #include "PlayerbotAI.h"
-#include "Random.h"
 #include "SharedDefines.h"
 #include "StringFormat.h"
 
@@ -76,7 +75,6 @@ namespace ModLlm::Router
             TriggerContext trigger;
             size_t maxPick;             // cap on picks: MaxBotsToPick, or the
                                         // (lower) BotTrigger cap for bot senders
-            uint32 fallbackChance;      // per-candidate percent when the reply is unparseable
             bool recordPairLines;       // picked bots remember the actor's line (say/yell)
         };
 
@@ -159,13 +157,12 @@ namespace ModLlm::Router
                 }
                 else
                 {
-                    // Unparseable reply: degrade to the pre-router behaviour,
-                    // rolling the caller's dice down the (shuffled) roster.
-                    LOG_WARN("module.llm", "{} reply not parseable, rolling dice: '{}'",
+                    // Unparseable reply: route to nobody (name-mentions above
+                    // excepted). No quiet degradation to dice - a router
+                    // model producing garbage should be loud in the logs, not
+                    // masked by fallback chatter.
+                    LOG_ERROR("module.llm", "{} reply not parseable, routing to nobody: '{}'",
                         route.label, response.content);
-                    for (size_t i = 0; i < route.roster.size() && picks.size() < maxPick; ++i)
-                        if (urand(0, 99) < route.fallbackChance)
-                            addPick(i);
                 }
 
                 if (sLlmConfig->debugEnabled)
@@ -227,8 +224,8 @@ namespace ModLlm::Router
         trigger.actorGuid = sender->GetGUID();
         trigger.actorName = sender->GetName();
 
-        // Shuffled up front so the no-parse fallback (first MaxBotsToPick
-        // entries) degrades to the old random pick.
+        // Shuffled up front so the roster cap drops a fair sample and the
+        // model sees no meaningful ordering.
         std::vector<Player*> shuffled = candidates;
         Acore::Containers::RandomShuffle(shuffled);
         PromoteMentionAndCap(shuffled, trigger.message);
@@ -265,9 +262,6 @@ namespace ModLlm::Router
 
         route.label = "Group router";
         route.trigger = std::move(trigger);
-        // Pre-router behaviour was asking the first shuffled bots up to the
-        // cap, i.e. a 100% roll per entry.
-        route.fallbackChance = 100;
         route.recordPairLines = false;
         return SubmitRoute(std::move(route));
     }
@@ -277,8 +271,8 @@ namespace ModLlm::Router
         trigger.actorGuid = sender->GetGUID();
         trigger.actorName = sender->GetName();
 
-        // Shuffled up front so the no-parse fallback (dice down the roster)
-        // matches the router-off behaviour.
+        // Shuffled up front so the roster cap drops a fair sample and the
+        // model sees no meaningful ordering.
         std::vector<Player*> shuffled = candidates;
         Acore::Containers::RandomShuffle(shuffled);
         PromoteMentionAndCap(shuffled, trigger.message);
@@ -327,8 +321,6 @@ namespace ModLlm::Router
 
         route.label = "Say router";
         route.trigger = std::move(trigger);
-        // Router-off behaviour rolls the say dice per candidate.
-        route.fallbackChance = BotSelector::ReplyChance(TRIGGER_CHAT_SAY, !BotSelector::IsRealPlayer(sender));
         // Direct exchanges (say/yell) also feed the pair transcript.
         route.recordPairLines = true;
         return SubmitRoute(std::move(route));
@@ -340,8 +332,8 @@ namespace ModLlm::Router
         trigger.actorGuid = sender->GetGUID();
         trigger.actorName = sender->GetName();
 
-        // Shuffled up front so the no-parse fallback (dice down the roster)
-        // matches the router-off behaviour.
+        // Shuffled up front so the roster cap drops a fair sample and the
+        // model sees no meaningful ordering.
         std::vector<Player*> shuffled = candidates;
         Acore::Containers::RandomShuffle(shuffled);
         PromoteMentionAndCap(shuffled, trigger.message);
@@ -386,8 +378,6 @@ namespace ModLlm::Router
         }
 
         route.label = "Room router";
-        // Router-off behaviour rolls the guild/channel dice per candidate.
-        route.fallbackChance = BotSelector::ReplyChance(trigger.kind, !BotSelector::IsRealPlayer(sender));
         route.trigger = std::move(trigger);
         // Room lines were already recorded via AddRoomLine.
         route.recordPairLines = false;

@@ -247,12 +247,13 @@ LLM.Chat.SkipInCombat = 1
 #        Description: Percent chance per candidate bot to react, split by
 #                     whether the sender is a human player or another bot.
 #                     With the say/group/room routers enabled (the default),
-#                     most of these dice are out of the hot path: say/yell,
-#                     guild, channel, and raid/battleground messages - from
-#                     players and bots alike - are routed by an LLM call
-#                     that judges who, if anyone, a message is for, and the
-#                     matching chance here only backs up an unparseable
-#                     router reply (or the router being disabled). For a
+#                     most of these dice never roll: say/yell, guild,
+#                     channel, and raid/battleground messages - from players
+#                     and bots alike - are routed by an LLM call that judges
+#                     who, if anyone, a message is for, and the matching
+#                     chance here applies only with that router disabled.
+#                     (An unparseable router reply routes to nobody and
+#                     logs an error - no quiet degradation to dice.) For a
 #                     real player's party chat, the default Party = 100
 #                     means every bot in the party gets the message and the
 #                     model itself decides whether to answer - the prompt
