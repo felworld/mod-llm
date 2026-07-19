@@ -28,18 +28,37 @@ namespace ModLlm::Router
     // Returns false if the routing request could not be queued.
     bool RouteGroupMessage(Player* sender, std::vector<Player*> const& candidates, TriggerContext trigger);
 
-    // Same idea for a real player's say/yell: instead of dice, one routing
-    // request reads the message, the roster of bots in earshot, and the
-    // conversation recently overheard around the sender, then picks whoever
-    // the message is meant for - so an undirected "sure, how much?" right
-    // after a bot's offer reaches that bot, and idle muttering reaches
-    // nobody.
+    // Same idea for say/yell - a real player's or a bot's: instead of dice,
+    // one routing request reads the message, the roster of bots in earshot,
+    // and the conversation recently overheard around the sender, then picks
+    // whoever the message is meant for - so an undirected "sure, how much?"
+    // right after a bot's offer reaches that bot, and idle muttering reaches
+    // nobody. For a bot sender the picks are capped at
+    // LLM.Chat.BotTrigger.MaxBotsToPick, so bot-to-bot exchanges stay linear
+    // conversations instead of branching trees.
     //
     // Call on the world thread, after Overhear::RecordSpeech. `trigger`
-    // needs kind/chatType/message filled in; candidates must be non-empty
-    // (from BotSelector::CollectSayCandidates). Returns false if the routing
+    // needs kind/chatType/message (and chainDepth for a bot sender) filled
+    // in; candidates must be non-empty (from
+    // BotSelector::CollectSayCandidates). Returns false if the routing
     // request could not be queued.
     bool RouteSayMessage(Player* sender, std::vector<Player*> const& candidates, TriggerContext trigger);
+
+    // Same idea for guild and named-channel messages, player- or
+    // bot-triggered: the routing request reads the message, a roster sampled
+    // from the room's bots, and the room transcript, then picks who - if
+    // anyone - would naturally answer. Most channel chatter is read in
+    // silence, and the roster itself shows the model how unlikely any
+    // particular reader is to be addressed.
+    //
+    // Call on the world thread, after the message was added to the room
+    // history. `trigger` needs kind/chatType/roomKey/message (plus
+    // channelName for channels, chainDepth for a bot sender) filled in;
+    // `roomLabel` is the human phrasing of the room ("guild chat", "the
+    // \"General - Elwynn Forest\" channel"). Returns false if the routing
+    // request could not be queued.
+    bool RouteRoomMessage(Player* sender, std::vector<Player*> const& candidates, TriggerContext trigger,
+        std::string const& roomLabel);
 
     // Extracts the first JSON array of strings from the router's reply.
     // nullopt when no parseable array is present (as opposed to a legitimate

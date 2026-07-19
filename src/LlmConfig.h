@@ -64,10 +64,10 @@ namespace ModLlm
         uint32 playerReplyChanceParty = 100;
         uint32 playerReplyChanceGuild = 70;
         uint32 playerReplyChanceChannel = 60;
-        uint32 botReplyChanceSay = 35;
-        uint32 botReplyChanceParty = 50;
-        uint32 botReplyChanceGuild = 20;
-        uint32 botReplyChanceChannel = 15;
+        uint32 botReplyChanceSay = 10;
+        uint32 botReplyChanceParty = 25;
+        uint32 botReplyChanceGuild = 5;
+        uint32 botReplyChanceChannel = 3;
         uint32 playerReplyChanceDefense = 15;
         uint32 botReplyChanceDefense = 5;
         bool customChannelsEnabled = true;
@@ -76,12 +76,15 @@ namespace ModLlm
         uint32 crossFactionChatChance = 5;
         bool groupRouterEnabled = true;
         bool sayRouterEnabled = true;
+        bool roomRouterEnabled = true;
+        uint32 routerMaxRoster = 12;
         bool overhearEnabled = true;
 
         // Bot speech triggering other bots (kept separate from the reply
         // chances so the whole mechanism can be flipped or tuned in one place)
         bool botTriggerEnabled = true;
         uint32 botTriggerMaxChainDepth = 3;
+        uint32 botTriggerMaxBotsToPick = 1;
 
         // Emote reactions
         bool emoteEnabled = true;
@@ -144,6 +147,7 @@ namespace ModLlm
         std::string promptHistoryLine;
         std::string promptRouter;
         std::string promptSayRouter;
+        std::string promptRoomRouter;
     };
 }
 

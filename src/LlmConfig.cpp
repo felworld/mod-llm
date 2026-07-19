@@ -78,9 +78,23 @@ namespace ModLlm
             "Standing within earshot of {actor_name}:\n{roster}\n{history_block}"
             "Now {actor_name} says: \"{message}\"\n"
             "Which of the listed characters, if any, is this message meant for or would naturally answer? "
-            "If it continues an exchange visible above, pick whoever {actor_name} is talking to. Reply "
-            "with only a JSON array of at most {max_picks} names from the list, most relevant first - "
-            "for example [\"Name\"] - or [] if the message is for nobody in particular.";
+            "If it continues an exchange visible above, pick whoever {actor_name} is talking to - not a "
+            "third character butting into their conversation. The more characters are standing around, "
+            "the less likely any one of them is being addressed: in a crowd, [] or a single name is "
+            "usually right. Reply with only a JSON array of at most {max_picks} names from the list, "
+            "most relevant first - for example [\"Name\"] - or [] if the message is for nobody in "
+            "particular.";
+
+        constexpr char DEFAULT_PROMPT_ROOM_ROUTER[] =
+            "You are routing a chat message between player characters in World of Warcraft. "
+            "In {room_label}, {actor_name} writes: \"{message}\"\n"
+            "Characters reading it include:\n{roster}\n{history_block}"
+            "Which of the listed characters, if any, would naturally answer? Messages there are mostly "
+            "read in silence, and the more readers there are, the less likely any one of them is being "
+            "addressed: unless a listed character is named, asked something they would know, or already "
+            "mid-exchange with {actor_name} above, the answer is []. Reply with only a JSON array of at "
+            "most {max_picks} names from the list, most relevant first - for example [\"Name\"] - or [] "
+            "if nobody would answer.";
 
         constexpr char DEFAULT_PROMPT_HISTORY_LINE[] = "{speaker}: {message}";
 
@@ -145,19 +159,22 @@ namespace ModLlm
         playerReplyChanceParty = sConfigMgr->GetOption<uint32>("LLM.Chat.PlayerReplyChance.Party", 100);
         playerReplyChanceGuild = sConfigMgr->GetOption<uint32>("LLM.Chat.PlayerReplyChance.Guild", 70);
         playerReplyChanceChannel = sConfigMgr->GetOption<uint32>("LLM.Chat.PlayerReplyChance.Channel", 60);
-        botReplyChanceSay = sConfigMgr->GetOption<uint32>("LLM.Chat.BotReplyChance.Say", 35);
-        botReplyChanceParty = sConfigMgr->GetOption<uint32>("LLM.Chat.BotReplyChance.Party", 50);
-        botReplyChanceGuild = sConfigMgr->GetOption<uint32>("LLM.Chat.BotReplyChance.Guild", 20);
-        botReplyChanceChannel = sConfigMgr->GetOption<uint32>("LLM.Chat.BotReplyChance.Channel", 15);
+        botReplyChanceSay = sConfigMgr->GetOption<uint32>("LLM.Chat.BotReplyChance.Say", 10);
+        botReplyChanceParty = sConfigMgr->GetOption<uint32>("LLM.Chat.BotReplyChance.Party", 25);
+        botReplyChanceGuild = sConfigMgr->GetOption<uint32>("LLM.Chat.BotReplyChance.Guild", 5);
+        botReplyChanceChannel = sConfigMgr->GetOption<uint32>("LLM.Chat.BotReplyChance.Channel", 3);
         playerReplyChanceDefense = sConfigMgr->GetOption<uint32>("LLM.Chat.PlayerReplyChance.Defense", 15);
         botReplyChanceDefense = sConfigMgr->GetOption<uint32>("LLM.Chat.BotReplyChance.Defense", 5);
         customChannelsEnabled = sConfigMgr->GetOption<bool>("LLM.Chat.EnableCustomChannels", true);
         crossFactionChatChance = sConfigMgr->GetOption<uint32>("LLM.Chat.CrossFactionChatChance", 5);
         groupRouterEnabled = sConfigMgr->GetOption<bool>("LLM.Chat.GroupRouter.Enable", true);
         sayRouterEnabled = sConfigMgr->GetOption<bool>("LLM.Chat.SayRouter.Enable", true);
+        roomRouterEnabled = sConfigMgr->GetOption<bool>("LLM.Chat.RoomRouter.Enable", true);
+        routerMaxRoster = sConfigMgr->GetOption<uint32>("LLM.Chat.Router.MaxRoster", 12);
         overhearEnabled = sConfigMgr->GetOption<bool>("LLM.Chat.Overhear.Enable", true);
         botTriggerEnabled = sConfigMgr->GetOption<bool>("LLM.Chat.BotTrigger.Enable", true);
         botTriggerMaxChainDepth = sConfigMgr->GetOption<uint32>("LLM.Chat.BotTrigger.MaxChainDepth", 3);
+        botTriggerMaxBotsToPick = sConfigMgr->GetOption<uint32>("LLM.Chat.BotTrigger.MaxBotsToPick", 1);
 
         emoteEnabled = sConfigMgr->GetOption<bool>("LLM.Emote.Enable", true);
         emoteTargetedChance = sConfigMgr->GetOption<uint32>("LLM.Emote.TargetedChance", 100);
@@ -214,6 +231,7 @@ namespace ModLlm
         promptHistoryLine = LoadPrompt("LLM.Prompt.HistoryLine", DEFAULT_PROMPT_HISTORY_LINE);
         promptRouter = LoadPrompt("LLM.Prompt.Router", DEFAULT_PROMPT_ROUTER);
         promptSayRouter = LoadPrompt("LLM.Prompt.SayRouter", DEFAULT_PROMPT_SAY_ROUTER);
+        promptRoomRouter = LoadPrompt("LLM.Prompt.RoomRouter", DEFAULT_PROMPT_ROOM_ROUTER);
 
         LOG_INFO("module.llm", "mod-llm config loaded: enabled={}, endpoint={}, model={}",
             IsEnabled(), endpoint, model);

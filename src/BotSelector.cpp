@@ -189,6 +189,47 @@ namespace ModLlm::BotSelector
         return candidates;
     }
 
+    std::vector<Player*> CollectGuildBots(Player* sender, Guild* guild)
+    {
+        // Iterate online players rather than the guild roster: cheaper and
+        // only online members can react anyway.
+        bool guildHasHuman = false;
+        std::vector<Player*> guildBots;
+        for (auto const& [guid, player] : ObjectAccessor::GetPlayers())
+        {
+            if (!player->IsInWorld() || player->GetGuildId() != guild->GetId())
+                continue;
+            if (IsRealPlayer(player))
+                guildHasHuman = true;
+            else if (IsEligibleBot(player, sender))
+                guildBots.push_back(player);
+        }
+        if (guildHasHuman || IsRealPlayer(sender))
+            return guildBots;
+        return {};
+    }
+
+    std::vector<Player*> CollectChannelBots(Player* sender, Channel* channel)
+    {
+        // The audience for a channel message is the whole channel, so the
+        // human-witness requirement is channel membership rather than
+        // proximity to any particular bot.
+        bool channelHasHuman = false;
+        std::vector<Player*> channelBots;
+        for (auto const& [guid, player] : ObjectAccessor::GetPlayers())
+        {
+            if (!player->IsInWorld() || !player->IsInChannel(channel))
+                continue;
+            if (IsRealPlayer(player))
+                channelHasHuman = true;
+            else if (IsEligibleBot(player, sender))
+                channelBots.push_back(player);
+        }
+        if (channelHasHuman || IsRealPlayer(sender))
+            return channelBots;
+        return {};
+    }
+
     uint32 ReplyChance(uint32 triggerKind, bool senderIsBot, bool defenseChannel)
     {
         switch (triggerKind)
@@ -237,45 +278,14 @@ namespace ModLlm::BotSelector
             }
             case TRIGGER_CHAT_GUILD:
             {
-                if (!guild)
-                    break;
-                // Iterate online players rather than the guild roster: cheaper
-                // and only online members can react anyway.
-                bool guildHasHuman = false;
-                std::vector<Player*> guildBots;
-                for (auto const& [guid, player] : ObjectAccessor::GetPlayers())
-                {
-                    if (!player->IsInWorld() || player->GetGuildId() != guild->GetId())
-                        continue;
-                    if (IsRealPlayer(player))
-                        guildHasHuman = true;
-                    else if (IsEligibleBot(player, sender))
-                        guildBots.push_back(player);
-                }
-                if (guildHasHuman || IsRealPlayer(sender))
-                    candidates = std::move(guildBots);
+                if (guild)
+                    candidates = CollectGuildBots(sender, guild);
                 break;
             }
             case TRIGGER_CHAT_CHANNEL:
             {
-                if (!channel)
-                    break;
-                // The audience for a channel message is the whole channel, so
-                // the human-witness requirement is channel membership rather
-                // than proximity to any particular bot.
-                bool channelHasHuman = false;
-                std::vector<Player*> channelBots;
-                for (auto const& [guid, player] : ObjectAccessor::GetPlayers())
-                {
-                    if (!player->IsInWorld() || !player->IsInChannel(channel))
-                        continue;
-                    if (IsRealPlayer(player))
-                        channelHasHuman = true;
-                    else if (IsEligibleBot(player, sender))
-                        channelBots.push_back(player);
-                }
-                if (channelHasHuman || IsRealPlayer(sender))
-                    candidates = std::move(channelBots);
+                if (channel)
+                    candidates = CollectChannelBots(sender, channel);
                 break;
             }
             default:

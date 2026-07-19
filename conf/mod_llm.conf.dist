@@ -187,8 +187,9 @@ LLM.Chat.Overhear.Enable = 1
 #
 #    LLM.Chat.BotTrigger.Enable
 #        Description: A bot's own audible speech (say/yell) and channel
-#                     messages can trigger other bots to react, using the
-#                     LLM.Chat.BotReplyChance.* dice, so bots talk among
+#                     messages can trigger other bots to react - through the
+#                     say/room routers when those are enabled, otherwise the
+#                     LLM.Chat.BotReplyChance.* dice - so bots talk among
 #                     themselves when humans are around to see it. Disable to
 #                     make bots react to humans only.
 #        Default:     1
@@ -198,9 +199,17 @@ LLM.Chat.Overhear.Enable = 1
 #                     (higher = longer bot conversations, more LLM calls).
 #        Default:     3
 #
+#    LLM.Chat.BotTrigger.MaxBotsToPick
+#        Description: Cap on bots reacting to one bot message (the router may
+#                     still pick nobody). 1 keeps bot-to-bot exchanges linear
+#                     conversations - only a real player's message can fan
+#                     out to several responders (LLM.Chat.MaxBotsToPick).
+#        Default:     1
+#
 
 LLM.Chat.BotTrigger.Enable = 1
 LLM.Chat.BotTrigger.MaxChainDepth = 3
+LLM.Chat.BotTrigger.MaxBotsToPick = 1
 
 #
 #    LLM.Chat.MaxBotsToPick
@@ -237,23 +246,26 @@ LLM.Chat.SkipInCombat = 1
 #    LLM.Chat.PlayerReplyChance.* / LLM.Chat.BotReplyChance.*
 #        Description: Percent chance per candidate bot to react, split by
 #                     whether the sender is a human player or another bot.
-#                     For a real player's party chat, the default Party = 100
+#                     With the say/group/room routers enabled (the default),
+#                     most of these dice are out of the hot path: say/yell,
+#                     guild, channel, and raid/battleground messages - from
+#                     players and bots alike - are routed by an LLM call
+#                     that judges who, if anyone, a message is for, and the
+#                     matching chance here only backs up an unparseable
+#                     router reply (or the router being disabled). For a
+#                     real player's party chat, the default Party = 100
 #                     means every bot in the party gets the message and the
 #                     model itself decides whether to answer - the prompt
 #                     tells bots to stay silent unless the message concerns
-#                     them. Lower it to put dice back in front of the model.
-#                     (Real players' say/yell and raid/battleground messages
-#                     go through the say/group routers instead when those are
-#                     enabled - PlayerReplyChance.Say then only backs up an
-#                     unparseable router reply. BotReplyChance.Say/.Channel
-#                     drive bot-to-bot reactions via LLM.Chat.BotTrigger.*;
-#                     .Party/.Guild are reserved - bot group/guild chat is
-#                     delivered without re-entering the trigger pipeline.)
+#                     them. BotReplyChance.Party/.Guild are reserved - bot
+#                     group/guild chat is delivered without re-entering the
+#                     trigger pipeline.
 #                     .Defense overrides .Channel in the LocalDefense and
-#                     WorldDefense channels: those are mostly read, not
-#                     chatted in, so most bots stay silent - and the few who
-#                     do reply get defense-channel guidance (supportive tone,
-#                     the go_defend tool, "omw" only when actually going).
+#                     WorldDefense channels, which never route: those are
+#                     mostly read, not chatted in, so most bots stay silent
+#                     - and the few who do reply get defense-channel
+#                     guidance (supportive tone, the go_defend tool, "omw"
+#                     only when actually going).
 #
 
 LLM.Chat.PlayerReplyChance.Say = 90
@@ -261,10 +273,10 @@ LLM.Chat.PlayerReplyChance.Party = 100
 LLM.Chat.PlayerReplyChance.Guild = 70
 LLM.Chat.PlayerReplyChance.Channel = 60
 LLM.Chat.PlayerReplyChance.Defense = 15
-LLM.Chat.BotReplyChance.Say = 35
-LLM.Chat.BotReplyChance.Party = 50
-LLM.Chat.BotReplyChance.Guild = 20
-LLM.Chat.BotReplyChance.Channel = 15
+LLM.Chat.BotReplyChance.Say = 10
+LLM.Chat.BotReplyChance.Party = 25
+LLM.Chat.BotReplyChance.Guild = 5
+LLM.Chat.BotReplyChance.Channel = 3
 LLM.Chat.BotReplyChance.Defense = 5
 
 #
@@ -284,19 +296,52 @@ LLM.Chat.GroupRouter.Enable = 1
 
 #
 #    LLM.Chat.SayRouter.Enable
-#        Description: Route a real player's say/yell through one extra LLM
-#                     call that reads the message, a roster of the bots in
-#                     earshot, and the conversation recently overheard
-#                     nearby, then picks which bots - if any - the message
-#                     is meant for, up to MaxBotsToPick. An undirected
-#                     "sure, how much?" right after a bot's offer reaches
-#                     that bot, and idle muttering reaches nobody. Bots
-#                     addressed by name are always picked. When disabled,
-#                     say/yell falls back to the PlayerReplyChance.Say dice.
+#        Description: Route say/yell - a real player's or a bot's - through
+#                     one extra LLM call that reads the message, a roster of
+#                     the bots in earshot, and the conversation recently
+#                     overheard nearby, then picks which bots - if any - the
+#                     message is meant for. An undirected "sure, how much?"
+#                     right after a bot's offer reaches that bot, and idle
+#                     muttering reaches nobody. The router also sees how
+#                     crowded the spot is: the bigger the roster, the less
+#                     likely any one bot was being addressed. Bots addressed
+#                     by name are always picked. When disabled, say/yell
+#                     falls back to the ReplyChance.Say dice.
 #        Default:     1
 #
 
 LLM.Chat.SayRouter.Enable = 1
+
+#
+#    LLM.Chat.RoomRouter.Enable
+#        Description: Route guild and named-channel messages (a real
+#                     player's or a bot's) the same way: one extra LLM call
+#                     reads the message, a roster sampled from the room's
+#                     bots, and the room transcript, then picks who - if
+#                     anyone - would naturally answer. Most channel chatter
+#                     is read in silence, so the router usually answers
+#                     "nobody" unless a bot is named, asked something it
+#                     would know, or already mid-conversation.
+#                     LocalDefense/WorldDefense never route (see
+#                     ReplyChance.Defense). When disabled, guild/channel
+#                     chat falls back to the ReplyChance.Guild/.Channel
+#                     dice.
+#        Default:     1
+#
+
+LLM.Chat.RoomRouter.Enable = 1
+
+#
+#    LLM.Chat.Router.MaxRoster
+#        Description: Cap on candidate bots shown to a router in one routing
+#                     call (a busy city channel could list dozens).
+#                     Candidates beyond the cap are dropped at random for
+#                     that message; a bot addressed by name always survives
+#                     the cut.
+#        Default:     12
+#
+
+LLM.Chat.Router.MaxRoster = 12
 
 #
 #    LLM.Chat.EnableCustomChannels
@@ -531,6 +576,11 @@ LLM.History.RetentionDays = 2
 #      say router: {actor_name} {message} {roster} {history_block} {max_picks}
 #               ({history_block} is the say/yell recently overheard around
 #               the sender, ending with the message being routed)
+#      room router: {room_label} {actor_name} {message} {roster}
+#               {history_block} {max_picks}
+#               ({room_label} names the room - guild chat or a channel;
+#               {history_block} is the room transcript, ending with the
+#               message being routed)
 #    LLM.Prompt.System and LLM.Prompt.StyleExamples are written out below
 #    (identical to the built-in defaults) so they can be tuned without
 #    rebuilding. Style guidance uses positive exemplars only - phrasing a rule
@@ -550,3 +600,4 @@ LLM.Prompt.StyleExamples = "\n\nHow you type - examples of situation => message 
 # LLM.Prompt.HistoryLine = ""
 # LLM.Prompt.Router = ""
 # LLM.Prompt.SayRouter = ""
+# LLM.Prompt.RoomRouter = ""

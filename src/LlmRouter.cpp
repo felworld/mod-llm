@@ -71,16 +71,48 @@ namespace ModLlm::Router
         struct RouteRequest
         {
             std::string prompt;
-            std::string label;          // log name: "Group router" / "Say router"
+            std::string label;          // log name: "Group router" / "Say router" / "Room router"
             std::vector<Candidate> roster;
             TriggerContext trigger;
+            size_t maxPick;             // cap on picks: MaxBotsToPick, or the
+                                        // (lower) BotTrigger cap for bot senders
             uint32 fallbackChance;      // per-candidate percent when the reply is unparseable
             bool recordPairLines;       // picked bots remember the actor's line (say/yell)
         };
 
+        // Bot-to-bot exchanges branch by this cap on every hop, so a bot's
+        // message picks fewer responders than a real player's: player-seeded
+        // flurries are the point, bot-seeded trees are noise.
+        size_t MaxPickFor(Player* sender)
+        {
+            return BotSelector::IsRealPlayer(sender)
+                ? sLlmConfig->maxBotsToPick
+                : std::min<size_t>(sLlmConfig->maxBotsToPick, sLlmConfig->botTriggerMaxBotsToPick);
+        }
+
+        // The routing prompt cannot grow with the crowd: cap the roster,
+        // keeping a bot addressed by name (the deterministic always-pick)
+        // ahead of the cut. Call after shuffling, so the drop is a fair
+        // sample of the room.
+        void PromoteMentionAndCap(std::vector<Player*>& candidates, std::string const& message)
+        {
+            for (size_t i = 0; i < candidates.size(); ++i)
+            {
+                if (BotSelector::MentionsName(message, candidates[i]->GetName()))
+                {
+                    std::swap(candidates[0], candidates[i]);
+                    break;
+                }
+            }
+
+            size_t cap = std::max<uint32>(sLlmConfig->routerMaxRoster, 1);
+            if (candidates.size() > cap)
+                candidates.resize(cap);
+        }
+
         bool SubmitRoute(RouteRequest&& route)
         {
-            size_t maxPick = sLlmConfig->maxBotsToPick;
+            size_t maxPick = route.maxPick;
             uint32 staggerMs = sLlmConfig->chatStaggerSeconds * IN_MILLISECONDS;
 
             LlmRequest request;
@@ -199,10 +231,12 @@ namespace ModLlm::Router
         // entries) degrades to the old random pick.
         std::vector<Player*> shuffled = candidates;
         Acore::Containers::RandomShuffle(shuffled);
+        PromoteMentionAndCap(shuffled, trigger.message);
 
         bool bg = trigger.chatType == CHAT_MSG_BATTLEGROUND || trigger.chatType == CHAT_MSG_BATTLEGROUND_LEADER;
 
         RouteRequest route;
+        route.maxPick = MaxPickFor(sender);
         std::string rosterText;
         for (Player* bot : shuffled)
         {
@@ -217,7 +251,7 @@ namespace ModLlm::Router
         args.push_back(fmt::arg("actor_name", trigger.actorName));
         args.push_back(fmt::arg("message", trigger.message));
         args.push_back(fmt::arg("roster", rosterText));
-        args.push_back(fmt::arg("max_picks", sLlmConfig->maxBotsToPick));
+        args.push_back(fmt::arg("max_picks", route.maxPick));
 
         try
         {
@@ -247,6 +281,7 @@ namespace ModLlm::Router
         // matches the router-off behaviour.
         std::vector<Player*> shuffled = candidates;
         Acore::Containers::RandomShuffle(shuffled);
+        PromoteMentionAndCap(shuffled, trigger.message);
 
         // Everyone in earshot of the sender heard roughly the same recent
         // conversation, so the overheard buffer of the candidate nearest the
@@ -262,6 +297,7 @@ namespace ModLlm::Router
             historyBlock = "Recently said nearby:\n" + history;
 
         RouteRequest route;
+        route.maxPick = MaxPickFor(sender);
         std::string rosterText;
         for (Player* bot : shuffled)
         {
@@ -276,7 +312,7 @@ namespace ModLlm::Router
         args.push_back(fmt::arg("message", trigger.message));
         args.push_back(fmt::arg("roster", rosterText));
         args.push_back(fmt::arg("history_block", historyBlock));
-        args.push_back(fmt::arg("max_picks", sLlmConfig->maxBotsToPick));
+        args.push_back(fmt::arg("max_picks", route.maxPick));
 
         try
         {
@@ -292,9 +328,69 @@ namespace ModLlm::Router
         route.label = "Say router";
         route.trigger = std::move(trigger);
         // Router-off behaviour rolls the say dice per candidate.
-        route.fallbackChance = BotSelector::ReplyChance(TRIGGER_CHAT_SAY, false);
+        route.fallbackChance = BotSelector::ReplyChance(TRIGGER_CHAT_SAY, !BotSelector::IsRealPlayer(sender));
         // Direct exchanges (say/yell) also feed the pair transcript.
         route.recordPairLines = true;
+        return SubmitRoute(std::move(route));
+    }
+
+    bool RouteRoomMessage(Player* sender, std::vector<Player*> const& candidates, TriggerContext trigger,
+        std::string const& roomLabel)
+    {
+        trigger.actorGuid = sender->GetGUID();
+        trigger.actorName = sender->GetName();
+
+        // Shuffled up front so the no-parse fallback (dice down the roster)
+        // matches the router-off behaviour.
+        std::vector<Player*> shuffled = candidates;
+        Acore::Containers::RandomShuffle(shuffled);
+        PromoteMentionAndCap(shuffled, trigger.message);
+
+        // The room transcript ends with the message being routed (it was
+        // recorded before us).
+        std::string history = sLlmHistoryStore->FormatRoom(trigger.roomKey,
+            sLlmConfig->historyMaxRoomLines);
+
+        std::string historyBlock;
+        if (!history.empty())
+            historyBlock = "Recently said there:\n" + history;
+
+        RouteRequest route;
+        route.maxPick = MaxPickFor(sender);
+        std::string rosterText;
+        for (Player* bot : shuffled)
+        {
+            route.roster.push_back({ bot->GetGUID(), bot->GetName() });
+            if (!rosterText.empty())
+                rosterText += "\n";
+            rosterText += RosterLine(bot);
+        }
+
+        fmt::dynamic_format_arg_store<fmt::format_context> args;
+        args.push_back(fmt::arg("actor_name", trigger.actorName));
+        args.push_back(fmt::arg("message", trigger.message));
+        args.push_back(fmt::arg("roster", rosterText));
+        args.push_back(fmt::arg("history_block", historyBlock));
+        args.push_back(fmt::arg("room_label", roomLabel));
+        args.push_back(fmt::arg("max_picks", route.maxPick));
+
+        try
+        {
+            route.prompt = fmt::vformat(sLlmConfig->promptRoomRouter, args);
+        }
+        catch (std::exception const& e)
+        {
+            LOG_ERROR("module.llm", "Bad room-router prompt template '{}': {}",
+                sLlmConfig->promptRoomRouter, e.what());
+            return false;
+        }
+
+        route.label = "Room router";
+        // Router-off behaviour rolls the guild/channel dice per candidate.
+        route.fallbackChance = BotSelector::ReplyChance(trigger.kind, !BotSelector::IsRealPlayer(sender));
+        route.trigger = std::move(trigger);
+        // Room lines were already recorded via AddRoomLine.
+        route.recordPairLines = false;
         return SubmitRoute(std::move(route));
     }
 }

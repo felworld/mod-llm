@@ -234,6 +234,35 @@ namespace ModLlm
                 return;
             }
 
+            // Guild and named-channel messages route the same way, over the
+            // room transcript. Defense channels stay on the tuned-down dice:
+            // they are deliberately read-mostly, and routing would
+            // over-answer them.
+            if (sLlmConfig->roomRouterEnabled && BotSelector::IsRealPlayer(sender)
+                && (kind == TRIGGER_CHAT_GUILD
+                    || (kind == TRIGGER_CHAT_CHANNEL && !BotSelector::IsDefenseChannel(channel))))
+            {
+                std::vector<Player*> candidates = kind == TRIGGER_CHAT_GUILD
+                    ? BotSelector::CollectGuildBots(sender, guild)
+                    : BotSelector::CollectChannelBots(sender, channel);
+                if (candidates.empty())
+                    return;
+
+                TriggerContext trigger;
+                trigger.kind = kind;
+                trigger.chatType = type;
+                trigger.roomKey = roomKey;
+                trigger.message = msg;
+                if (channel)
+                    trigger.channelName = channel->GetName();
+
+                Router::RouteRoomMessage(sender, candidates, std::move(trigger),
+                    kind == TRIGGER_CHAT_GUILD
+                        ? "guild chat"
+                        : Acore::StringFormat("the \"{}\" channel", channel->GetName()));
+                return;
+            }
+
             std::vector<Player*> bots = BotSelector::SelectForChat(sender, kind, msg, group, guild,
                 channel, maxDistance);
 

@@ -12,6 +12,7 @@
 #include "HistoryStore.h"
 #include "LlmConfig.h"
 #include "LlmDispatch.h"
+#include "LlmRouter.h"
 #include "LlmTrigger.h"
 #include "Player.h"
 #include "SharedDefines.h"
@@ -65,6 +66,26 @@ namespace ModLlm::Overhear
             return;
 
         float distance = yell ? sLlmConfig->yellDistance : sLlmConfig->sayDistance;
+
+        TriggerContext trigger;
+        trigger.kind = TRIGGER_CHAT_SAY;
+        trigger.chatType = yell ? CHAT_MSG_YELL : CHAT_MSG_SAY;
+        trigger.message = message;
+        trigger.chainDepth = sourceTrigger.chainDepth + 1;
+
+        // A bot's say routes exactly like a real player's: one cheap LLM
+        // call, seeing the roster and the recent conversation, judges who -
+        // if anyone - the line is for. Judgment instead of dice keeps
+        // ambient exchanges alive without flat percentages compounding into
+        // reply storms.
+        if (sLlmConfig->sayRouterEnabled)
+        {
+            std::vector<Player*> candidates = BotSelector::CollectSayCandidates(bot, distance);
+            if (!candidates.empty())
+                Router::RouteSayMessage(bot, candidates, std::move(trigger));
+            return;
+        }
+
         std::vector<Player*> bots = BotSelector::SelectForChat(bot, TRIGGER_CHAT_SAY, message,
             nullptr, nullptr, nullptr, distance);
 
@@ -72,11 +93,6 @@ namespace ModLlm::Overhear
             sLlmHistoryStore->AddPairLine(other->GetGUID(), bot->GetGUID(), false,
                 bot->GetName(), message);
 
-        TriggerContext trigger;
-        trigger.kind = TRIGGER_CHAT_SAY;
-        trigger.chatType = yell ? CHAT_MSG_YELL : CHAT_MSG_SAY;
-        trigger.message = message;
-        trigger.chainDepth = sourceTrigger.chainDepth + 1;
         SubmitStaggered(bots, bot, std::move(trigger));
     }
 
@@ -91,16 +107,30 @@ namespace ModLlm::Overhear
         if (!channel)
             return;
 
-        std::vector<Player*> bots = BotSelector::SelectForChat(bot, TRIGGER_CHAT_CHANNEL, message,
-            nullptr, nullptr, channel, 0.0f);
-
         TriggerContext trigger;
         trigger.kind = TRIGGER_CHAT_CHANNEL;
         trigger.chatType = CHAT_MSG_CHANNEL;
         trigger.channelName = channelName;
+        trigger.defenseChannel = BotSelector::IsDefenseChannel(channel);
         trigger.roomKey = Acore::StringFormat("channel:{}:{}", channelName, uint32(bot->GetTeamId()));
         trigger.message = message;
         trigger.chainDepth = sourceTrigger.chainDepth + 1;
+
+        // Channel messages get the same routing judgment as say (the room
+        // transcript stands in for the overheard conversation). Defense
+        // channels stay on the tuned-down dice: they are deliberately
+        // read-mostly, and routing would over-answer them.
+        if (sLlmConfig->roomRouterEnabled && !trigger.defenseChannel)
+        {
+            std::vector<Player*> candidates = BotSelector::CollectChannelBots(bot, channel);
+            if (!candidates.empty())
+                Router::RouteRoomMessage(bot, candidates, std::move(trigger),
+                    Acore::StringFormat("the \"{}\" channel", channelName));
+            return;
+        }
+
+        std::vector<Player*> bots = BotSelector::SelectForChat(bot, TRIGGER_CHAT_CHANNEL, message,
+            nullptr, nullptr, channel, 0.0f);
         SubmitStaggered(bots, bot, std::move(trigger));
     }
 

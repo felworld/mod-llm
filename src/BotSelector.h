@@ -60,6 +60,16 @@ namespace ModLlm::BotSelector
     // cap - callers decide how to narrow the list.
     std::vector<Player*> CollectSayCandidates(Player* sender, float maxDistance);
 
+    // Every eligible bot in the guild. The human-witness requirement is
+    // guild-wide: a human sender or any human guild member online. No chance
+    // roll or cap - callers decide how to narrow the list. World thread only.
+    std::vector<Player*> CollectGuildBots(Player* sender, Guild* guild);
+
+    // Every eligible bot on the channel. The human-witness requirement is
+    // channel membership rather than proximity. No chance roll or cap -
+    // callers decide how to narrow the list. World thread only.
+    std::vector<Player*> CollectChannelBots(Player* sender, Channel* channel);
+
     // Picks the bots that should react to a chat message. Handles eligibility
     // (audience of the message + a real player involved), chance rolls, the
     // name-mention override, the in-combat skip, and the MaxBotsToPick cap.

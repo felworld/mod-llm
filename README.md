@@ -35,18 +35,21 @@ do, whether or not they were picked to answer (`LLM.Chat.Overhear.Enable`). Hear
 
 ## Triggers
 
-- **Reactive chat**: say/yell, whispers, party/raid/battleground, guild, and channel messages, with
-  per-channel reply chances (separate for human vs bot senders), a name-mention override, and a bot
-  cap. Party chat from a real player skips the dice and the cap: every bot in the party is asked and
-  the model itself decides whether the message concerns it — the prompt reminds it the whole party
-  heard the message and silence is a fine answer. A real player's raid/battleground messages instead
-  go through a **router**: one cheap LLM call reads the message plus a roster of the group's bots
-  (class, spec, role) and picks which of them the message is meant for, up to the bot cap — so "any
-  mages got water?" reaches the mage, not two random bots. Routed bots still decide for themselves
-  whether to answer, with a prompt that pushes harder toward silence in large groups. A real
-  player's say/yell is routed the same way, and the say router additionally sees the conversation
-  recently overheard around the sender — so an undirected "sure, how much?" right after a bot's
-  offer reaches that bot, and idle muttering reaches nobody.
+- **Reactive chat**: say/yell, whispers, party/raid/battleground, guild, and channel messages.
+  Who answers is decided by judgment, not dice: most audiences go through a **router** — one cheap
+  LLM call reads the message plus a roster of candidate bots (class, spec, role) and picks which of
+  them, if any, the message is meant for — so "any mages got water?" reaches the mage, not two
+  random bots, and idle muttering reaches nobody. The say router additionally sees the conversation
+  recently overheard around the sender (so an undirected "sure, how much?" right after a bot's
+  offer reaches that bot), and the room router for guild and named channels sees the room
+  transcript. All routers know that the bigger the crowd, the less likely any one bystander was
+  being addressed; rosters are capped at `LLM.Chat.Router.MaxRoster` per call, a name-mention
+  always picks that bot, and the `LLM.Chat.*ReplyChance.*` dice survive only as the fallback when a
+  router reply is unparseable or a router is disabled. Party chat from a real player skips routing
+  the other way: every bot in the party is asked and the model itself decides whether the message
+  concerns it — the prompt reminds it the whole party heard the message and silence is a fine
+  answer. Routed bots, too, still decide for themselves whether to answer, with a prompt that
+  pushes harder toward silence in large groups.
   When several bots react to one message their replies are staggered (`LLM.Chat.StaggerSeconds`),
   and each later bot's context is rebuilt when its turn comes, so it can respond to the earlier
   replies instead of echoing them. To keep bots from parroting phrases out of their own
@@ -56,10 +59,14 @@ do, whether or not they were picked to answer (`LLM.Chat.Overhear.Enable`). Hear
   dropped, GMs excepted.
   Messages starting with the playerbots command prefix (`AiPlayerbot.CommandPrefix`) are bot
   commands, not conversation: they trigger no replies and stay out of every transcript.
-  Bots also hear each other: a bot's say/yell or channel message can trigger nearby bots to
-  answer (the `LLM.Chat.BotReplyChance.*` dice), so bot conversations happen in front of players.
-  The whole mechanism sits behind `LLM.Chat.BotTrigger.Enable`, chain-capped by
-  `LLM.Chat.BotTrigger.MaxChainDepth`, and still requires a human audience.
+  Bots also hear each other: a bot's say/yell or channel message routes exactly like a real
+  player's, so bot conversations happen in front of players — but a bot's message picks at most
+  `LLM.Chat.BotTrigger.MaxBotsToPick` (default 1) responder, keeping bot-to-bot exchanges linear
+  conversations rather than branching trees. Only a real player's message fans out to several
+  responders (`LLM.Chat.MaxBotsToPick`). The whole mechanism sits behind
+  `LLM.Chat.BotTrigger.Enable`, chain-capped by `LLM.Chat.BotTrigger.MaxChainDepth`, and still
+  requires a human audience. LocalDefense/WorldDefense never route: those channels are
+  deliberately read-mostly, on their own tuned-down dice (`LLM.Chat.*ReplyChance.Defense`).
 - **Emotes**: emotes aimed at a bot, or performed nearby — including cross-faction ones, since
   text emotes are faction-agnostic for real players too. A cross-faction emote normally draws an
   emote back (the prompt explains the language barrier); a small dice roll
