@@ -118,14 +118,15 @@ namespace ModLlm::Overhear
 
         // Channel messages get the same routing judgment as say (the room
         // transcript stands in for the overheard conversation). Defense
-        // channels stay on the tuned-down dice: they are deliberately
-        // read-mostly, and routing would over-answer them.
-        if (sLlmConfig->roomRouterEnabled && !trigger.defenseChannel)
+        // channels included: per-candidate dice scale with the audience, so
+        // on a faction-wide channel even a low chance answers every message
+        // - their read-mostly feel comes from the router judging that most
+        // alarms are answered by nobody.
+        if (sLlmConfig->roomRouterEnabled)
         {
             std::vector<Player*> candidates = BotSelector::CollectChannelBots(bot, channel);
             if (!candidates.empty())
-                Router::RouteRoomMessage(bot, candidates, std::move(trigger),
-                    Acore::StringFormat("the \"{}\" channel", channelName));
+                Router::RouteRoomMessage(bot, candidates, std::move(trigger));
             return;
         }
 

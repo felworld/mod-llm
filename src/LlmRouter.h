@@ -49,16 +49,17 @@ namespace ModLlm::Router
     // from the room's bots, and the room transcript, then picks who - if
     // anyone - would naturally answer. Most channel chatter is read in
     // silence, and the roster itself shows the model how unlikely any
-    // particular reader is to be addressed.
+    // particular reader is to be addressed. Defense channels route too, with
+    // an alarm-channel note in the prompt: nearly every alarm is answered by
+    // nobody, but "omw" and sightings survive.
     //
     // Call on the world thread, after the message was added to the room
     // history. `trigger` needs kind/chatType/roomKey/message (plus
-    // channelName for channels, chainDepth for a bot sender) filled in;
-    // `roomLabel` is the human phrasing of the room ("guild chat", "the
-    // \"General - Elwynn Forest\" channel"). Returns false if the routing
-    // request could not be queued.
-    bool RouteRoomMessage(Player* sender, std::vector<Player*> const& candidates, TriggerContext trigger,
-        std::string const& roomLabel);
+    // channelName and defenseChannel for channels, chainDepth for a bot
+    // sender) filled in; the room's human phrasing ("guild chat", "the
+    // \"General - Elwynn Forest\" channel") is derived from those fields.
+    // Returns false if the routing request could not be queued.
+    bool RouteRoomMessage(Player* sender, std::vector<Player*> const& candidates, TriggerContext trigger);
 
     // Extracts the first JSON array of strings from the router's reply.
     // nullopt when no parseable array is present (as opposed to a legitimate

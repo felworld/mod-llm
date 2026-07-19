@@ -88,7 +88,7 @@ namespace ModLlm
         constexpr char DEFAULT_PROMPT_ROOM_ROUTER[] =
             "You are routing a chat message between player characters in World of Warcraft. "
             "In {room_label}, {actor_name} writes: \"{message}\"\n"
-            "Characters reading it include:\n{roster}\n{history_block}"
+            "Characters reading it include:\n{roster}\n{history_block}{room_note}"
             "Which of the listed characters, if any, would naturally answer? Messages there are mostly "
             "read in silence, and the more readers there are, the less likely any one of them is being "
             "addressed: unless a listed character is named, asked something they would know, or already "

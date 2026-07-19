@@ -262,11 +262,11 @@ LLM.Chat.SkipInCombat = 1
 #                     group/guild chat is delivered without re-entering the
 #                     trigger pipeline.
 #                     .Defense overrides .Channel in the LocalDefense and
-#                     WorldDefense channels, which never route: those are
-#                     mostly read, not chatted in, so most bots stay silent
-#                     - and the few who do reply get defense-channel
-#                     guidance (supportive tone, the go_defend tool, "omw"
-#                     only when actually going).
+#                     WorldDefense channels, and rolls only with the room
+#                     router disabled. Note that per-candidate dice scale
+#                     with the audience: on a faction-wide channel even a
+#                     low chance picks someone on nearly every message,
+#                     which is why routing is the default there.
 #
 
 LLM.Chat.PlayerReplyChance.Say = 90
@@ -323,10 +323,15 @@ LLM.Chat.SayRouter.Enable = 1
 #                     is read in silence, so the router usually answers
 #                     "nobody" unless a bot is named, asked something it
 #                     would know, or already mid-conversation.
-#                     LocalDefense/WorldDefense never route (see
-#                     ReplyChance.Defense). When disabled, guild/channel
-#                     chat falls back to the ReplyChance.Guild/.Channel
-#                     dice.
+#                     LocalDefense/WorldDefense route too, with an
+#                     alarm-channel note in the routing prompt: nearly
+#                     every alarm is answered by nobody, but "omw" and
+#                     sightings survive, and the picked bots get the
+#                     defense reply guidance (supportive tone, the
+#                     go_defend tool, "omw" only when actually going).
+#                     When disabled, guild/channel chat falls back to the
+#                     ReplyChance.Guild/.Channel dice (.Defense in defense
+#                     channels).
 #        Default:     1
 #
 
@@ -578,10 +583,11 @@ LLM.History.RetentionDays = 2
 #               ({history_block} is the say/yell recently overheard around
 #               the sender, ending with the message being routed)
 #      room router: {room_label} {actor_name} {message} {roster}
-#               {history_block} {max_picks}
+#               {history_block} {room_note} {max_picks}
 #               ({room_label} names the room - guild chat or a channel;
 #               {history_block} is the room transcript, ending with the
-#               message being routed)
+#               message being routed; {room_note} adds alarm-channel
+#               guidance in defense channels, else empty)
 #    LLM.Prompt.System and LLM.Prompt.StyleExamples are written out below
 #    (identical to the built-in defaults) so they can be tuned without
 #    rebuilding. Style guidance uses positive exemplars only - phrasing a rule

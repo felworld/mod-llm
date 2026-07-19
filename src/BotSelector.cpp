@@ -308,6 +308,12 @@ namespace ModLlm::BotSelector
             && !group->isRaidGroup() && !group->isBGGroup() && !group->isBFGroup())
             maxPick = candidates.size();
 
+        // A bot's message branches by its picks on every chain hop, so the
+        // BotTrigger cap applies here too: bot-seeded exchanges stay linear
+        // even on this dice fallback path.
+        if (!IsRealPlayer(sender))
+            maxPick = std::min<size_t>(maxPick, sLlmConfig->botTriggerMaxBotsToPick);
+
         return PickByChanceAndMention(candidates, sender, triggerKind, message, maxPick,
             triggerKind == TRIGGER_CHAT_CHANNEL && IsDefenseChannel(channel));
     }

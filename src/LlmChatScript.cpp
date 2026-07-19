@@ -235,12 +235,12 @@ namespace ModLlm
             }
 
             // Guild and named-channel messages route the same way, over the
-            // room transcript. Defense channels stay on the tuned-down dice:
-            // they are deliberately read-mostly, and routing would
-            // over-answer them.
+            // room transcript - defense channels included: their read-mostly
+            // feel comes from the router judging that most alarms are
+            // answered by nobody, which per-candidate dice cannot do on a
+            // faction-wide channel.
             if (sLlmConfig->roomRouterEnabled && BotSelector::IsRealPlayer(sender)
-                && (kind == TRIGGER_CHAT_GUILD
-                    || (kind == TRIGGER_CHAT_CHANNEL && !BotSelector::IsDefenseChannel(channel))))
+                && (kind == TRIGGER_CHAT_GUILD || kind == TRIGGER_CHAT_CHANNEL))
             {
                 std::vector<Player*> candidates = kind == TRIGGER_CHAT_GUILD
                     ? BotSelector::CollectGuildBots(sender, guild)
@@ -254,12 +254,12 @@ namespace ModLlm
                 trigger.roomKey = roomKey;
                 trigger.message = msg;
                 if (channel)
+                {
                     trigger.channelName = channel->GetName();
+                    trigger.defenseChannel = BotSelector::IsDefenseChannel(channel);
+                }
 
-                Router::RouteRoomMessage(sender, candidates, std::move(trigger),
-                    kind == TRIGGER_CHAT_GUILD
-                        ? "guild chat"
-                        : Acore::StringFormat("the \"{}\" channel", channel->GetName()));
+                Router::RouteRoomMessage(sender, candidates, std::move(trigger));
                 return;
             }
 

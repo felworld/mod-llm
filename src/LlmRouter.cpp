@@ -326,11 +326,29 @@ namespace ModLlm::Router
         return SubmitRoute(std::move(route));
     }
 
-    bool RouteRoomMessage(Player* sender, std::vector<Player*> const& candidates, TriggerContext trigger,
-        std::string const& roomLabel)
+    bool RouteRoomMessage(Player* sender, std::vector<Player*> const& candidates, TriggerContext trigger)
     {
         trigger.actorGuid = sender->GetGUID();
         trigger.actorName = sender->GetName();
+
+        // Label and note derive from the trigger, so every call site
+        // describes the same room the same way. Defense channels carry an
+        // extra note: per-candidate dice could never hold a faction-wide
+        // alarm channel quiet, but a router told that nearly every alarm is
+        // read in silence can.
+        std::string roomLabel;
+        std::string roomNote;
+        if (trigger.kind == TRIGGER_CHAT_GUILD)
+            roomLabel = "guild chat";
+        else if (trigger.defenseChannel)
+        {
+            roomLabel = Acore::StringFormat("the \"{}\" defense channel", trigger.channelName);
+            roomNote = "It is an alarm channel where enemy attacks are reported: pick a character only "
+                "if they are named, would genuinely go to help, or would report a sighting of their "
+                "own.\n";
+        }
+        else
+            roomLabel = Acore::StringFormat("the \"{}\" channel", trigger.channelName);
 
         // Shuffled up front so the roster cap drops a fair sample and the
         // model sees no meaningful ordering.
@@ -364,6 +382,7 @@ namespace ModLlm::Router
         args.push_back(fmt::arg("roster", rosterText));
         args.push_back(fmt::arg("history_block", historyBlock));
         args.push_back(fmt::arg("room_label", roomLabel));
+        args.push_back(fmt::arg("room_note", roomNote));
         args.push_back(fmt::arg("max_picks", route.maxPick));
 
         try
