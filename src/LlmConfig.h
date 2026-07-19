@@ -59,6 +59,12 @@ namespace ModLlm
         float yellDistance = 0.0f;
         uint32 maxBotsToPick = 2;
         uint32 chatStaggerSeconds = 5;
+        // Faux typing: a finished reply is held until a human could have
+        // typed it, counted from the trigger (0 = deliver immediately).
+        // 7 chars/s is roughly an 85 words-per-minute typist - quick fingers,
+        // as habitual chatters have.
+        float typingCharsPerSecond = 7.0f;
+        uint32 typingMaxSeconds = 15;
         bool skipInCombat = true;
         uint32 playerReplyChanceSay = 90;
         uint32 playerReplyChanceParty = 100;

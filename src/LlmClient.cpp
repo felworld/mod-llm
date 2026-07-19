@@ -7,10 +7,12 @@
 
 #include "Chat.h"
 #include "LlmConfig.h"
+#include "LlmDispatch.h"
 #include "LlmToolOperation.h"
 #include "Log.h"
 #include "PlayerbotWorldThreadProcessor.h"
 #include "PromptAssembler.h"
+#include "Random.h"
 #include "SharedDefines.h"
 #include "StringFormat.h"
 #include "ToolCallParser.h"
@@ -20,6 +22,8 @@
 #include "httplib.h"
 
 #include <nlohmann/json.hpp>
+
+#include <algorithm>
 #include <string_view>
 
 namespace ModLlm
@@ -79,6 +83,45 @@ namespace ModLlm
                 path = endpoint.substr(pathStart);
             }
             return true;
+        }
+
+        // How long the response's chat text should be held before delivery so
+        // it lands no sooner than a human could have typed it. The bot has
+        // been "typing" since the trigger, so everything the pipeline already
+        // spent (router hop, queue, model call) counts toward the typing
+        // time; only replies that outran a human typist wait for the rest.
+        uint32 TypingDelayMs(TriggerContext const& trigger, LlmResponse const& response)
+        {
+            float charsPerSecond = sLlmConfig->typingCharsPerSecond;
+            if (charsPerSecond <= 0.0f)
+                return 0;
+
+            size_t chars = 0;
+            for (ToolCall const& call : response.toolCalls)
+            {
+                if (call.name != "say")
+                    continue;
+
+                nlohmann::json args = nlohmann::json::parse(call.arguments, nullptr, false);
+                if (!args.is_discarded() && args.contains("message") && args["message"].is_string())
+                    chars += args["message"].get_ref<std::string const&>().size();
+            }
+
+            // Mirrors the bare-content rescue in LlmToolOperation: this prose
+            // is only spoken when there were no tool calls at all.
+            if (response.toolCalls.empty() && sLlmConfig->treatBareContentAsSay)
+                chars += response.content.size();
+
+            if (!chars)
+                return 0;
+
+            // Jittered so several bots answering the same message spread out
+            // instead of all "finishing typing" at the same rate.
+            uint32 typingMs = uint32(float(chars) * 1000.0f / charsPerSecond * frand(0.85f, 1.15f));
+            typingMs = std::min(typingMs, sLlmConfig->typingMaxSeconds * IN_MILLISECONDS);
+
+            uint32 elapsedMs = GetMSTimeDiffToNow(trigger.createdMs);
+            return typingMs > elapsedMs ? typingMs - elapsedMs : 0;
         }
     }
 
@@ -356,9 +399,16 @@ namespace ModLlm
         if (response.toolCalls.empty() && response.content.empty())
             return; // the model chose to do nothing
 
-        // Marshal all game-state effects onto the world thread.
-        PlayerbotWorldThreadProcessor::instance().QueueOperation(
-            std::make_unique<LlmToolOperation>(request.trigger, std::move(response.toolCalls),
-                std::move(response.content), request.round));
+        uint32 typingDelayMs = TypingDelayMs(request.trigger, response);
+
+        // Marshal all game-state effects onto the world thread - held first
+        // while the bot finishes "typing" if the reply came faster than a
+        // human could write it.
+        auto operation = std::make_unique<LlmToolOperation>(request.trigger, std::move(response.toolCalls),
+            std::move(response.content), request.round);
+        if (typingDelayMs)
+            Dispatch::QueueOperationDelayed(std::move(operation), typingDelayMs);
+        else
+            PlayerbotWorldThreadProcessor::instance().QueueOperation(std::move(operation));
     }
 }

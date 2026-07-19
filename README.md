@@ -54,7 +54,12 @@ do, whether or not they were picked to answer (`LLM.Chat.Overhear.Enable`). Hear
   pushes harder toward silence in large groups.
   When several bots react to one message their replies are staggered (`LLM.Chat.StaggerSeconds`),
   and each later bot's context is rebuilt when its turn comes, so it can respond to the earlier
-  replies instead of echoing them. To keep bots from parroting phrases out of their own
+  replies instead of echoing them. Replies also arrive at typing speed: a finished reply is held
+  until a human could have typed it (`LLM.Typing.CharsPerSecond`, counted from the message being
+  answered, so model latency eats into the typing time; capped by `LLM.Typing.MaxSeconds`). Long
+  messages land later than quips, one bot's lines never overlap, and burst-replies spread into a
+  conversation-paced trickle — where each later reply was generated seeing the ones already
+  delivered, which is what lets the model bow out once the question is answered. To keep bots from parroting phrases out of their own
   conversation history, the system prompt forbids reusing wording and requests carry a
   repetition penalty (`LLM.RepetitionPenalty`) that also covers prompt tokens. Faction rules are honored: unless `AllowTwoSide.Interaction.Chat` is enabled, bots don't react
   to opposite-faction speech (they couldn't understand it) and cross-faction whisper triggers are

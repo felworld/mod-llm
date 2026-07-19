@@ -235,6 +235,29 @@ LLM.Chat.MaxBotsToPick = 2
 LLM.Chat.StaggerSeconds = 5
 
 #
+#    LLM.Typing.CharsPerSecond
+#        Description: Faux typing speed. A finished reply is delivered only
+#                     once a human could have typed it: its length divided by
+#                     this rate, counted from the moment of the message being
+#                     answered - so the model's own latency eats into the
+#                     typing time, and only replies that outran a human typist
+#                     are held for the remainder. Long messages arrive later
+#                     than quips, a bot's consecutive lines never overlap, and
+#                     because history is recorded at delivery, bots that react
+#                     later genuinely see what was said in the meantime.
+#                     7 chars/s is roughly an 85 words-per-minute typist.
+#                     0 disables the hold entirely.
+#        Default:     7
+#
+#    LLM.Typing.MaxSeconds
+#        Description: Longest a finished reply is ever held for typing realism.
+#        Default:     15
+#
+
+LLM.Typing.CharsPerSecond = 7
+LLM.Typing.MaxSeconds = 15
+
+#
 #    LLM.Chat.SkipInCombat
 #        Description: Bots in combat never react.
 #        Default:     1

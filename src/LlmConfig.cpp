@@ -154,6 +154,8 @@ namespace ModLlm
         yellDistance = ResolveListenDistance("LLM.Chat.YellDistance", CONFIG_LISTEN_RANGE_YELL);
         maxBotsToPick = sConfigMgr->GetOption<uint32>("LLM.Chat.MaxBotsToPick", 2);
         chatStaggerSeconds = sConfigMgr->GetOption<uint32>("LLM.Chat.StaggerSeconds", 5);
+        typingCharsPerSecond = sConfigMgr->GetOption<float>("LLM.Typing.CharsPerSecond", 7.0f);
+        typingMaxSeconds = sConfigMgr->GetOption<uint32>("LLM.Typing.MaxSeconds", 15);
         skipInCombat = sConfigMgr->GetOption<bool>("LLM.Chat.SkipInCombat", true);
         playerReplyChanceSay = sConfigMgr->GetOption<uint32>("LLM.Chat.PlayerReplyChance.Say", 90);
         playerReplyChanceParty = sConfigMgr->GetOption<uint32>("LLM.Chat.PlayerReplyChance.Party", 100);

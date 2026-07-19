@@ -7,6 +7,7 @@
 #define MOD_LLM_TRIGGER_H
 
 #include "ObjectGuid.h"
+#include "Timer.h"
 
 #include <string>
 
@@ -49,6 +50,9 @@ namespace ModLlm
     struct TriggerContext
     {
         uint32 kind = TRIGGER_INITIATIVE;
+        uint32 createdMs = getMSTime(); // when the trigger fired: the faux-typing hold on the
+                                        // eventual reply counts the pipeline's latency from here
+
         ObjectGuid botGuid;
         ObjectGuid actorGuid;        // the triggering player, if any
         std::string actorName;

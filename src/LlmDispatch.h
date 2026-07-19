@@ -10,7 +10,10 @@
 
 #include "ObjectGuid.h"
 
+#include <memory>
+
 class Player;
+class PlayerbotOperation;
 
 namespace ModLlm::Dispatch
 {
@@ -27,10 +30,18 @@ namespace ModLlm::Dispatch
     // HTTP-worker callback). trigger.actorGuid/actorName must already be set.
     void SubmitDelayed(ObjectGuid botGuid, TriggerContext trigger, uint32 delayMs);
 
-    // Drives the delayed queue; call every world update.
+    // Holds a ready world-thread operation for `delayMs` before queueing it
+    // on the PlayerbotWorldThreadProcessor - the faux-typing hold on a
+    // generated reply. Operations for the same bot never overtake each
+    // other: a second reply waits until the first has been "typed".
+    // Safe from any thread.
+    void QueueOperationDelayed(std::unique_ptr<PlayerbotOperation> operation, uint32 delayMs);
+
+    // Drives the delayed queues; call every world update.
     void UpdateDelayed(uint32 diff);
 
-    // Drops all pending delayed dispatches (module disabled).
+    // Drops all pending delayed dispatches and held operations (module
+    // disabled).
     void ClearDelayed();
 }
 
