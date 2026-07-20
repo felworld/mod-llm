@@ -74,7 +74,8 @@ do, whether or not they were picked to answer (`LLM.Chat.Overhear.Enable`). Hear
   `LLM.Chat.BotTrigger.Enable`, chain-capped by `LLM.Chat.BotTrigger.MaxChainDepth`, and still
   requires a human audience. LocalDefense/WorldDefense route like everything else, with an
   alarm-channel note in the routing prompt: nearly every alarm is read in silence, but "omw" and
-  sightings survive, and the picked bots get the defense reply guidance and the `go_defend` tool.
+  sightings survive, and the picked bots get a go-or-stay-silent reply guidance with the
+  `go_defend` tool — a bot that is staying put says nothing, so declines never reach the channel.
   (Per-candidate dice could never keep a faction-wide channel quiet — a low chance across hundreds
   of readers still answers every message.)
 - **Emotes**: emotes aimed at a bot, or performed nearby — including cross-faction ones, since

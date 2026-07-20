@@ -61,15 +61,16 @@ namespace ModLlm::ContextBuilder
         // audience, the harder the push toward silence.
         std::string ReplyGuidance(TriggerContext const& trigger)
         {
-            // Defense channels: sightings and calls for help. Bias hard
-            // toward silence, and toward warmth from those who do speak -
-            // the bots that would have grumbled simply abstain instead.
+            // Defense channels: sightings and calls for help. The rule is
+            // binary - a speaker is either coming (go_defend plus a short
+            // omw) or reporting an enemy they can see; everyone staying put
+            // stays silent, so declines never reach the channel.
             if (trigger.kind == TRIGGER_CHAT_CHANNEL && trigger.defenseChannel)
                 return Acore::StringFormat(" This is the \"{}\" defense channel, where people report enemy"
-                    " attacks and call for help. Most defenders just read and keep doing what they were doing:"
-                    " stay silent unless you have something real to add - a rallying word, a sighting of your"
-                    " own, or your decision to actually go fight. Use the go_defend tool when you choose to go,"
-                    " and only say you are on your way when you truly are.",
+                    " attacks and call for help. Only two kinds of message belong here: you are coming (use"
+                    " the go_defend tool and send a short on-my-way), or you can see the enemy right now and"
+                    " report the sighting. If you are staying put, stay silent - readers who keep doing what"
+                    " they were doing say nothing, and that is almost always you.",
                     trigger.channelName);
 
             // An initiative remark or event comment pointed at the zone
