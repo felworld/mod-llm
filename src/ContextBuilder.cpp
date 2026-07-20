@@ -74,11 +74,16 @@ namespace ModLlm::ContextBuilder
                     trigger.channelName);
 
             // An initiative remark or event comment pointed at the zone
-            // channel: make sure the model knows how far its words carry.
+            // channel: the audience is the whole zone, and none of them saw
+            // what the bot just saw - a bare reaction lands as noise, so the
+            // model must retell or stay quiet.
             if ((trigger.kind == TRIGGER_INITIATIVE || trigger.kind == TRIGGER_GAME_EVENT)
                 && trigger.chatType == CHAT_MSG_CHANNEL && !trigger.channelName.empty())
-                return Acore::StringFormat(" If you say something, everyone in the zone-wide \"{}\" channel"
-                    " hears it: keep it something a player would genuinely broadcast there.",
+                return Acore::StringFormat(" If you say something, it goes to the zone-wide \"{}\" channel."
+                    " Nobody there saw what just happened around you, so a remark only makes sense if you"
+                    " tell them the story yourself - who and where, the way a player types \"some rogue"
+                    " just ganked a lowbie by the crossroads lol\". Most local moments are not worth"
+                    " broadcasting to a whole zone: staying silent is the usual choice.",
                     trigger.channelName);
 
             if (trigger.kind != TRIGGER_CHAT_PARTY)
@@ -192,17 +197,22 @@ namespace ModLlm::ContextBuilder
         snapshot.replyGuidance = ReplyGuidance(trigger);
 
         // No shared language across the faction line: steer the bot toward
-        // emotes, unless the dice granted it a round of deliberate gibberish.
+        // the emote tool's built-in emotes - the only thing that carries
+        // across factions. Free-typed action text does not exist as an emote
+        // and typed chat arrives as gibberish (which the dice occasionally
+        // make worth sending anyway).
         if (trigger.crossFaction)
         {
             char const* enemyFaction = bot->GetTeamId() == TEAM_ALLIANCE ? "Horde" : "Alliance";
             if (trigger.crossFactionChatOk)
-                snapshot.replyGuidance += Acore::StringFormat(" {} is {} - you share no language, and"
-                    " anything you type reaches them as gibberish. Emotes carry meaning; typed words"
-                    " are pure taunt value.", snapshot.actorName, enemyFaction);
+                snapshot.replyGuidance += Acore::StringFormat(" {} is {} - you share no language."
+                    " Only the emote tool's built-in emotes carry meaning across factions; anything"
+                    " you type reaches them as gibberish, pure taunt value.",
+                    snapshot.actorName, enemyFaction);
             else
-                snapshot.replyGuidance += Acore::StringFormat(" {} is {} - you share no language, and"
-                    " typed words reach them as unreadable gibberish. Emotes are how you communicate.",
+                snapshot.replyGuidance += Acore::StringFormat(" {} is {} - you share no language,"
+                    " and anything you type reaches them as unreadable gibberish. The emote tool's"
+                    " built-in emotes are how you communicate: pick the one that fits.",
                     snapshot.actorName, enemyFaction);
         }
 

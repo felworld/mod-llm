@@ -132,7 +132,16 @@ namespace ModLlm
                 }
                 if (!found)
                 {
-                    error = "argument '" + key + "' has a value outside its allowed set";
+                    // Name the allowed set: the error is fed back to the
+                    // model, which can only recover if it sees the choices.
+                    std::string allowedList;
+                    for (auto const& allowed : property["enum"])
+                    {
+                        if (!allowedList.empty())
+                            allowedList += ", ";
+                        allowedList += allowed.is_string() ? allowed.get<std::string>() : allowed.dump();
+                    }
+                    error = "argument '" + key + "' must be one of: " + allowedList;
                     return false;
                 }
             }

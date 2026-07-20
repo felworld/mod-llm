@@ -87,7 +87,8 @@ namespace ModLlm::LlmTools
             TriggerContext const& trigger = *context.trigger;
             if (trigger.crossFaction && !trigger.crossFactionChatOk)
             {
-                error = "you share no language with them; an emote is how to communicate";
+                error = "you share no language with them; use the emote tool - its built-in"
+                    " emotes carry across factions";
                 return true;
             }
 
@@ -603,7 +604,8 @@ namespace ModLlm::LlmTools
 
             sLlmToolRegistry->Register({
                 "emote",
-                "Perform a visible emote animation, like a real player using /wave or /laugh.",
+                "Perform a visible emote animation, like a real player using /wave or /laugh."
+                " Only the listed built-in emotes exist.",
                 {
                     { "type", "object" },
                     { "properties", { { "emote", { { "type", "string" }, { "enum", emoteNames } } } } },
