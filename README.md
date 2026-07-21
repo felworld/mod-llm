@@ -1,7 +1,8 @@
 # mod-llm
 
-Agentic LLM-driven playerbots for [Felworld](https://github.com/felworld). Part of the Felworld
-project; depends on [mod-playerbots](https://github.com/felworld/mod-playerbots) and an
+Agentic LLM-driven playerbots for [Felworld](https://github.com/felworld/azerothcore) — a tech
+demo of AI "players" (LLM agents + classical game AI) populating and interacting in an MMO
+world. Depends on [mod-playerbots](https://github.com/felworld/mod-playerbots) and an
 OpenAI-compatible chat-completions endpoint (the `ac-vllm` compose service by default).
 
 Where its predecessor (mod-ollama-chat) asked the model *"what message do you reply with?"*,
@@ -148,7 +149,7 @@ Two features persist to the characters DB (schema auto-applied at worldserver st
 See `conf/mod_llm.conf.dist` for every option (`LLM.*` namespace): endpoint/model/sampling,
 concurrency, reply chances, distances, event chances/cooldowns, initiative pacing, memory caps,
 history caps, and prompt templates (including the style-exemplar block that sets the bots'
-WoW-player register — positive examples only, since negative examples can raise the very
+MMO-player register — positive examples only, since negative examples can raise the very
 phrasings they forbid on small models).
 
 In-game administration: `.llm status | enable | disable | reload`.
@@ -166,3 +167,8 @@ revisions can be A/B-compared against a live LLM endpoint. See its docstring.
 ## License
 
 MIT (see LICENSE). Bundles nlohmann/json and cpp-httplib, both MIT.
+
+Felworld is a non-commercial research project. It contains no game client,
+assets, or proprietary code, and is not affiliated with or endorsed by
+Blizzard Entertainment — see the
+[project disclaimer](https://github.com/felworld/azerothcore#license-and-disclaimer).
