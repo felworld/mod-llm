@@ -29,8 +29,11 @@ The guiding rule for prompt context: anything a player would see on their screen
 Today that's the bot's zone, its full party/raid roster (names and leader), guild, its own quest
 log (titles plus ready-to-turn-in/failed markers, so quest talk stays honest), its own memory
 notes (those about the player it's talking to, plus recent general ones), recent conversation
-history, and everything said in /say or /yell within earshot lately — bots overhear like players
-do, whether or not they were picked to answer (`LLM.Chat.Overhear.Enable`). Hearing ranges default to the server's player listen ranges
+history, everything said in /say or /yell within earshot lately — bots overhear like players
+do, whether or not they were picked to answer (`LLM.Chat.Overhear.Enable`) — and notable game
+events seen nearby (duels, deaths, level-ups, ...), which land in the same overheard transcript
+as narration lines, so a bow right after a duel still means something. Chat links reach prompts
+as the bracketed text a player sees (`[Some Quest]`), never raw client markup. Hearing ranges default to the server's player listen ranges
 (`ListenRange.Say`/`.Yell`/`.TextEmote`); set the `LLM.*Distance` options to diverge.
 
 ## Triggers
@@ -39,7 +42,9 @@ do, whether or not they were picked to answer (`LLM.Chat.Overhear.Enable`). Hear
   Who answers is decided by judgment, not dice: most audiences go through a **router** — one cheap
   LLM call reads the message plus a roster of candidate bots (class, spec, role) and picks which of
   them, if any, the message is meant for — so "any mages got water?" reaches the mage, not two
-  random bots, and idle muttering reaches nobody. The say router additionally sees the conversation
+  random bots, and idle muttering reaches nobody. A quest link is routing gold: candidates with
+  the linked quest in their log are promoted ahead of the roster cap and marked for the router,
+  so "anyone for [quest]?" reaches exactly the bots that could join. The say router additionally sees the conversation
   recently overheard around the sender (so an undirected "sure, how much?" right after a bot's
   offer reaches that bot), and the room router for guild and named channels sees the room
   transcript. All routers know that the bigger the crowd, the less likely any one bystander was
@@ -85,7 +90,11 @@ do, whether or not they were picked to answer (`LLM.Chat.Overhear.Enable`). Hear
   lands as the classic untranslated-gibberish taunt.
 - **Game events**: kills, deaths, level-ups, quest completions, duels, achievements, notable loot.
   A comment about a groupmate's deed goes to party/raid chat; enemy-faction deeds draw comment
-  only on the same cross-faction dice. Also group joins: a bot that joins a party or raid greets
+  only on the same cross-faction dice. Whether or not a bot is picked to react, the event is
+  narrated into every nearby bot's overheard transcript (mob kills exempt — grinding would flood
+  it), because seeing and reacting are different things. Duel events address participants in the
+  second person — "you lost a duel against X" — since a small model that only sees its own name
+  in a third-person line may not realize it was the loser, and trash-talk accordingly. Also group joins: a bot that joins a party or raid greets
   it in party/raid chat (this replaces playerbots' canned "Hello" whisper, which we keep disabled
   via `AiPlayerbot.EnableGreet = 0`). And heals: a bot healed by a player outside its group thanks
   them aloud (`LLM.Event.Chance.Healed`; groupmate heals are routine and never draw thanks;

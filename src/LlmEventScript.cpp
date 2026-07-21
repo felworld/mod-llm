@@ -7,6 +7,7 @@
 #include "ChatHelper.h"
 #include "Creature.h"
 #include "Group.h"
+#include "HistoryStore.h"
 #include "Item.h"
 #include "ItemTemplate.h"
 #include "LlmConfig.h"
@@ -22,6 +23,7 @@
 #include "WpvpDefense.h"
 
 #include <chrono>
+#include <functional>
 #include <mutex>
 #include <unordered_map>
 
@@ -52,7 +54,8 @@ namespace ModLlm
         void OnPlayerCreatureKill(Player* killer, Creature* killed) override
         {
             DispatchEvent(killer, "creature_kill", sLlmConfig->eventChanceKill,
-                Acore::StringFormat("{} killed {}", killer->GetName(), killed->GetName()));
+                Acore::StringFormat("{} killed {}", killer->GetName(), killed->GetName()),
+                nullptr, /*narrate*/ false);
         }
 
         void OnPlayerPVPKill(Player* killer, Player* killed) override
@@ -81,10 +84,25 @@ namespace ModLlm
                 Acore::StringFormat("{} reached level {}", player->GetName(), player->GetLevel()));
         }
 
+        // Duels get per-bot phrasing: a participant hears "you", bystanders
+        // hear names. A small model reliably binds "you lost a duel" where it
+        // may not recognize its own name in a third-person line - and then
+        // trash-talks a duel it just lost.
         void OnPlayerDuelRequest(Player* target, Player* challenger) override
         {
+            ObjectGuid targetGuid = target->GetGUID();
+            ObjectGuid challengerGuid = challenger->GetGUID();
+            std::string targetName = target->GetName();
+            std::string challengerName = challenger->GetName();
             DispatchEvent(target, "duel_request", sLlmConfig->eventChanceDuel,
-                Acore::StringFormat("{} challenged {} to a duel", challenger->GetName(), target->GetName()),
+                [targetGuid, challengerGuid, targetName, challengerName](Player* bot)
+                {
+                    if (bot->GetGUID() == targetGuid)
+                        return Acore::StringFormat("{} challenged you to a duel", challengerName);
+                    if (bot->GetGUID() == challengerGuid)
+                        return Acore::StringFormat("you challenged {} to a duel", targetName);
+                    return Acore::StringFormat("{} challenged {} to a duel", challengerName, targetName);
+                },
                 challenger);
         }
 
@@ -92,8 +110,19 @@ namespace ModLlm
         {
             if (type != DUEL_WON)
                 return;
+            ObjectGuid winnerGuid = winner->GetGUID();
+            ObjectGuid loserGuid = loser->GetGUID();
+            std::string winnerName = winner->GetName();
+            std::string loserName = loser->GetName();
             DispatchEvent(winner, "duel_end", sLlmConfig->eventChanceDuel,
-                Acore::StringFormat("{} won a duel against {}", winner->GetName(), loser->GetName()));
+                [winnerGuid, loserGuid, winnerName, loserName](Player* bot)
+                {
+                    if (bot->GetGUID() == winnerGuid)
+                        return Acore::StringFormat("you won a duel against {}", loserName);
+                    if (bot->GetGUID() == loserGuid)
+                        return Acore::StringFormat("you lost a duel against {}", winnerName);
+                    return Acore::StringFormat("{} won a duel against {}", winnerName, loserName);
+                });
         }
 
         void OnPlayerAchievementComplete(Player* player, AchievementEntry const* achievement) override
@@ -113,8 +142,20 @@ namespace ModLlm
         }
 
     private:
+        // Description resolved per reacting bot, so participants can be
+        // addressed as "you" while bystanders read names.
+        using EventDescriber = std::function<std::string(Player* bot)>;
+
         void DispatchEvent(Player* source, char const* eventType, uint32 chance, std::string description,
-            Player* actorOverride = nullptr)
+            Player* actorOverride = nullptr, bool narrate = true)
+        {
+            DispatchEvent(source, eventType, chance,
+                [description = std::move(description)](Player* /*bot*/) { return description; },
+                actorOverride, narrate);
+        }
+
+        void DispatchEvent(Player* source, char const* eventType, uint32 chance, EventDescriber describe,
+            Player* actorOverride = nullptr, bool narrate = true)
         {
             if (!sLlmConfig->IsEnabled() || !sLlmConfig->eventEnabled || !chance)
                 return;
@@ -128,8 +169,20 @@ namespace ModLlm
             uint32 dispatched = 0;
             for (Player* bot : bots)
             {
+                std::string description = describe(bot);
+
+                // Seeing and reacting are different things: the event lands in
+                // every nearby bot's overheard transcript whether or not the
+                // dice pick it to react, so a later trigger - a bow right
+                // after a duel - still knows what it is about. Events are
+                // visual, so narration ignores the faction line. Mob kills
+                // are exempt: grinding would flood the transcript with them.
+                if (narrate)
+                    sLlmHistoryStore->AddOverheardLine(bot->GetGUID(), "",
+                        Acore::StringFormat("({})", description));
+
                 if (dispatched >= sLlmConfig->eventMaxBotsPerEvent)
-                    break;
+                    continue;
                 if (urand(0, 99) >= chance)
                     continue;
                 if (IsOnCooldown(bot->GetGUID()))

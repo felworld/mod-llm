@@ -215,6 +215,16 @@ namespace ModLlm
         std::string result;
         for (size_t i = start; i < lines.size(); ++i)
         {
+            // A line with no speaker is narration - an event seen, not words
+            // heard - and skips the speaker template.
+            if (lines[i].speakerName.empty())
+            {
+                result += lines[i].text;
+                result += AgeTag(now - lines[i].at);
+                result += '\n';
+                continue;
+            }
+
             fmt::dynamic_format_arg_store<fmt::format_context> args;
             args.push_back(fmt::arg("speaker", lines[i].speakerName));
             args.push_back(fmt::arg("message", lines[i].text));

@@ -5,6 +5,7 @@
 
 #include "BotSelector.h"
 #include "Channel.h"
+#include "ChatHelper.h"
 #include "Group.h"
 #include "Guild.h"
 #include "HistoryStore.h"
@@ -23,6 +24,9 @@
 #include "StringFormat.h"
 #include "TextEmoteCatalog.h"
 #include "World.h"
+
+#include <set>
+#include <vector>
 
 namespace ModLlm
 {
@@ -137,6 +141,13 @@ namespace ModLlm
             if (!commandPrefix.empty() && msg.rfind(commandPrefix, 0) == 0)
                 return;
 
+            // Chat links arrive as raw client markup: pull the linked quest
+            // ids out for routing (a candidate on the quest is a natural
+            // responder), then reduce the message to the text a player sees.
+            std::set<uint32> questIds = ChatHelper::ExtractAllQuestIds(msg);
+            std::vector<uint32> linkedQuests(questIds.begin(), questIds.end());
+            std::string text = BotSelector::NormalizeChatLinks(msg);
+
             // Whispers: only the addressed bot may react, and always does.
             if (receiver)
             {
@@ -152,12 +163,12 @@ namespace ModLlm
                     return;
 
                 sLlmHistoryStore->AddPairLine(receiver->GetGUID(), sender->GetGUID(), false,
-                    sender->GetName(), msg);
+                    sender->GetName(), text);
 
                 TriggerContext trigger;
                 trigger.kind = TRIGGER_CHAT_WHISPER;
                 trigger.chatType = type;
-                trigger.message = msg;
+                trigger.message = text;
                 Dispatch::Submit(receiver, sender, std::move(trigger));
                 return;
             }
@@ -190,11 +201,11 @@ namespace ModLlm
                     maxDistance = sLlmConfig->yellDistance;
 
                 // Every bot in earshot remembers the line, reacting or not.
-                Overhear::RecordSpeech(sender, msg, type == CHAT_MSG_YELL);
+                Overhear::RecordSpeech(sender, text, type == CHAT_MSG_YELL);
             }
 
             if (!roomKey.empty())
-                sLlmHistoryStore->AddRoomLine(roomKey, sender->GetGUID(), sender->GetName(), msg);
+                sLlmHistoryStore->AddRoomLine(roomKey, sender->GetGUID(), sender->GetName(), text);
 
             // Raid and battleground messages from a real player go through
             // the router: one cheap LLM call picks which bots the message is
@@ -210,7 +221,8 @@ namespace ModLlm
                 trigger.kind = kind;
                 trigger.chatType = type;
                 trigger.roomKey = roomKey;
-                trigger.message = msg;
+                trigger.message = text;
+                trigger.linkedQuests = linkedQuests;
                 Router::RouteGroupMessage(sender, candidates, std::move(trigger));
                 return;
             }
@@ -229,7 +241,8 @@ namespace ModLlm
                 TriggerContext trigger;
                 trigger.kind = kind;
                 trigger.chatType = type;
-                trigger.message = msg;
+                trigger.message = text;
+                trigger.linkedQuests = linkedQuests;
                 Router::RouteSayMessage(sender, candidates, std::move(trigger));
                 return;
             }
@@ -252,7 +265,8 @@ namespace ModLlm
                 trigger.kind = kind;
                 trigger.chatType = type;
                 trigger.roomKey = roomKey;
-                trigger.message = msg;
+                trigger.message = text;
+                trigger.linkedQuests = linkedQuests;
                 if (channel)
                 {
                     trigger.channelName = channel->GetName();
@@ -263,7 +277,7 @@ namespace ModLlm
                 return;
             }
 
-            std::vector<Player*> bots = BotSelector::SelectForChat(sender, kind, msg, group, guild,
+            std::vector<Player*> bots = BotSelector::SelectForChat(sender, kind, text, group, guild,
                 channel, maxDistance);
 
             // Successive responders are staggered so each one's context is
@@ -278,13 +292,14 @@ namespace ModLlm
                 // Direct exchanges (say/yell) also feed the pair transcript.
                 if (kind == TRIGGER_CHAT_SAY)
                     sLlmHistoryStore->AddPairLine(bot->GetGUID(), sender->GetGUID(), false,
-                        sender->GetName(), msg);
+                        sender->GetName(), text);
 
                 TriggerContext trigger;
                 trigger.kind = kind;
                 trigger.chatType = type;
                 trigger.roomKey = roomKey;
-                trigger.message = msg;
+                trigger.message = text;
+                trigger.linkedQuests = linkedQuests;
                 if (channel)
                 {
                     trigger.channelName = channel->GetName();

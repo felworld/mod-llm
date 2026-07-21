@@ -157,6 +157,48 @@ namespace ModLlm::BotSelector
         return false;
     }
 
+    std::string NormalizeChatLinks(std::string const& message)
+    {
+        // Client chat links arrive as |cAARRGGBB|Hkind:data|h[Visible Text]|h|r.
+        // Keep what a player sees - the bracketed text - and drop the markup,
+        // which only confuses a small model. || is the client's escaped pipe.
+        std::string result;
+        result.reserve(message.size());
+        for (size_t i = 0; i < message.size();)
+        {
+            if (message[i] != '|' || i + 1 >= message.size())
+            {
+                result += message[i++];
+                continue;
+            }
+
+            switch (message[i + 1])
+            {
+                case '|':
+                    result += '|';
+                    i += 2;
+                    break;
+                case 'c':
+                    i = std::min(i + 10, message.size()); // |c + 8 hex digits
+                    break;
+                case 'H':
+                {
+                    size_t end = message.find("|h", i);
+                    i = end == std::string::npos ? message.size() : end + 2;
+                    break;
+                }
+                case 'h':
+                case 'r':
+                    i += 2;
+                    break;
+                default:
+                    result += message[i++];
+                    break;
+            }
+        }
+        return result;
+    }
+
     std::vector<Player*> CollectGroupBots(Player* sender, Group* group)
     {
         std::vector<Player*> bots;

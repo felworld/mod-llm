@@ -43,6 +43,10 @@ namespace ModLlm::BotSelector
     // Case-insensitive whole-word search; pure, unit-tested.
     bool MentionsName(std::string const& message, std::string const& name);
 
+    // Reduces client chat-link markup (|cAARRGGBB|Hquest:...|h[Name]|h|r) to
+    // the bracketed text a player sees; pure, unit-tested.
+    std::string NormalizeChatLinks(std::string const& message);
+
     // Per-channel-kind reply chance (percent), split by sender type. Defense
     // channels (LocalDefense/WorldDefense) get their own, much lower pair.
     uint32 ReplyChance(uint32 triggerKind, bool senderIsBot, bool defenseChannel = false);

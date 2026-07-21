@@ -17,6 +17,7 @@
 #include "Log.h"
 #include "Player.h"
 #include "PlayerbotAI.h"
+#include "QuestDef.h"
 #include "SharedDefines.h"
 #include "StringFormat.h"
 
@@ -54,15 +55,27 @@ namespace ModLlm::Router
             return "damage dealer";
         }
 
-        std::string RosterLine(Player* bot)
+        // True if the bot's quest log holds any of the quests linked in the
+        // routed message - the strongest routing signal there is: "anyone for
+        // [quest]?" is meant for exactly these characters.
+        bool OnLinkedQuest(Player* bot, std::vector<uint32> const& questIds)
+        {
+            for (uint32 questId : questIds)
+                if (bot->FindQuestSlot(questId) < MAX_QUEST_LOG_SIZE)
+                    return true;
+            return false;
+        }
+
+        std::string RosterLine(Player* bot, bool onLinkedQuest)
         {
             std::string classDesc = ChatHelper::FormatClass(bot->getClass());
             std::string spec = AiFactory::GetPlayerSpecName(bot);
             if (!spec.empty())
                 classDesc = spec + " " + classDesc;
 
-            return Acore::StringFormat("- {} (level {} {}, {})",
-                bot->GetName(), bot->GetLevel(), classDesc, RoleWord(bot));
+            return Acore::StringFormat("- {} (level {} {}, {}{})",
+                bot->GetName(), bot->GetLevel(), classDesc, RoleWord(bot),
+                onLinkedQuest ? ", on that quest too" : "");
         }
 
         // One routing request: the assembled prompt plus everything its
@@ -90,15 +103,19 @@ namespace ModLlm::Router
 
         // The routing prompt cannot grow with the crowd: cap the roster,
         // keeping a bot addressed by name (the deterministic always-pick)
-        // ahead of the cut. Call after shuffling, so the drop is a fair
-        // sample of the room.
-        void PromoteMentionAndCap(std::vector<Player*>& candidates, std::string const& message)
+        // and anyone on a quest the message links ahead of the cut. Call
+        // after shuffling, so the drop is a fair sample of the room.
+        void PromoteMentionAndCap(std::vector<Player*>& candidates, TriggerContext const& trigger)
         {
+            if (!trigger.linkedQuests.empty())
+                std::stable_partition(candidates.begin(), candidates.end(),
+                    [&trigger](Player* bot) { return OnLinkedQuest(bot, trigger.linkedQuests); });
+
             for (size_t i = 0; i < candidates.size(); ++i)
             {
-                if (BotSelector::MentionsName(message, candidates[i]->GetName()))
+                if (BotSelector::MentionsName(trigger.message, candidates[i]->GetName()))
                 {
-                    std::swap(candidates[0], candidates[i]);
+                    std::rotate(candidates.begin(), candidates.begin() + i, candidates.begin() + i + 1);
                     break;
                 }
             }
@@ -228,7 +245,7 @@ namespace ModLlm::Router
         // model sees no meaningful ordering.
         std::vector<Player*> shuffled = candidates;
         Acore::Containers::RandomShuffle(shuffled);
-        PromoteMentionAndCap(shuffled, trigger.message);
+        PromoteMentionAndCap(shuffled, trigger);
 
         bool bg = trigger.chatType == CHAT_MSG_BATTLEGROUND || trigger.chatType == CHAT_MSG_BATTLEGROUND_LEADER;
 
@@ -240,7 +257,7 @@ namespace ModLlm::Router
             route.roster.push_back({ bot->GetGUID(), bot->GetName() });
             if (!rosterText.empty())
                 rosterText += "\n";
-            rosterText += RosterLine(bot);
+            rosterText += RosterLine(bot, OnLinkedQuest(bot, trigger.linkedQuests));
         }
 
         fmt::dynamic_format_arg_store<fmt::format_context> args;
@@ -275,7 +292,7 @@ namespace ModLlm::Router
         // model sees no meaningful ordering.
         std::vector<Player*> shuffled = candidates;
         Acore::Containers::RandomShuffle(shuffled);
-        PromoteMentionAndCap(shuffled, trigger.message);
+        PromoteMentionAndCap(shuffled, trigger);
 
         // Everyone in earshot of the sender heard roughly the same recent
         // conversation, so the overheard buffer of the candidate nearest the
@@ -298,7 +315,7 @@ namespace ModLlm::Router
             route.roster.push_back({ bot->GetGUID(), bot->GetName() });
             if (!rosterText.empty())
                 rosterText += "\n";
-            rosterText += RosterLine(bot);
+            rosterText += RosterLine(bot, OnLinkedQuest(bot, trigger.linkedQuests));
         }
 
         fmt::dynamic_format_arg_store<fmt::format_context> args;
@@ -354,7 +371,7 @@ namespace ModLlm::Router
         // model sees no meaningful ordering.
         std::vector<Player*> shuffled = candidates;
         Acore::Containers::RandomShuffle(shuffled);
-        PromoteMentionAndCap(shuffled, trigger.message);
+        PromoteMentionAndCap(shuffled, trigger);
 
         // The room transcript ends with the message being routed (it was
         // recorded before us).
@@ -373,8 +390,15 @@ namespace ModLlm::Router
             route.roster.push_back({ bot->GetGUID(), bot->GetName() });
             if (!rosterText.empty())
                 rosterText += "\n";
-            rosterText += RosterLine(bot);
+            rosterText += RosterLine(bot, OnLinkedQuest(bot, trigger.linkedQuests));
         }
+
+        // A linked quest softens the silence bias: "anyone for [quest]?" is
+        // aimed squarely at whoever has it in their log.
+        if (std::any_of(shuffled.begin(), shuffled.end(),
+            [&trigger](Player* bot) { return OnLinkedQuest(bot, trigger.linkedQuests); }))
+            roomNote += "The message asks about a quest: a character marked \"on that quest too\""
+                " would naturally answer.\n";
 
         fmt::dynamic_format_arg_store<fmt::format_context> args;
         args.push_back(fmt::arg("actor_name", trigger.actorName));

@@ -38,6 +38,8 @@ namespace ModLlm
             "asked where a vendor is and you know => by the fountain, cant miss it\n"
             "asked for a summon while you are busy => busy atm sry\n"
             "stranger wants to duel and you do not care => nah\n"
+            "you lose a duel => gf\n"
+            "someone bows to you after a duel => well fought\n"
             "you finally finish a rough quest => that quest was awful lol\n"
             "invited to group mid-quest => maybe after this quest\n"
             "guildie asks who is up for deadmines => id come, need the vc sword\n"

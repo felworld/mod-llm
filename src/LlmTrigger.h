@@ -10,6 +10,7 @@
 #include "Timer.h"
 
 #include <string>
+#include <vector>
 
 namespace ModLlm
 {
@@ -61,6 +62,8 @@ namespace ModLlm
         bool defenseChannel = false; // the channel is LocalDefense/WorldDefense: sightings and calls for help
         std::string roomKey;         // HistoryStore key of the shared room, empty if none
         std::string message;         // incoming chat text / emote description / event description
+        std::vector<uint32> linkedQuests; // quest ids linked in the message: routers treat a
+                                          // candidate on one of them as a natural responder
         std::string eventType;       // "creature_kill", "level_up", ... for TRIGGER_GAME_EVENT
         uint32 chainDepth = 0;       // bot-to-bot hops so far (caps runaway bot conversations)
         bool wantZoneChannel = false; // bind to the zone General channel at world-thread
