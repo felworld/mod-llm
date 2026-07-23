@@ -28,9 +28,15 @@ namespace ModLlm
         PlayerbotAI* ai = nullptr;
         Player* actor = nullptr; // nullptr when the trigger had no actor or they logged off
         TriggerContext const* trigger = nullptr;
+
+        // Read tools write their answer here; a non-empty result is sent back
+        // to the model as the tool message of a follow-up round. Cleared
+        // before every executor call.
+        std::string result;
     };
 
     // Returns true on success; on failure sets `error` (logged at debug level).
+    // Tools that return data to the model write it to context.result.
     using ToolExecutor = std::function<bool(ToolExecContext&, nlohmann::json const& args, std::string& error)>;
 
     // Evaluated on the world thread when the tool list for a request is built,

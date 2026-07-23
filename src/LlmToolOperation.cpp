@@ -59,17 +59,17 @@ namespace ModLlm
 
         // Tool outcomes surface at INFO under LLM.Debug.Enable; the default
         // logger config swallows DEBUG, which makes silent bots undebuggable.
-        // Each outcome is also recorded (parallel to `calls`) for the error
+        // Each outcome is also recorded (parallel to `calls`) for the
         // feedback round below.
-        std::vector<std::pair<bool, std::string>> outcomes;
+        std::vector<Outcome> outcomes;
         outcomes.reserve(calls.size());
-        auto finish = [&](ToolCall const& call, bool ok, std::string outcome)
+        auto finish = [&](ToolCall const& call, bool ok, std::string outcome, std::string result = "")
         {
             if (sLlmConfig->debugEnabled)
                 LOG_INFO("module.llm", "Bot {} tool '{}' {}: {}", bot->GetName(), call.name, call.arguments, outcome);
             else
                 LOG_DEBUG("module.llm", "Bot {} tool '{}' {}: {}", bot->GetName(), call.name, call.arguments, outcome);
-            outcomes.emplace_back(ok, std::move(outcome));
+            outcomes.push_back({ ok, std::move(outcome), std::move(result) });
         };
 
         bool anySucceeded = false;
@@ -108,10 +108,12 @@ namespace ModLlm
                 continue;
             }
 
+            context.result.clear();
             if (spec->execute(context, args, error))
             {
                 anySucceeded = true;
-                finish(call, true, "executed");
+                std::string result = std::move(context.result);
+                finish(call, true, result.empty() ? "executed" : "returned data", std::move(result));
             }
             else
             {
@@ -119,25 +121,31 @@ namespace ModLlm
             }
         }
 
-        SubmitErrorFeedback(bot, actor, outcomes);
+        SubmitToolFeedback(bot, actor, outcomes);
 
         return anySucceeded || calls.empty();
     }
 
-    // One follow-up request per trigger (round-capped) carrying the failed
-    // calls' errors as tool-result messages, so the model can pick an
-    // alternative action. Only genuine tool calls qualify - the rescued
-    // bare-content say has no real tool_call id to reference.
-    void LlmToolOperation::SubmitErrorFeedback(Player* bot, Player* actor,
-        std::vector<std::pair<bool, std::string>> const& outcomes) const
+    // Follow-up requests carry failed calls' errors and read tools' data back
+    // as tool-result messages, so the model can pick an alternative action or
+    // talk about what it just looked up. Rounds are capped so a model that
+    // keeps reading or failing cannot loop. Only genuine tool calls qualify -
+    // the rescued bare-content say has no real tool_call id to reference.
+    void LlmToolOperation::SubmitToolFeedback(Player* bot, Player* actor,
+        std::vector<Outcome> const& outcomes) const
     {
-        if (!sLlmConfig->errorFeedbackEnabled || _round > 0 || _toolCalls.empty())
+        constexpr uint32 MAX_FOLLOW_UP_ROUNDS = 2;
+        if (_round >= MAX_FOLLOW_UP_ROUNDS || _toolCalls.empty())
             return;
 
         bool anyFailed = false;
-        for (auto const& [ok, outcome] : outcomes)
-            anyFailed = anyFailed || !ok;
-        if (!anyFailed)
+        bool anyResult = false;
+        for (Outcome const& outcome : outcomes)
+        {
+            anyFailed = anyFailed || !outcome.ok;
+            anyResult = anyResult || !outcome.result.empty();
+        }
+        if (!anyResult && !(anyFailed && sLlmConfig->errorFeedbackEnabled))
             return;
 
         nlohmann::json toolCallsJson = nlohmann::json::array();
@@ -157,13 +165,22 @@ namespace ModLlm
         // Failed attempts are invisible to everyone in the world; saying so
         // keeps the model from working the failure into its chat.
         for (size_t i = 0; i < _toolCalls.size(); ++i)
+        {
+            Outcome const& outcome = outcomes[i];
+            std::string content;
+            if (!outcome.ok)
+                content = "error: " + outcome.text
+                    + ". Nobody in the world saw this attempt; pick a different action, or do nothing.";
+            else if (!outcome.result.empty())
+                content = outcome.result;
+            else
+                content = "ok";
             extra.push_back({
                 { "role", "tool" },
                 { "tool_call_id", _toolCalls[i].id },
-                { "content", outcomes[i].first ? "ok"
-                    : "error: " + outcomes[i].second
-                        + ". Nobody in the world saw this attempt; pick a different action, or do nothing." }
+                { "content", std::move(content) }
             });
+        }
 
         LlmRequest followUp;
         followUp.snapshot = ContextBuilder::Build(bot, actor, _trigger);
@@ -175,7 +192,8 @@ namespace ModLlm
         if (sLlmClient->Submit(std::move(followUp)))
         {
             if (sLlmConfig->debugEnabled)
-                LOG_INFO("module.llm", "Bot {} tool errors fed back to the model", bot->GetName());
+                LOG_INFO("module.llm", "Bot {} tool results fed back to the model (round {})",
+                    bot->GetName(), _round + 1);
         }
     }
 }

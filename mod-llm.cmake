@@ -37,6 +37,7 @@ if(TARGET modules)
         "${CMAKE_CURRENT_LIST_DIR}/test/PromptAssemblerTest.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/test/BotSelectorTest.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/test/LlmRouterTest.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/test/LlmToolsTest.cpp"
     )
     set_property(GLOBAL APPEND PROPERTY ACORE_MODULE_TEST_INCLUDES
         "${CMAKE_CURRENT_LIST_DIR}/src"

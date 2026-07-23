@@ -157,7 +157,9 @@ namespace ModLlm::ContextBuilder
 
             if (!quests.empty())
                 quests += ", ";
-            quests += "\"" + quest->GetTitle() + "\"";
+            // The {quest:ID} tag is what the say tool expands into a
+            // clickable quest link when the bot repeats it in chat.
+            quests += Acore::StringFormat("\"{}\" {{quest:{}}}", quest->GetTitle(), questId);
 
             QuestStatus status = bot->GetQuestStatus(questId);
             if (status == QUEST_STATUS_COMPLETE)

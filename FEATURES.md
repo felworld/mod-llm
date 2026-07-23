@@ -12,17 +12,27 @@ The tool list offered with each request is filtered by trigger kind *and* by
 live game state — a bot is never offered `invite_to_party` for someone already
 in its group (or otherwise uninvitable), nor `challenge_duel` when a duel
 can't start. Executors still re-validate at execution time, since state can
-change while the request is in flight; if a call does fail, the error is fed
-back to the model once — as OpenAI tool-result messages, with context and tool
-list rebuilt against the new game state — so it can pick an alternative action
-(`LLM.ErrorFeedback.Enable`).
+change while the request is in flight. Follow-up rounds — OpenAI tool-result
+messages with context and tool list rebuilt against the new game state, capped
+at two per trigger — carry two things back to the model: execution errors, so
+it can pick an alternative action (`LLM.ErrorFeedback.Enable`), and read-tool
+results (`get_gear`, `get_inventory`), so it can answer questions about its
+own gear, bags, and money with the facts in hand.
+
+Chat links close the loop: the bot's quest log annotates every title with a
+`{quest:ID}` tag and read-tool results tag every item with `{item:ID}`; when
+the model copies a tag into a `say` message, the server expands it into a real
+clickable hyperlink (via playerbots' `ChatHelper`), and a tag whose ID doesn't
+resolve is dropped rather than sent broken. `{spell:ID}` expands too. The
+model never writes raw `|H...` client markup itself.
 
 ## Prompt context
 
 The guiding rule: anything a player would see on their screen belongs in it.
 Today that's the bot's zone, its full party/raid roster (names and leader),
-guild, its own quest log (titles plus ready-to-turn-in/failed markers, so
-quest talk stays honest), its own memory notes (those about the player it's
+guild, its own quest log (titles with `{quest:ID}` link tags plus
+ready-to-turn-in/failed markers, so quest talk stays honest and linkable),
+its own memory notes (those about the player it's
 talking to, plus recent general ones), recent conversation history, everything
 said in /say or /yell within earshot lately — bots overhear like players do,
 whether or not they were picked to answer (`LLM.Chat.Overhear.Enable`) — and

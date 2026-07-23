@@ -39,8 +39,15 @@ namespace ModLlm
         std::string GetName() const override { return "LlmToolOperation"; }
 
     private:
-        void SubmitErrorFeedback(Player* bot, Player* actor,
-            std::vector<std::pair<bool, std::string>> const& outcomes) const;
+        // One executed call's result, parallel to the calls vector.
+        struct Outcome
+        {
+            bool ok;
+            std::string text;    // "executed" or the error detail
+            std::string result;  // read-tool payload for the follow-up round
+        };
+
+        void SubmitToolFeedback(Player* bot, Player* actor, std::vector<Outcome> const& outcomes) const;
 
         TriggerContext _trigger;
         std::vector<ToolCall> _toolCalls;

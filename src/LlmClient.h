@@ -29,9 +29,10 @@ namespace ModLlm
         // Prebuilt on the world thread (game state decides availability);
         // workers must not touch the registry with live objects.
         nlohmann::json tools = nlohmann::json::array();
-        // Error-feedback rounds: messages appended after the system/user pair
-        // (the assistant's tool calls plus their results), and how many
-        // feedback rounds preceded this request (capped at one).
+        // Follow-up rounds (tool errors or read-tool results): messages
+        // appended after the system/user pair (the assistant's tool calls
+        // plus their results), and how many rounds preceded this request
+        // (bounded in LlmToolOperation).
         nlohmann::json extraMessages = nlohmann::json::array();
         uint32 round = 0;
 

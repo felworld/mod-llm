@@ -5,10 +5,12 @@
 
 #include "LlmTools.h"
 
+#include "Bag.h"
 #include "BotSelector.h"
 #include "Channel.h"
 #include "ChannelMgr.h"
 #include "Chat.h"
+#include "ChatHelper.h"
 #include "GameTime.h"
 #include "Group.h"
 #include "Guild.h"
@@ -159,19 +161,23 @@ namespace ModLlm::LlmTools
                 return false;
             }
 
+            // History and overhear transcripts feed future prompts, so they
+            // store what a player sees, never raw link markup.
+            std::string plain = BotSelector::NormalizeChatLinks(message);
+
             if (trigger.actorGuid)
                 sLlmHistoryStore->AddPairLine(trigger.botGuid, trigger.actorGuid, true,
-                    context.bot->GetName(), message);
+                    context.bot->GetName(), plain);
             if (!trigger.roomKey.empty())
                 sLlmHistoryStore->AddRoomLine(trigger.roomKey, trigger.botGuid,
-                    context.bot->GetName(), message);
+                    context.bot->GetName(), plain);
 
             // Audible speech reaches bystander bots: they remember it and may
             // (config permitting) react to it.
             if (spokeAloud)
-                Overhear::OnBotSpeech(context.bot, trigger, message, yelled);
+                Overhear::OnBotSpeech(context.bot, trigger, plain, yelled);
             else if (spokeInChannel)
-                Overhear::OnBotChannelSpeech(context.bot, trigger, trigger.channelName, message);
+                Overhear::OnBotChannelSpeech(context.bot, trigger, trigger.channelName, plain);
 
             return true;
         }
@@ -209,6 +215,10 @@ namespace ModLlm::LlmTools
             TriggerContext const& trigger = *context.trigger;
             Player* bot = context.bot;
 
+            // As in RouteSay: history and overhear lines store the visible
+            // text of any links, not the markup.
+            std::string plain = BotSelector::NormalizeChatLinks(message);
+
             if (destination == "say" || destination == "yell")
             {
                 bool yelled = destination == "yell";
@@ -219,7 +229,7 @@ namespace ModLlm::LlmTools
                     error = "message could not be delivered";
                     return false;
                 }
-                Overhear::OnBotSpeech(bot, trigger, message, yelled);
+                Overhear::OnBotSpeech(bot, trigger, plain, yelled);
                 return true;
             }
 
@@ -254,7 +264,7 @@ namespace ModLlm::LlmTools
                 }
                 sLlmHistoryStore->AddRoomLine(
                     Acore::StringFormat("group:{}", group->GetGUID().GetCounter()),
-                    trigger.botGuid, bot->GetName(), message);
+                    trigger.botGuid, bot->GetName(), plain);
                 return true;
             }
 
@@ -272,7 +282,7 @@ namespace ModLlm::LlmTools
                     return false;
                 }
                 sLlmHistoryStore->AddRoomLine(Acore::StringFormat("guild:{}", guild->GetId()),
-                    trigger.botGuid, bot->GetName(), message);
+                    trigger.botGuid, bot->GetName(), plain);
                 return true;
             }
 
@@ -301,8 +311,8 @@ namespace ModLlm::LlmTools
                     return false;
                 }
                 sLlmHistoryStore->AddPairLine(trigger.botGuid, receiver->GetGUID(), true,
-                    bot->GetName(), message);
-                Overhear::OnBotWhisper(bot, trigger, receiver, message);
+                    bot->GetName(), plain);
+                Overhear::OnBotWhisper(bot, trigger, receiver, plain);
                 return true;
             }
 
@@ -322,8 +332,8 @@ namespace ModLlm::LlmTools
                 channel->Say(bot->GetGUID(), message, LANG_UNIVERSAL);
                 sLlmHistoryStore->AddRoomLine(
                     Acore::StringFormat("channel:{}:{}", channel->GetName(), uint32(bot->GetTeamId())),
-                    trigger.botGuid, bot->GetName(), message);
-                Overhear::OnBotChannelSpeech(bot, trigger, channel->GetName(), message);
+                    trigger.botGuid, bot->GetName(), plain);
+                Overhear::OnBotChannelSpeech(bot, trigger, channel->GetName(), plain);
                 return true;
             }
 
@@ -507,6 +517,15 @@ namespace ModLlm::LlmTools
             return group && BotSelector::GroupHasRealPlayer(group);
         }
 
+        // Human-readable names for the get_gear listing, indexed by
+        // EquipmentSlots.
+        constexpr char const* EQUIPMENT_SLOT_NAMES[EQUIPMENT_SLOT_END] =
+        {
+            "head", "neck", "shoulders", "shirt", "chest", "waist", "legs", "feet",
+            "wrists", "hands", "ring 1", "ring 2", "trinket 1", "trinket 2", "back",
+            "main hand", "off hand", "ranged", "tabard"
+        };
+
         // travel_to teleports like playerbots zone crossing does: only once no
         // human could watch the bot blink out, so it reads as "they made the
         // trip" rather than "they teleported". Pending trips are polled from
@@ -549,6 +568,78 @@ namespace ModLlm::LlmTools
         return text;
     }
 
+    std::string ExpandChatLinks(std::string const& text,
+        std::function<std::string(std::string const& kind, uint32 id)> const& resolve)
+    {
+        std::string result;
+        result.reserve(text.size());
+
+        size_t i = 0;
+        while (i < text.size())
+        {
+            size_t open = text.find('{', i);
+            if (open == std::string::npos)
+            {
+                result.append(text, i, std::string::npos);
+                break;
+            }
+            result.append(text, i, open - i);
+
+            // A link tag is exactly {kind:digits}; anything else keeps its
+            // braces (models may legitimately write braces in prose).
+            size_t colon = text.find(':', open + 1);
+            size_t close = text.find('}', open + 1);
+            bool isTag = colon != std::string::npos && close != std::string::npos && colon < close;
+            std::string kind;
+            std::string digits;
+            if (isTag)
+            {
+                kind = text.substr(open + 1, colon - open - 1);
+                digits = text.substr(colon + 1, close - colon - 1);
+                std::transform(kind.begin(), kind.end(), kind.begin(),
+                    [](unsigned char c) { return char(std::tolower(c)); });
+                isTag = (kind == "item" || kind == "quest" || kind == "spell")
+                    && !digits.empty() && digits.size() <= 9
+                    && std::all_of(digits.begin(), digits.end(),
+                        [](unsigned char c) { return std::isdigit(c) != 0; });
+            }
+            if (!isTag)
+            {
+                result += '{';
+                i = open + 1;
+                continue;
+            }
+
+            result += resolve(kind, uint32(std::stoul(digits)));
+            i = close + 1;
+        }
+
+        return result;
+    }
+
+    std::string ExpandChatLinks(std::string const& text)
+    {
+        return ExpandChatLinks(text, [](std::string const& kind, uint32 id) -> std::string
+        {
+            if (kind == "item")
+            {
+                if (ItemTemplate const* proto = sObjectMgr->GetItemTemplate(id))
+                    return ChatHelper::FormatItem(proto);
+            }
+            else if (kind == "quest")
+            {
+                if (Quest const* quest = sObjectMgr->GetQuestTemplate(id))
+                    return ChatHelper::FormatQuest(quest);
+            }
+            else if (kind == "spell")
+            {
+                if (SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(id))
+                    return ChatHelper::FormatSpell(spellInfo);
+            }
+            return "";
+        });
+    }
+
     void RegisterDefaultTools()
     {
         // say - available on every trigger. By default the audience is bound
@@ -558,12 +649,14 @@ namespace ModLlm::LlmTools
         sLlmToolRegistry->Register({
             "say",
             "Send a chat message to whoever you are currently talking with (the same channel the "
-            "conversation is happening in).",
+            "conversation is happening in). Link tags like {quest:844} or {item:12640}, copied "
+            "verbatim from your quest log or a tool result, appear in chat as clickable links.",
             {
                 { "type", "object" },
                 { "properties", {
                     { "message", { { "type", "string" },
-                        { "description", "The chat message to send, plain text" } } },
+                        { "description", "The chat message to send, plain text; may include link "
+                            "tags like {item:12640}" } } },
                     { "destination", { { "type", "string" },
                         { "enum", { "say", "yell", "party", "raid", "guild", "whisper", "channel" } },
                         { "description", "Where to send the message when it should go somewhere other "
@@ -581,7 +674,11 @@ namespace ModLlm::LlmTools
             false,
             [](ToolExecContext& context, nlohmann::json const& args, std::string& error)
             {
-                std::string message = SanitizeChatText(args["message"].get<std::string>());
+                // Expand after sanitizing (quote-stripping first), then trim
+                // again: a message that was nothing but a dropped tag must
+                // not go out as whitespace.
+                std::string message = SanitizeChatText(
+                    ExpandChatLinks(SanitizeChatText(args["message"].get<std::string>())));
                 if (message.empty())
                 {
                     error = "empty message";
@@ -700,6 +797,94 @@ namespace ModLlm::LlmTools
                     error = "you have no note with that slug";
                     return false;
                 }
+                return true;
+            }
+        });
+
+        // get_gear / get_inventory - read tools: instead of acting in the
+        // world they hand data back to the model (via context.result and a
+        // follow-up round), so a bot can answer "what are you wearing?" with
+        // its real gear and link the pieces in chat.
+        sLlmToolRegistry->Register({
+            "get_gear",
+            "Look up the gear you currently have equipped. Each piece is listed with a link tag "
+            "like {item:12640}; copy a tag verbatim into a say message to show that item as a "
+            "clickable link.",
+            {
+                { "type", "object" },
+                { "properties", nlohmann::json::object() }
+            },
+            TRIGGER_ALL,
+            false,
+            [](ToolExecContext& context, nlohmann::json const& /*args*/, std::string& error)
+            {
+                std::string lines;
+                for (uint8 slot = EQUIPMENT_SLOT_START; slot < EQUIPMENT_SLOT_END; ++slot)
+                {
+                    Item* item = context.bot->GetItemByPos(INVENTORY_SLOT_BAG_0, slot);
+                    if (!item)
+                        continue;
+                    lines += Acore::StringFormat("{}: {} {{item:{}}}\n",
+                        EQUIPMENT_SLOT_NAMES[slot], item->GetTemplate()->Name1, item->GetEntry());
+                }
+                if (lines.empty())
+                {
+                    error = "you have nothing equipped";
+                    return false;
+                }
+                context.result = "Your equipped gear:\n" + lines;
+                return true;
+            }
+        });
+
+        sLlmToolRegistry->Register({
+            "get_inventory",
+            "Look up what you are carrying in your bags, plus your money. Each item is listed with "
+            "a link tag like {item:4306}; copy a tag verbatim into a say message to show that item "
+            "as a clickable link.",
+            {
+                { "type", "object" },
+                { "properties", nlohmann::json::object() }
+            },
+            TRIGGER_ALL,
+            false,
+            [](ToolExecContext& context, nlohmann::json const& /*args*/, std::string& /*error*/)
+            {
+                // Stacks of the same item aggregate into one line, in the
+                // order they first appear in the bags.
+                std::vector<std::pair<ItemTemplate const*, uint32>> counts;
+                auto add = [&counts](Item* item)
+                {
+                    for (auto& [proto, count] : counts)
+                        if (proto == item->GetTemplate())
+                        {
+                            count += item->GetCount();
+                            return;
+                        }
+                    counts.emplace_back(item->GetTemplate(), item->GetCount());
+                };
+
+                for (uint8 slot = INVENTORY_SLOT_ITEM_START; slot < INVENTORY_SLOT_ITEM_END; ++slot)
+                    if (Item* item = context.bot->GetItemByPos(INVENTORY_SLOT_BAG_0, slot))
+                        add(item);
+                for (uint8 bagSlot = INVENTORY_SLOT_BAG_START; bagSlot < INVENTORY_SLOT_BAG_END; ++bagSlot)
+                    if (Bag* bag = context.bot->GetBagByPos(bagSlot))
+                        for (uint32 slot = 0; slot < bag->GetBagSize(); ++slot)
+                            if (Item* item = bag->GetItemByPos(slot))
+                                add(item);
+
+                std::string lines;
+                for (auto const& [proto, count] : counts)
+                {
+                    if (count > 1)
+                        lines += Acore::StringFormat("{} x{} {{item:{}}}\n", proto->Name1, count, proto->ItemId);
+                    else
+                        lines += Acore::StringFormat("{} {{item:{}}}\n", proto->Name1, proto->ItemId);
+                }
+
+                context.result = lines.empty() ? "Your bags are empty. " : "In your bags:\n" + lines;
+                context.result += Acore::StringFormat("You are carrying {}.",
+                    ChatHelper::formatMoney(context.bot->GetMoney()));
                 return true;
             }
         });

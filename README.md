@@ -15,13 +15,17 @@ to do:
 | `emote` | Perform a social emote (`/wave`, `/laugh`, ...) |
 | `remember` | Write a short note into the bot's persistent private scratchpad (upsert by slug, optionally tied to the player it concerns) |
 | `forget` | Delete one of the bot's notes by slug |
+| `get_gear` / `get_inventory` | Read tools: hand the bot's equipped gear or bag contents back to the model (each item with an `{item:ID}` link tag) in a follow-up round |
 | `invite_to_party` | Invite the player, via a synthetic client packet so all core validation runs |
 | `challenge_duel` | Challenge the player to a duel |
 
 Returning no tool calls is a valid outcome — most moments deserve no reaction. The tool list
-offered with each request is filtered by trigger kind and live game state, executors re-validate
-on the world thread at execution time, and a failed call is fed back to the model once so it can
-pick an alternative.
+offered with each request is filtered by trigger kind and live game state, and executors
+re-validate on the world thread at execution time. Follow-up rounds (capped at two per trigger)
+feed tool errors and read-tool results back to the model so it can pick an alternative or talk
+about what it looked up. Link tags — `{quest:844}` from the bot's quest log, `{item:12640}` from
+a read-tool result — are expanded server-side by the `say` tool into real clickable chat links,
+so the model never authors raw client link markup.
 
 The guiding rule for prompt context: anything a player would see on their screen belongs in
 it — zone, group roster, guild, the bot's own quest log and memory notes, recent conversation,
