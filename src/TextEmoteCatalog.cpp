@@ -5,7 +5,7 @@
 
 #include "TextEmoteCatalog.h"
 
-#include "SharedDefines.h"
+#include "StringFormat.h"
 
 #include <algorithm>
 
@@ -17,37 +17,39 @@ namespace ModLlm::TextEmoteCatalog
         {
             uint32 id;
             char const* name;
+            // Untargeted / at-you / at-named, male then female actor;
+            // nullptr falls back female -> male, targeted -> untargeted.
+            char const* phrases[6];
         };
 
-        // Common social emotes only - enough for expressive bots without
-        // flooding the tool schema. Ids are TEXT_EMOTE_* from SharedDefines.h.
+        // Every emote the client can send, with the third-person lines
+        // other players see.
         Entry const CATALOG[] =
         {
-            { TEXT_EMOTE_APPLAUD, "applaud" },
-            { TEXT_EMOTE_BOW, "bow" },
-            { TEXT_EMOTE_CHEER, "cheer" },
-            { TEXT_EMOTE_CHICKEN, "chicken" },
-            { TEXT_EMOTE_CONFUSED, "confused" },
-            { TEXT_EMOTE_CRY, "cry" },
-            { TEXT_EMOTE_CURIOUS, "curious" },
-            { TEXT_EMOTE_DANCE, "dance" },
-            { TEXT_EMOTE_FLEX, "flex" },
-            { TEXT_EMOTE_GREET, "greet" },
-            { TEXT_EMOTE_GRIN, "grin" },
-            { TEXT_EMOTE_HUG, "hug" },
-            { TEXT_EMOTE_KNEEL, "kneel" },
-            { TEXT_EMOTE_LAUGH, "laugh" },
-            { TEXT_EMOTE_NOD, "nod" },
-            { TEXT_EMOTE_POINT, "point" },
-            { TEXT_EMOTE_ROAR, "roar" },
-            { TEXT_EMOTE_RUDE, "rude" },
-            { TEXT_EMOTE_SALUTE, "salute" },
-            { TEXT_EMOTE_SHRUG, "shrug" },
-            { TEXT_EMOTE_SIGH, "sigh" },
-            { TEXT_EMOTE_THANK, "thank" },
-            { TEXT_EMOTE_WAVE, "wave" },
-            { TEXT_EMOTE_YAWN, "yawn" },
+#include "TextEmotePhrases.inc"
         };
+
+        // The subset offered in the emote tool's schema: the social and
+        // player-culture staples a bot might plausibly reach for.
+        char const* const OUTGOING[] =
+        {
+            "applaud", "beg", "bow", "bye", "cheer", "chicken", "confused",
+            "congratulate", "cower", "cry", "dance", "facepalm", "flex",
+            "flirt", "golfclap", "greet", "grin", "hug", "joke", "kiss",
+            "laugh", "mock", "moo", "mourn", "no", "nod", "pat", "point",
+            "poke", "rasp", "roar", "rofl", "rolleyes", "rude", "salute",
+            "shakefist", "shrug", "sigh", "sleep", "spit", "taunt", "thank",
+            "threaten", "train", "violin", "wave", "wink", "yawn",
+        };
+
+        Entry const* Find(uint32 id)
+        {
+            for (Entry const& entry : CATALOG)
+                if (entry.id == id)
+                    return &entry;
+
+            return nullptr;
+        }
     }
 
     uint32 FindId(std::string const& name)
@@ -63,25 +65,33 @@ namespace ModLlm::TextEmoteCatalog
         return 0;
     }
 
-    std::string FindName(uint32 id)
-    {
-        for (Entry const& entry : CATALOG)
-            if (entry.id == id)
-                return entry.name;
-
-        return "";
-    }
-
     std::vector<std::string> const& AllNames()
     {
-        static std::vector<std::string> const names = []
-        {
-            std::vector<std::string> result;
-            for (Entry const& entry : CATALOG)
-                result.emplace_back(entry.name);
-            return result;
-        }();
-
+        static std::vector<std::string> const names(std::begin(OUTGOING), std::end(OUTGOING));
         return names;
+    }
+
+    std::string Describe(uint32 id, Target target, bool female, std::string const& targetName)
+    {
+        Entry const* entry = Find(id);
+        if (!entry)
+            return "";
+
+        auto pick = [&](size_t slot) -> char const*
+        {
+            if (female && entry->phrases[slot + 3])
+                return entry->phrases[slot + 3];
+            return entry->phrases[slot];
+        };
+
+        if (target == Target::Named)
+            if (char const* phrase = pick(2))
+                return Acore::StringFormat(phrase, targetName);
+
+        char const* phrase = target == Target::You ? pick(1) : nullptr;
+        if (!phrase)
+            phrase = pick(0);
+
+        return phrase ? phrase : "";
     }
 }

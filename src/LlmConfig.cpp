@@ -54,9 +54,11 @@ namespace ModLlm
             "{memory_block}{history_block}[{channel_label}] {actor_name} (level {actor_level} {actor_race} "
             "{actor_class}) says: \"{message}\"{reply_guidance}";
 
+        // {message} is a full client emote line ("makes a rude gesture at
+        // you.") and brings its own punctuation.
         constexpr char DEFAULT_PROMPT_EMOTE[] =
             "{memory_block}{history_block}{actor_name} (level {actor_level} {actor_race} {actor_class}) "
-            "{message}.{reply_guidance}";
+            "{message}{reply_guidance}";
 
         constexpr char DEFAULT_PROMPT_EVENT[] =
             "{memory_block}{history_block}Something just happened nearby: {message}.{reply_guidance}";

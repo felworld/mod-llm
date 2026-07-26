@@ -116,11 +116,19 @@ answers every message.)
 ## Emotes
 
 Emotes aimed at a bot, or performed nearby — including cross-faction ones,
-since text emotes are faction-agnostic for real players too. A cross-faction
-emote normally draws an emote back (the prompt explains the language barrier);
-a small dice roll (`LLM.Chat.CrossFactionChatChance`) occasionally lets the
-bot type at the enemy anyway, which lands as the classic
-untranslated-gibberish taunt.
+since text emotes are faction-agnostic for real players too. The bot reads
+exactly the line the client would show it ("Soandso makes a rude gesture at
+you.") for every emote the client can send: the phrase table is generated
+from the client's emote DBCs by `tools/gen_text_emote_phrases.py`. An
+animation- or sound-only emote (`/train`) draws no reaction — nothing was
+"said". Bystander bots see the emote's target by name ("hugs Fluffy").
+A cross-faction emote normally draws an emote back (the prompt explains the
+language barrier); a small dice roll (`LLM.Chat.CrossFactionChatChance`)
+occasionally lets the bot type at the enemy anyway, which lands as the
+classic untranslated-gibberish taunt. Outgoing, the `emote` tool's schema
+offers a curated slate of ~50 social and player-culture staples (`/wave`
+through `/rasp` and `/golfclap`), though any real emote name the model
+picks resolves.
 
 ## Game events
 

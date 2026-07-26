@@ -79,15 +79,21 @@ namespace ModLlm
             if (!sLlmConfig->IsEnabled() || !sLlmConfig->emoteEnabled)
                 return;
 
-            std::string emoteName = TextEmoteCatalog::FindName(textEmote);
-            if (emoteName.empty())
-                emoteName = "an emote";
+            bool female = player->getGender() == GENDER_FEMALE;
 
             // A bot that was emoted at directly reacts with high probability;
             // otherwise one random nearby bot may react.
             Player* target = guid.IsPlayer() ? ObjectAccessor::FindPlayer(guid) : nullptr;
             if (target && target != player && !BotSelector::IsRealPlayer(target))
             {
+                // The bot reads exactly the line the client would show it.
+                // No line (a sound/animation-only emote like /train) means
+                // there is nothing to react to.
+                std::string description = TextEmoteCatalog::Describe(textEmote,
+                    TextEmoteCatalog::Target::You, female);
+                if (description.empty())
+                    return;
+
                 if (urand(0, 99) >= sLlmConfig->emoteTargetedChance)
                     return;
                 if (sLlmConfig->skipInCombat && target->IsInCombat())
@@ -95,11 +101,24 @@ namespace ModLlm
 
                 TriggerContext trigger;
                 trigger.kind = TRIGGER_EMOTE;
-                trigger.message = Acore::StringFormat("performs the emote \"{}\" directed at you", emoteName);
+                trigger.message = std::move(description);
                 MarkCrossFaction(trigger, target, player);
                 Dispatch::Submit(target, player, std::move(trigger));
                 return;
             }
+
+            // A bystander sees the emote's target by name ("hugs Fluffy"),
+            // or the untargeted line when there is no target.
+            std::string description;
+            Unit* targetUnit = guid ? ObjectAccessor::GetUnit(*player, guid) : nullptr;
+            if (targetUnit && targetUnit != player)
+                description = TextEmoteCatalog::Describe(textEmote,
+                    TextEmoteCatalog::Target::Named, female, targetUnit->GetName());
+            else
+                description = TextEmoteCatalog::Describe(textEmote,
+                    TextEmoteCatalog::Target::None, female);
+            if (description.empty())
+                return;
 
             if (urand(0, 99) >= sLlmConfig->emoteNearbyChance)
                 return;
@@ -108,7 +127,7 @@ namespace ModLlm
             {
                 TriggerContext trigger;
                 trigger.kind = TRIGGER_EMOTE;
-                trigger.message = Acore::StringFormat("performs the emote \"{}\" nearby", emoteName);
+                trigger.message = description;
                 MarkCrossFaction(trigger, bot, player);
                 Dispatch::Submit(bot, player, std::move(trigger));
             }
