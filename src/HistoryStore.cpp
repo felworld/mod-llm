@@ -180,29 +180,34 @@ namespace ModLlm
             buffer.pop_front();
     }
 
-    std::string HistoryStore::FormatPair(ObjectGuid botGuid, ObjectGuid playerGuid, uint32 maxLines)
+    std::string HistoryStore::FormatPair(ObjectGuid botGuid, ObjectGuid playerGuid, uint32 maxLines,
+        std::string const& selfName)
     {
         std::lock_guard<std::mutex> lock(_mutex);
         auto it = _pairs.find(MakeKey(botGuid, playerGuid));
-        return it != _pairs.end() ? FormatLines(it->second, maxLines, 0) : "";
+        return it != _pairs.end() ? FormatLines(it->second, maxLines, 0, selfName) : "";
     }
 
-    std::string HistoryStore::FormatRoom(std::string const& roomKey, uint32 maxLines)
+    std::string HistoryStore::FormatRoom(std::string const& roomKey, uint32 maxLines,
+        std::string const& selfName)
     {
         std::lock_guard<std::mutex> lock(_mutex);
         auto it = _rooms.find(roomKey);
-        return it != _rooms.end() ? FormatLines(it->second, maxLines, sLlmConfig->historyScrollbackSeconds) : "";
+        return it != _rooms.end()
+            ? FormatLines(it->second, maxLines, sLlmConfig->historyScrollbackSeconds, selfName) : "";
     }
 
-    std::string HistoryStore::FormatOverheard(ObjectGuid botGuid, uint32 maxLines)
+    std::string HistoryStore::FormatOverheard(ObjectGuid botGuid, uint32 maxLines,
+        std::string const& selfName)
     {
         std::lock_guard<std::mutex> lock(_mutex);
         auto it = _overheard.find(botGuid.GetRawValue());
         return it != _overheard.end()
-            ? FormatLines(it->second, maxLines, sLlmConfig->historyScrollbackSeconds) : "";
+            ? FormatLines(it->second, maxLines, sLlmConfig->historyScrollbackSeconds, selfName) : "";
     }
 
-    std::string HistoryStore::FormatLines(std::deque<Line> const& lines, uint32 maxLines, uint32 maxAgeSeconds)
+    std::string HistoryStore::FormatLines(std::deque<Line> const& lines, uint32 maxLines, uint32 maxAgeSeconds,
+        std::string const& selfName)
     {
         time_t now = GameTime::GetGameTime().count();
 
@@ -225,8 +230,11 @@ namespace ModLlm
                 continue;
             }
 
+            std::string speaker = !selfName.empty() && lines[i].speakerName == selfName
+                ? "You" : lines[i].speakerName;
+
             fmt::dynamic_format_arg_store<fmt::format_context> args;
-            args.push_back(fmt::arg("speaker", lines[i].speakerName));
+            args.push_back(fmt::arg("speaker", speaker));
             args.push_back(fmt::arg("message", lines[i].text));
             try
             {
@@ -234,7 +242,7 @@ namespace ModLlm
             }
             catch (fmt::format_error const&)
             {
-                result += lines[i].speakerName + ": " + lines[i].text;
+                result += speaker + ": " + lines[i].text;
             }
             result += AgeTag(now - lines[i].at);
             result += '\n';

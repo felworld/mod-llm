@@ -54,26 +54,42 @@ namespace ModLlm
         void OnPlayerCreatureKill(Player* killer, Creature* killed) override
         {
             DispatchEvent(killer, "creature_kill", sLlmConfig->eventChanceKill,
-                Acore::StringFormat("{} killed {}", killer->GetName(), killed->GetName()),
+                ActorAware(killer->GetGUID(),
+                    Acore::StringFormat("you killed {}", killed->GetName()),
+                    Acore::StringFormat("{} killed {}", killer->GetName(), killed->GetName())),
                 nullptr, /*narrate*/ false);
         }
 
         void OnPlayerPVPKill(Player* killer, Player* killed) override
         {
+            ObjectGuid killerGuid = killer->GetGUID();
+            ObjectGuid killedGuid = killed->GetGUID();
+            std::string killerName = killer->GetName();
+            std::string killedName = killed->GetName();
             DispatchEvent(killer, "pvp_kill", sLlmConfig->eventChancePvpKill,
-                Acore::StringFormat("{} killed {} in PvP", killer->GetName(), killed->GetName()));
+                [killerGuid, killedGuid, killerName, killedName](Player* bot)
+                {
+                    if (bot->GetGUID() == killerGuid)
+                        return Acore::StringFormat("you killed {} in PvP", killedName);
+                    if (bot->GetGUID() == killedGuid)
+                        return Acore::StringFormat("{} killed you in PvP", killerName);
+                    return Acore::StringFormat("{} killed {} in PvP", killerName, killedName);
+                });
         }
 
         void OnPlayerJustDied(Player* player) override
         {
             DispatchEvent(player, "death", sLlmConfig->eventChanceDeath,
-                Acore::StringFormat("{} just died", player->GetName()));
+                ActorAware(player->GetGUID(), "you just died",
+                    Acore::StringFormat("{} just died", player->GetName())));
         }
 
         void OnPlayerCompleteQuest(Player* player, Quest const* quest) override
         {
             DispatchEvent(player, "quest_complete", sLlmConfig->eventChanceQuestComplete,
-                Acore::StringFormat("{} completed the quest \"{}\"", player->GetName(), quest->GetTitle()));
+                ActorAware(player->GetGUID(),
+                    Acore::StringFormat("you completed the quest \"{}\"", quest->GetTitle()),
+                    Acore::StringFormat("{} completed the quest \"{}\"", player->GetName(), quest->GetTitle())));
         }
 
         void OnPlayerLevelChanged(Player* player, uint8 oldLevel) override
@@ -81,13 +97,11 @@ namespace ModLlm
             if (player->GetLevel() <= oldLevel)
                 return;
             DispatchEvent(player, "level_up", sLlmConfig->eventChanceLevelUp,
-                Acore::StringFormat("{} reached level {}", player->GetName(), player->GetLevel()));
+                ActorAware(player->GetGUID(),
+                    Acore::StringFormat("you reached level {}", player->GetLevel()),
+                    Acore::StringFormat("{} reached level {}", player->GetName(), player->GetLevel())));
         }
 
-        // Duels get per-bot phrasing: a participant hears "you", bystanders
-        // hear names. A small model reliably binds "you lost a duel" where it
-        // may not recognize its own name in a third-person line - and then
-        // trash-talks a duel it just lost.
         void OnPlayerDuelRequest(Player* target, Player* challenger) override
         {
             ObjectGuid targetGuid = target->GetGUID();
@@ -129,7 +143,9 @@ namespace ModLlm
         {
             char const* name = achievement->name[0];
             DispatchEvent(player, "achievement", sLlmConfig->eventChanceAchievement,
-                Acore::StringFormat("{} earned the achievement \"{}\"", player->GetName(), name ? name : "?"));
+                ActorAware(player->GetGUID(),
+                    Acore::StringFormat("you earned the achievement \"{}\"", name ? name : "?"),
+                    Acore::StringFormat("{} earned the achievement \"{}\"", player->GetName(), name ? name : "?")));
         }
 
         void OnPlayerStoreNewItem(Player* player, Item* item, uint32 /*count*/) override
@@ -138,13 +154,29 @@ namespace ModLlm
             if (!proto || proto->Quality < sLlmConfig->eventLootMinQuality)
                 return;
             DispatchEvent(player, "loot", sLlmConfig->eventChanceLoot,
-                Acore::StringFormat("{} obtained [{}]", player->GetName(), proto->Name1));
+                ActorAware(player->GetGUID(),
+                    Acore::StringFormat("you obtained [{}]", proto->Name1),
+                    Acore::StringFormat("{} obtained [{}]", player->GetName(), proto->Name1)));
         }
 
     private:
-        // Description resolved per reacting bot, so participants can be
-        // addressed as "you" while bystanders read names.
+        // Description resolved per reacting bot: participants are addressed
+        // as "you", bystanders read names. A small model reliably binds
+        // "you killed X" where it may not recognize its own name in a
+        // third-person line - and then congratulates itself on its own kill.
         using EventDescriber = std::function<std::string(Player* bot)>;
+
+        // Describer for the common single-actor event: the actor hears
+        // selfDescription, everyone else hears otherDescription.
+        static EventDescriber ActorAware(ObjectGuid actorGuid, std::string selfDescription,
+            std::string otherDescription)
+        {
+            return [actorGuid, selfDescription = std::move(selfDescription),
+                otherDescription = std::move(otherDescription)](Player* bot)
+            {
+                return bot->GetGUID() == actorGuid ? selfDescription : otherDescription;
+            };
+        }
 
         void DispatchEvent(Player* source, char const* eventType, uint32 chance, std::string description,
             Player* actorOverride = nullptr, bool narrate = true)

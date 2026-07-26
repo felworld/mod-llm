@@ -186,13 +186,13 @@ namespace ModLlm::ContextBuilder
         {
             if (trigger.actorGuid)
                 snapshot.pairHistory = sLlmHistoryStore->FormatPair(trigger.botGuid, trigger.actorGuid,
-                    sLlmConfig->historyMaxPairTurns * 2);
+                    sLlmConfig->historyMaxPairTurns * 2, snapshot.botName);
             if (!trigger.roomKey.empty())
                 snapshot.roomHistory = sLlmHistoryStore->FormatRoom(trigger.roomKey,
-                    sLlmConfig->historyMaxRoomLines);
+                    sLlmConfig->historyMaxRoomLines, snapshot.botName);
             if (sLlmConfig->overhearEnabled)
                 snapshot.overheardHistory = sLlmHistoryStore->FormatOverheard(trigger.botGuid,
-                    sLlmConfig->historyMaxOverheardLines);
+                    sLlmConfig->historyMaxOverheardLines, snapshot.botName);
         }
 
         snapshot.channelLabel = ChannelLabel(trigger);

@@ -46,9 +46,16 @@ namespace ModLlm
         // Room and overheard lines older than LLM.History.ScrollbackSeconds
         // are omitted - like chat that has scrolled off a player's window -
         // while pair lines stay but pick up an age tag once they are stale.
-        std::string FormatPair(ObjectGuid botGuid, ObjectGuid playerGuid, uint32 maxLines);
-        std::string FormatRoom(std::string const& roomKey, uint32 maxLines);
-        std::string FormatOverheard(ObjectGuid botGuid, uint32 maxLines);
+        // Lines spoken by selfName are attributed to "You": a small model
+        // does not reliably recognize its own name in a transcript and will
+        // answer its own messages. Pass empty when the reader is not a
+        // character in the conversation (the routers).
+        std::string FormatPair(ObjectGuid botGuid, ObjectGuid playerGuid, uint32 maxLines,
+            std::string const& selfName = "");
+        std::string FormatRoom(std::string const& roomKey, uint32 maxLines,
+            std::string const& selfName = "");
+        std::string FormatOverheard(ObjectGuid botGuid, uint32 maxLines,
+            std::string const& selfName = "");
 
     private:
         struct Line
@@ -79,7 +86,8 @@ namespace ModLlm
             return (uint64(botGuid.GetCounter()) << 32) | playerGuid.GetCounter();
         }
 
-        static std::string FormatLines(std::deque<Line> const& lines, uint32 maxLines, uint32 maxAgeSeconds);
+        static std::string FormatLines(std::deque<Line> const& lines, uint32 maxLines, uint32 maxAgeSeconds,
+            std::string const& selfName);
 
         std::mutex _mutex;
         std::unordered_map<uint64, std::deque<Line>> _pairs;
