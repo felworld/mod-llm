@@ -126,9 +126,8 @@ A cross-faction emote normally draws an emote back (the prompt explains the
 language barrier); a small dice roll (`LLM.Chat.CrossFactionChatChance`)
 occasionally lets the bot type at the enemy anyway, which lands as the
 classic untranslated-gibberish taunt. Outgoing, the `emote` tool's schema
-offers a curated slate of ~50 social and player-culture staples (`/wave`
-through `/rasp` and `/golfclap`), though any real emote name the model
-picks resolves.
+offers a curated slate of ~40 social and player-culture staples (`/wave`
+through `/golfclap`), though any real emote name the model picks resolves.
 
 ## Game events
 

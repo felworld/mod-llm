@@ -33,13 +33,12 @@ namespace ModLlm::TextEmoteCatalog
         // player-culture staples a bot might plausibly reach for.
         char const* const OUTGOING[] =
         {
-            "applaud", "beg", "bow", "bye", "cheer", "chicken", "confused",
-            "congratulate", "cower", "cry", "dance", "facepalm", "flex",
-            "flirt", "golfclap", "greet", "grin", "hug", "joke", "kiss",
-            "laugh", "mock", "moo", "mourn", "no", "nod", "pat", "point",
-            "poke", "rasp", "roar", "rofl", "rolleyes", "rude", "salute",
-            "shakefist", "shrug", "sigh", "sleep", "spit", "taunt", "thank",
-            "threaten", "train", "violin", "wave", "wink", "yawn",
+            "applaud", "beg", "bow", "bye", "cheer", "chicken",
+            "congratulate", "cry", "dance", "facepalm", "flex", "flirt",
+            "golfclap", "greet", "grin", "hug", "joke", "kiss", "laugh",
+            "moo", "mourn", "no", "nod", "point", "poke", "roar", "rude",
+            "salute", "shrug", "sigh", "sleep", "spit", "taunt", "thank",
+            "violin", "wave", "wink", "yawn",
         };
 
         Entry const* Find(uint32 id)
