@@ -116,6 +116,15 @@ channel through the defense-callout event path instead. (Per-candidate dice
 could never keep a faction-wide channel quiet — a low chance across hundreds
 of readers still answers every message.)
 
+The gate has a second half: no other trigger can speak into a defense
+channel at all. The `say` tool's `channel` destination lets the model name
+any channel the bot has joined — and every bot sits in LocalDefense and
+WorldDefense — so a kill brag or idle remark aimed there (including
+`channel_name: "World"`, which prefix-matches the joined "WorldDefense") is
+swallowed unless the trigger itself came from that defense channel. Alarm
+speech enters only through playerbots' level-gated callout system: a bot
+that outclasses the intruder is sent to fight, never to shout.
+
 ## Emotes
 
 Emotes aimed at a bot, or performed nearby — including cross-faction ones,

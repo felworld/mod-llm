@@ -329,6 +329,23 @@ namespace ModLlm::LlmTools
                     error = "you are not on a channel with that name";
                     return false;
                 }
+
+                // Defense channels are alarm infrastructure, not an audience
+                // the model may pick: the only speech that belongs there
+                // arrives on the defense triggers themselves (callout events
+                // and the go_defend-gated replies). This also catches
+                // "World", which prefix-matches the joined "WorldDefense".
+                // Swallowed, not failed: an error would invite the model to
+                // retry the message, and silence is exactly the outcome the
+                // channel wants.
+                if (BotSelector::IsDefenseChannel(channel)
+                    && !(trigger.defenseChannel && StringStartsWithI(channel->GetName(), trigger.channelName)))
+                {
+                    LOG_INFO("module.llm", "Bot {} say to '{}' swallowed: only defense triggers may speak"
+                        " into a defense channel", bot->GetName(), channel->GetName());
+                    return true;
+                }
+
                 channel->Say(bot->GetGUID(), message, LANG_UNIVERSAL);
                 sLlmHistoryStore->AddRoomLine(
                     Acore::StringFormat("channel:{}:{}", channel->GetName(), uint32(bot->GetTeamId())),
