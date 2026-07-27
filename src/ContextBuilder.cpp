@@ -61,16 +61,18 @@ namespace ModLlm::ContextBuilder
         // audience, the harder the push toward silence.
         std::string ReplyGuidance(TriggerContext const& trigger)
         {
-            // Defense channels: sightings and calls for help. The rule is
-            // binary - a speaker is either coming (go_defend plus a short
-            // omw) or reporting an enemy they can see; everyone staying put
-            // stays silent, so declines never reach the channel.
+            // Defense channels: the reply rule is binary - a speaker is
+            // coming (go_defend plus a short omw) or silent. First-hand
+            // sightings arrive through the callout event path, not as
+            // replies, and LlmToolOperation enforces this contract in code:
+            // a channel-bound say without a successful go_defend beside it
+            // is swallowed, so a model that types a decline anyway still
+            // stays silent.
             if (trigger.kind == TRIGGER_CHAT_CHANNEL && trigger.defenseChannel)
                 return Acore::StringFormat(" This is the \"{}\" defense channel, where people report enemy"
-                    " attacks and call for help. Only two kinds of message belong here: you are coming (use"
-                    " the go_defend tool and send a short on-my-way), or you can see the enemy right now and"
-                    " report the sighting. If you are staying put, stay silent - readers who keep doing what"
-                    " they were doing say nothing, and that is almost always you.",
+                    " attacks and call for help. The only message that belongs from you is a short"
+                    " on-my-way sent together with the go_defend tool, when you actually go. Readers who"
+                    " keep doing what they were doing say nothing at all, and that is almost always you.",
                     trigger.channelName);
 
             // An initiative remark or event comment pointed at the zone

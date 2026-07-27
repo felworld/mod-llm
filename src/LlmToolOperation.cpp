@@ -19,6 +19,8 @@
 
 #include <nlohmann/json.hpp>
 
+#include <algorithm>
+#include <numeric>
 #include <utility>
 
 namespace ModLlm
@@ -61,50 +63,87 @@ namespace ModLlm
         // logger config swallows DEBUG, which makes silent bots undebuggable.
         // Each outcome is also recorded (parallel to `calls`) for the
         // feedback round below.
-        std::vector<Outcome> outcomes;
-        outcomes.reserve(calls.size());
-        auto finish = [&](ToolCall const& call, bool ok, std::string outcome, std::string result = "")
+        std::vector<Outcome> outcomes(calls.size());
+        auto finish = [&](size_t index, bool ok, std::string outcome, std::string result = "")
         {
+            ToolCall const& call = calls[index];
             if (sLlmConfig->debugEnabled)
                 LOG_INFO("module.llm", "Bot {} tool '{}' {}: {}", bot->GetName(), call.name, call.arguments, outcome);
             else
                 LOG_DEBUG("module.llm", "Bot {} tool '{}' {}: {}", bot->GetName(), call.name, call.arguments, outcome);
-            outcomes.push_back({ ok, std::move(outcome), std::move(result) });
+            outcomes[index] = { ok, std::move(outcome), std::move(result) };
         };
 
-        bool anySucceeded = false;
-        for (ToolCall const& call : calls)
+        // Defense-channel replies are enforced in code, not just prompted:
+        // the one message that belongs is the "omw" beside a successful
+        // go_defend, so go_defend runs first and channel-bound says are
+        // swallowed without it. The reply guidance asks for the same thing,
+        // but a model that ignores it and types a decline anyway must not
+        // reach the channel. Says pointed elsewhere (whisper, guild, ...)
+        // pass - they cannot land in the alarm channel.
+        bool defenseReply = _trigger.kind == TRIGGER_CHAT_CHANNEL && _trigger.defenseChannel;
+        std::vector<size_t> order(calls.size());
+        std::iota(order.begin(), order.end(), 0);
+        if (defenseReply)
+            std::stable_partition(order.begin(), order.end(),
+                [&](size_t index) { return calls[index].name == "go_defend"; });
+
+        auto channelBoundSay = [&](ToolCall const& call)
         {
+            if (call.name != "say")
+                return false;
+            nlohmann::json args = nlohmann::json::parse(call.arguments, nullptr, false);
+            if (args.is_discarded())
+                return false; // malformed arguments get their normal error below
+            std::string destination = args.value("destination", "");
+            return destination.empty() || destination == "channel";
+        };
+
+        bool goDefendSucceeded = false;
+        bool anySucceeded = false;
+        for (size_t index : order)
+        {
+            ToolCall const& call = calls[index];
+
+            // Swallowed, not failed: an error would invite the model to try
+            // the message again in the feedback round, and silence is exactly
+            // the outcome the channel wants.
+            if (defenseReply && !goDefendSucceeded && channelBoundSay(call))
+            {
+                finish(index, true, "swallowed: defense-channel reply without go_defend");
+                continue;
+            }
+
             ToolSpec const* spec = sLlmToolRegistry->Find(call.name);
             if (!spec)
             {
-                finish(call, false, "unknown tool");
+                finish(index, false, "unknown tool");
                 continue;
             }
 
             if (!(spec->triggerMask & _trigger.kind))
             {
-                finish(call, false, "not allowed for this trigger");
+                finish(index, false, "not allowed for this trigger");
                 continue;
             }
 
             if (spec->requiresActor && !actor)
             {
-                finish(call, false, "the actor is gone");
+                finish(index, false, "the actor is gone");
                 continue;
             }
 
             nlohmann::json args = nlohmann::json::parse(call.arguments, nullptr, false);
             if (args.is_discarded())
             {
-                finish(call, false, "malformed arguments");
+                finish(index, false, "malformed arguments");
                 continue;
             }
 
             std::string error;
             if (!ToolRegistry::ValidateArgs(spec->parameters, args, error))
             {
-                finish(call, false, Acore::StringFormat("rejected: {}", error));
+                finish(index, false, Acore::StringFormat("rejected: {}", error));
                 continue;
             }
 
@@ -112,12 +151,14 @@ namespace ModLlm
             if (spec->execute(context, args, error))
             {
                 anySucceeded = true;
+                if (call.name == "go_defend")
+                    goDefendSucceeded = true;
                 std::string result = std::move(context.result);
-                finish(call, true, result.empty() ? "executed" : "returned data", std::move(result));
+                finish(index, true, result.empty() ? "executed" : "returned data", std::move(result));
             }
             else
             {
-                finish(call, false, Acore::StringFormat("failed: {}", error));
+                finish(index, false, Acore::StringFormat("failed: {}", error));
             }
         }
 

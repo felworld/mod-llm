@@ -351,12 +351,13 @@ LLM.Chat.SayRouter.Enable = 1
 #                     would know, or already mid-conversation.
 #                     LocalDefense/WorldDefense route too, with an
 #                     alarm-channel note in the routing prompt: nearly
-#                     every alarm is answered by nobody, but "omw" and
-#                     sightings survive, and the picked bots get the
-#                     go-or-stay-silent defense reply guidance (the
-#                     go_defend tool plus a short "omw" when actually
-#                     going, a sighting report otherwise - a bot that is
-#                     staying put says nothing, so declines never land).
+#                     every alarm is answered by nobody, and a picked bot
+#                     gets the go-or-stay-silent defense reply guidance
+#                     (a short "omw" beside the go_defend tool when
+#                     actually going, silence otherwise). The contract is
+#                     enforced in code: a defense-channel reply only lands
+#                     beside a successful go_defend, so declines never
+#                     reach the channel even when the model types one.
 #                     When disabled, guild/channel chat falls back to the
 #                     ReplyChance.Guild/.Channel dice (.Defense in defense
 #                     channels).

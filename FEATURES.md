@@ -106,12 +106,15 @@ branching trees. Only a real player's message fans out to several responders
 ### Defense channels
 
 LocalDefense/WorldDefense route like everything else, with an alarm-channel
-note in the routing prompt: nearly every alarm is read in silence, but "omw"
-and sightings survive, and the picked bots get a go-or-stay-silent reply
-guidance with the `go_defend` tool — a bot that is staying put says nothing,
-so declines never reach the channel. (Per-candidate dice could never keep a
-faction-wide channel quiet — a low chance across hundreds of readers still
-answers every message.)
+note in the routing prompt: nearly every alarm is read in silence, and a bot
+is only picked to answer when it is named or would genuinely go. The picked
+bot gets go-or-stay-silent reply guidance with the `go_defend` tool, and the
+contract is enforced in code, not just prompted: a channel-bound reply only
+lands when a `go_defend` in the same response succeeded, so a model that
+types a decline anyway still stays silent. First-hand sightings reach the
+channel through the defense-callout event path instead. (Per-candidate dice
+could never keep a faction-wide channel quiet — a low chance across hundreds
+of readers still answers every message.)
 
 ## Emotes
 

@@ -361,8 +361,7 @@ namespace ModLlm::Router
         {
             roomLabel = Acore::StringFormat("the \"{}\" defense channel", trigger.channelName);
             roomNote = "It is an alarm channel where enemy attacks are reported: pick a character only "
-                "if they are named, would genuinely go to help, or would report a sighting of their "
-                "own.\n";
+                "if they are named or would genuinely drop what they are doing and go help.\n";
         }
         else
             roomLabel = Acore::StringFormat("the \"{}\" channel", trigger.channelName);
