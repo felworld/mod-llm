@@ -158,7 +158,10 @@ transcript (mob kills exempt — grinding would flood it), because seeing and
 reacting are different things. Duel events address participants in the second
 person — "you lost a duel against X" — since a small model that only sees its
 own name in a third-person line may not realize it was the loser, and
-trash-talk accordingly. Also group joins: a bot that joins a party or raid
+trash-talk accordingly. PvP kills are described relative to each reacting
+bot's faction ("your ally X killed the enemy Y") — names carry no faction,
+and a faction-blind "X killed Y" once had bots warning their own side about
+an ally clearing enemy gankers. Also group joins: a bot that joins a party or raid
 greets it in party/raid chat (this replaces playerbots' canned "Hello"
 whisper, which we keep disabled via `AiPlayerbot.EnableGreet = 0`). And heals:
 a bot healed by a player outside its group thanks them aloud
@@ -176,7 +179,10 @@ only with a human in actual earshot, here and wherever else a bot speaks
 aloud — but a configurable share (`LLM.Event.ChannelChance`,
 `LLM.Initiative.ChannelChance`) goes to the bot's zone **General channel**
 instead — the idle zone chatter real servers have — whenever the bot and at
-least one real player are on the channel.
+least one real player are on the channel. Only events that carry their own
+story zone-wide (level-ups, achievements, notable loot) roll for General;
+play-by-play like mob pulls, deaths, and duels is invisible to readers across
+the zone and stays in local /say.
 
 ## Persistence
 

@@ -25,6 +25,7 @@
 #include <chrono>
 #include <functional>
 #include <mutex>
+#include <string_view>
 #include <unordered_map>
 
 namespace ModLlm
@@ -66,14 +67,23 @@ namespace ModLlm
             ObjectGuid killedGuid = killed->GetGUID();
             std::string killerName = killer->GetName();
             std::string killedName = killed->GetName();
+            TeamId killerTeam = killer->GetTeamId();
             DispatchEvent(killer, "pvp_kill", sLlmConfig->eventChancePvpKill,
-                [killerGuid, killedGuid, killerName, killedName](Player* bot)
+                [killerGuid, killedGuid, killerName, killedName, killerTeam](Player* bot)
                 {
                     if (bot->GetGUID() == killerGuid)
-                        return Acore::StringFormat("you killed {} in PvP", killedName);
+                        return Acore::StringFormat("you killed the enemy {} in PvP", killedName);
                     if (bot->GetGUID() == killedGuid)
-                        return Acore::StringFormat("{} killed you in PvP", killerName);
-                    return Acore::StringFormat("{} killed {} in PvP", killerName, killedName);
+                        return Acore::StringFormat("the enemy {} killed you in PvP", killerName);
+                    // A faction-blind "X killed Y" reads as a threat either
+                    // way, and a bot would warn its own side about an ally
+                    // clearing enemy gankers. Names carry no faction, so the
+                    // sides are spelled out relative to the reacting bot.
+                    if (bot->GetTeamId() == killerTeam)
+                        return Acore::StringFormat("your ally {} killed the enemy {} in PvP",
+                            killerName, killedName);
+                    return Acore::StringFormat("the enemy {} killed your ally {} in PvP",
+                        killerName, killedName);
                 });
         }
 
@@ -166,6 +176,18 @@ namespace ModLlm
         // third-person line - and then congratulates itself on its own kill.
         using EventDescriber = std::function<std::string(Player* bot)>;
 
+        // Only feats that carry their own story - a ding, an achievement, a
+        // rare drop - are worth retelling to the zone-wide General channel.
+        // Play-by-play (mob pulls, deaths, duels, PvP kills) is invisible to
+        // readers across the zone: the prompt asks the model to retell or
+        // stay silent, but small models still produce "nice pulls", so the
+        // gate is enforced here and those comments stay in local /say.
+        static bool IsZoneChannelWorthy(char const* eventType)
+        {
+            std::string_view type(eventType);
+            return type == "level_up" || type == "achievement" || type == "loot";
+        }
+
         // Describer for the common single-actor event: the actor hears
         // selfDescription, everyone else hears otherDescription.
         static EventDescriber ActorAware(ObjectGuid actorGuid, std::string selfDescription,
@@ -251,7 +273,7 @@ namespace ModLlm
                     trigger.chatType = group->isRaidGroup() ? CHAT_MSG_RAID : CHAT_MSG_PARTY;
                     trigger.roomKey = Acore::StringFormat("group:{}", group->GetGUID().GetCounter());
                 }
-                else if (urand(0, 99) < sLlmConfig->eventChannelChance)
+                else if (IsZoneChannelWorthy(eventType) && urand(0, 99) < sLlmConfig->eventChannelChance)
                     trigger.wantZoneChannel = true;
                 else if (!BotSelector::HasRealPlayerNearby(bot, sLlmConfig->sayDistance))
                     continue;
