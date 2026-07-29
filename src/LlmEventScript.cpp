@@ -474,14 +474,41 @@ namespace ModLlm
         // ("LocalDefense" matches "LocalDefense - Redridge Mountains").
         trigger.channelName = escalation ? "WorldDefense" : "LocalDefense";
         trigger.defenseChannel = true;
-        trigger.message = escalation
-            ? Acore::StringFormat("the enemy {}, a level {} {} {}, has killed {} of your side in {} and nobody"
-                " has stopped them yet. Raise the alarm in the faction-wide WorldDefense channel so help comes",
+        if (escalation)
+            trigger.message = Acore::StringFormat("the enemy {}, a level {} {} {}, has killed {} of your side in {}"
+                " and nobody has stopped them yet. Raise the alarm in the faction-wide WorldDefense channel so help"
+                " comes",
                 notification.attackerName, notification.attackerLevel, race, cls, notification.killCount,
-                notification.areaName)
-            : Acore::StringFormat("you spotted an enemy attacking {}: {}, a level {} {} {}. Raise the alarm"
-                " in the zone's LocalDefense channel - name the attacker and where they are",
-                notification.areaName, notification.attackerName, notification.attackerLevel, race, cls);
+                notification.areaName);
+        else
+        {
+            // Tell the model what was actually seen - "attacking <area>" for
+            // someone genuinely present hostile, "prowling" for a known
+            // ganker merely sighted - so the alarm matches the events.
+            std::string enemyDesc = Acore::StringFormat("{}, a level {} {} {}",
+                notification.attackerName, notification.attackerLevel, race, cls);
+            std::string spotted;
+            switch (notification.activity)
+            {
+                case WpvpCalloutActivity::AttackingPlayer:
+                    spotted = notification.victimName == bot->GetName()
+                        ? Acore::StringFormat("you are being attacked near {} by an enemy: {}", notification.areaName,
+                            enemyDesc)
+                        : Acore::StringFormat("you spotted an enemy attacking {} near {}: {}",
+                            notification.victimName, notification.areaName, enemyDesc);
+                    break;
+                case WpvpCalloutActivity::Prowling:
+                    spotted = Acore::StringFormat("you spotted an enemy the defense channels already warned about"
+                        " prowling near {}: {}", notification.areaName, enemyDesc);
+                    break;
+                default:
+                    spotted = Acore::StringFormat("you spotted an enemy attacking {}: {}", notification.areaName,
+                        enemyDesc);
+                    break;
+            }
+            trigger.message = Acore::StringFormat("{}. Raise the alarm in the zone's LocalDefense channel - name the"
+                " attacker and where they are", spotted);
+        }
         Dispatch::Submit(bot, nullptr, std::move(trigger));
     }
 }

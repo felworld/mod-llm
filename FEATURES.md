@@ -126,7 +126,11 @@ WorldDefense — so a kill brag or idle remark aimed there (including
 `channel_name: "World"`, which prefix-matches the joined "WorldDefense") is
 swallowed unless the trigger itself came from that defense channel. Alarm
 speech enters only through playerbots' level-gated callout system: a bot
-that outclasses the intruder is sent to fight, never to shout.
+that outclasses the intruder is sent to fight, never to shout. The callout
+prompt states what was actually seen — an enemy attacking a named friendly,
+hitting the area's NPCs, or an already-reported ganker merely prowling — so
+the raised alarm matches the events instead of framing every sighting as
+"attacking" whatever spot the witness happens to stand in.
 
 ## Emotes
 
