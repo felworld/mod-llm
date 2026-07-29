@@ -44,6 +44,7 @@ namespace ModLlm
             "invited to group mid-quest => maybe after this quest\n"
             "guildie asks who is up for deadmines => id come, need the vc sword\n"
             "someone says thanks => np\n"
+            "someone says gg => gg\n"
             "you die to something dumb => wow im bad\n"
             "someone keeps pestering you => dude stop\n"
             "you agree to meet someone => omw\n"
@@ -82,8 +83,9 @@ namespace ModLlm
             "Standing within earshot of {actor_name}:\n{roster}\n{history_block}"
             "Now {actor_name} says: \"{message}\"\n"
             "Which of the listed characters, if any, is this message meant for or would naturally answer? "
-            "If it continues an exchange visible above, pick whoever {actor_name} is talking to - not a "
-            "third character butting into their conversation. The more characters are standing around, "
+            "A question or reply about something a listed character said above is meant for that character "
+            "- pick them. If it continues an exchange visible above, pick whoever {actor_name} is talking "
+            "to - not a third character butting into their conversation. The more characters are standing around, "
             "the less likely any one of them is being addressed: in a crowd, [] or a single name is "
             "usually right. Reply with only a JSON array of at most {max_picks} names from the list, "
             "most relevant first - for example [\"Name\"] - or [] if the message is for nobody in "
@@ -93,12 +95,13 @@ namespace ModLlm
             "You are routing a chat message between player characters in World of Warcraft. "
             "In {room_label}, {actor_name} writes: \"{message}\"\n"
             "Characters reading it include:\n{roster}\n{history_block}{room_note}"
-            "Which of the listed characters, if any, would naturally answer? Messages there are mostly "
-            "read in silence, and the more readers there are, the less likely any one of them is being "
-            "addressed: unless a listed character is named, asked something they would know, or already "
-            "mid-exchange with {actor_name} above, the answer is []. Reply with only a JSON array of at "
-            "most {max_picks} names from the list, most relevant first - for example [\"Name\"] - or [] "
-            "if nobody would answer.";
+            "Which of the listed characters, if any, would naturally answer? A question or reply about "
+            "something said in the conversation above is meant for whoever said it - pick that character. "
+            "Otherwise messages there are mostly read in silence, and the more readers there are, the "
+            "less likely any one of them is being addressed: unless a listed character is named, asked "
+            "something they would know, or already mid-exchange with {actor_name} above, the answer is "
+            "[]. Reply with only a JSON array of at most {max_picks} names from the list, most relevant "
+            "first - for example [\"Name\"] - or [] if nobody would answer.";
 
         constexpr char DEFAULT_PROMPT_HISTORY_LINE[] = "{speaker}: {message}";
 

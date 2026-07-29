@@ -56,7 +56,10 @@ for the router, so "anyone for [quest]?" reaches exactly the bots that could
 join. The say router additionally sees the conversation recently overheard
 around the sender (so an undirected "sure, how much?" right after a bot's
 offer reaches that bot), and the room router for guild and named channels sees
-the room transcript. All routers know that the bigger the crowd, the less
+the room transcript. Both transcript-aware routers treat a follow-up as
+directed: a question or reply about something a listed bot said above routes
+to that bot, so a newcomer's "how'd you die?" reaches whoever just said they
+died. All routers know that the bigger the crowd, the less
 likely any one bystander was being addressed; rosters are capped at
 `LLM.Chat.Router.MaxRoster` per call, a name-mention always picks that bot,
 and the `LLM.Chat.*ReplyChance.*` dice roll only when a router is disabled —
