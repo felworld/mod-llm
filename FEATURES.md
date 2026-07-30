@@ -148,6 +148,32 @@ classic untranslated-gibberish taunt. Outgoing, the `emote` tool's schema
 offers a curated slate of ~40 social and player-culture staples (`/wave`
 through `/golfclap`), though any real emote name the model picks resolves.
 
+## Class services
+
+The mage and warlock favors mod-playerbots ships as explicit chat commands
+([`!conjure` / `!portal` / `!ritual`](https://github.com/felworld/mod-playerbots/blob/main/FEATURES.md#class-service-commands))
+are also offered to the model as tools, so a natural-language "got any
+water?" or "can I get a summon?" works on an LLM bot with no command syntax:
+
+- `conjure_refreshments` — food or water, conjured and then walked over to
+  the asker for a hand-off.
+- `open_portal` — a portal to a capital city the mage has learned; a model
+  that guesses an unknown destination is told which cities qualify.
+- `summon_player` — a real Ritual of Summoning: two nearby group members
+  (or bystander bots recruited for the ritual) channel the portal with the
+  warlock, and the asker gets the standard summon-accept dialog.
+
+The mechanics are the playerbots actions themselves — real casts and cast
+times, walking into trade range, recruiting ritual helpers — the LLM layer
+only decides *whether* to do the favor. Services are favors for the bot's
+own circle: the asker must be a groupmate, raidmate, or guildmate (never
+inside a battleground), and they're free. Anyone else isn't offered the
+tools at all, so the bot declines in character. Summoning also requires the
+asker in the warlock's group (the game only lets group members work the
+portal); a guildmate who asks while ungrouped is told to join the group
+first, which the model can arrange with `invite_to_party`. Bots charging
+strangers for services is a possible later step.
+
 ## Game events
 
 Kills, deaths, level-ups, quest completions, duels, achievements, notable

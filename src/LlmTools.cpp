@@ -24,8 +24,10 @@
 #include "Overhear.h"
 #include "Player.h"
 #include "PlayerbotAI.h"
+#include "PlayerbotAIConfig.h"
 #include "PlayerbotMgr.h"
 #include "SharedDefines.h"
+#include "SpellInfo.h"
 #include "SpellMgr.h"
 #include "StringFormat.h"
 #include "TextEmoteCatalog.h"
@@ -523,6 +525,96 @@ namespace ModLlm::LlmTools
             if (!KnowsAnyBuff(bot))
             {
                 error = "you have no buff spells";
+                return true;
+            }
+            return false;
+        }
+
+        constexpr uint32 SPELL_RITUAL_OF_SUMMONING = 698;
+
+        // The "Portal: <city>" spells the mage knows, as (spell id, city name).
+        std::vector<std::pair<uint32, std::string>> KnownPortals(Player* bot)
+        {
+            std::vector<std::pair<uint32, std::string>> portals;
+            for (auto const& [spellId, playerSpell] : bot->GetSpellMap())
+            {
+                if (playerSpell->State == PLAYERSPELL_REMOVED || !playerSpell->Active)
+                    continue;
+
+                SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(spellId);
+                if (!spellInfo)
+                    continue;
+
+                std::string const name = spellInfo->SpellName[0];
+                if (name.rfind("Portal: ", 0) != 0)
+                    continue;
+
+                portals.emplace_back(spellId, name.substr(8));
+            }
+            return portals;
+        }
+
+        // Class services (conjured refreshments, portals, summons) are favors
+        // for the bot's own circle: groupmates, raidmates, and guildmates get
+        // them for free. Battlegrounds are off-limits.
+        bool ClassServiceBlocked(Player* bot, Player* actor, std::string& error)
+        {
+            if (bot->InBattleground() || actor->InBattleground())
+            {
+                error = "not inside a battleground";
+                return true;
+            }
+
+            Group* group = bot->GetGroup();
+            bool const grouped = group && group->IsMember(actor->GetGUID())
+                && !group->isBGGroup() && !group->isBFGroup();
+            bool const guilded = bot->GetGuildId() && bot->GetGuildId() == actor->GetGuildId();
+            if (!grouped && !guilded)
+            {
+                error = "you only do that for groupmates and guildmates";
+                return true;
+            }
+            return false;
+        }
+
+        bool ConjureBlocked(Player* bot, Player* actor, std::string& error)
+        {
+            if (ClassServiceBlocked(bot, actor, error))
+                return true;
+            if (bot->getClass() != CLASS_MAGE)
+            {
+                error = "you are not a mage";
+                return true;
+            }
+            return false;
+        }
+
+        bool PortalBlocked(Player* bot, Player* actor, std::string& error)
+        {
+            if (ClassServiceBlocked(bot, actor, error))
+                return true;
+            if (bot->getClass() != CLASS_MAGE || KnownPortals(bot).empty())
+            {
+                error = "you have no portal spells";
+                return true;
+            }
+            return false;
+        }
+
+        bool SummonBlocked(Player* bot, Player* actor, std::string& error)
+        {
+            if (ClassServiceBlocked(bot, actor, error))
+                return true;
+            if (bot->getClass() != CLASS_WARLOCK || !bot->HasSpell(SPELL_RITUAL_OF_SUMMONING))
+            {
+                error = "you cannot perform summoning rituals";
+                return true;
+            }
+
+            Group* group = bot->GetGroup();
+            if (!group || !group->IsMember(actor->GetGUID()))
+            {
+                error = "they must join your group before they can be summoned";
                 return true;
             }
             return false;
@@ -1296,6 +1388,136 @@ namespace ModLlm::LlmTools
             [](TriggerContext const& trigger)
             {
                 return trigger.defenseChannel;
+            }
+        });
+
+        // Class services - the mage/warlock favors playerbots already knows
+        // how to perform (the !conjure / !portal / !ritual chat commands),
+        // exposed to natural-language requests from the bot's own circle.
+        // The playerbots actions own the mechanics: real casts, walking into
+        // handover range, recruiting ritual helpers.
+        sLlmToolRegistry->Register({
+            "conjure_refreshments",
+            "Conjure food or water and hand it to the player you are interacting with, like "
+            "answering 'got any water?'. You cast the spell and walk over to trade the goods; "
+            "it takes a few moments.",
+            {
+                { "type", "object" },
+                { "properties", { { "kind", { { "type", "string" },
+                    { "enum", { "food", "water" } } } } } },
+                { "required", { "kind" } }
+            },
+            TRIGGER_CHAT_SAY | TRIGGER_CHAT_WHISPER | TRIGGER_CHAT_PARTY | TRIGGER_CHAT_GUILD
+                | TRIGGER_CHAT_CHANNEL | TRIGGER_EMOTE,
+            true,
+            [](ToolExecContext& context, nlohmann::json const& args, std::string& error)
+            {
+                if (ConjureBlocked(context.bot, context.actor, error))
+                    return false;
+                if (!context.bot->IsWithinDistInMap(context.actor, sPlayerbotAIConfig.sightDistance))
+                {
+                    error = "they are too far away - they would have to come to you";
+                    return false;
+                }
+                if (!context.ai->DoSpecificAction("conjure",
+                    Event("llm", args["kind"].get<std::string>(), context.actor), true))
+                {
+                    error = "you cannot conjure that right now";
+                    return false;
+                }
+                return true;
+            },
+            [](Player* bot, Player* actor)
+            {
+                std::string ignored;
+                return !ConjureBlocked(bot, actor, ignored);
+            }
+        });
+
+        sLlmToolRegistry->Register({
+            "open_portal",
+            "Open a mage portal to a capital city for the player you are interacting with, like "
+            "answering 'can you port me to Ironforge?'. The portal opens at your feet and fades "
+            "after a minute, so they must be standing near you.",
+            {
+                { "type", "object" },
+                { "properties", { { "destination", { { "type", "string" },
+                    { "description", "The city they asked for, like Stormwind or Undercity" } } } } },
+                { "required", { "destination" } }
+            },
+            TRIGGER_CHAT_SAY | TRIGGER_CHAT_WHISPER | TRIGGER_CHAT_PARTY | TRIGGER_CHAT_GUILD
+                | TRIGGER_CHAT_CHANNEL,
+            true,
+            [](ToolExecContext& context, nlohmann::json const& args, std::string& error)
+            {
+                if (PortalBlocked(context.bot, context.actor, error))
+                    return false;
+
+                std::string const wanted = args["destination"].get<std::string>();
+                std::string city;
+                for (auto const& [spellId, portalCity] : KnownPortals(context.bot))
+                {
+                    if (StringContainsStringI(portalCity, wanted))
+                    {
+                        city = portalCity;
+                        break;
+                    }
+                }
+                if (city.empty())
+                {
+                    error = "you can only open portals to:";
+                    for (auto const& [spellId, portalCity] : KnownPortals(context.bot))
+                        error += " " + portalCity + ",";
+                    error.pop_back();
+                    return false;
+                }
+                if (!context.bot->IsWithinDistInMap(context.actor, sPlayerbotAIConfig.sightDistance))
+                {
+                    error = "they are too far away to reach your portal - they would have to come to you";
+                    return false;
+                }
+                if (!context.ai->DoSpecificAction("portal", Event("llm", city, context.actor), true))
+                {
+                    error = "you cannot open that portal right now";
+                    return false;
+                }
+                return true;
+            },
+            [](Player* bot, Player* actor)
+            {
+                std::string ignored;
+                return !PortalBlocked(bot, actor, ignored);
+            }
+        });
+
+        sLlmToolRegistry->Register({
+            "summon_player",
+            "Perform a Ritual of Summoning to teleport the player you are interacting with to "
+            "your location, like answering a groupmate's 'can I get a summon?'. Nearby helpers "
+            "channel the portal with you and the player receives a summon request to accept.",
+            {
+                { "type", "object" },
+                { "properties", nlohmann::json::object() }
+            },
+            TRIGGER_CHAT_SAY | TRIGGER_CHAT_WHISPER | TRIGGER_CHAT_PARTY | TRIGGER_CHAT_GUILD
+                | TRIGGER_CHAT_CHANNEL,
+            true,
+            [](ToolExecContext& context, nlohmann::json const& /*args*/, std::string& error)
+            {
+                if (SummonBlocked(context.bot, context.actor, error))
+                    return false;
+                if (!context.ai->DoSpecificAction("ritual", Event("llm", "", context.actor), true))
+                {
+                    error = "the ritual cannot start - you need two group members or bystanders "
+                        "nearby to help channel it";
+                    return false;
+                }
+                return true;
+            },
+            [](Player* bot, Player* actor)
+            {
+                std::string ignored;
+                return !SummonBlocked(bot, actor, ignored);
             }
         });
 

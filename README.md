@@ -18,6 +18,8 @@ to do:
 | `get_gear` / `get_inventory` | Read tools: hand the bot's equipped gear or bag contents back to the model (each item with an `{item:ID}` link tag) in a follow-up round |
 | `invite_to_party` | Invite the player, via a synthetic client packet so all core validation runs |
 | `challenge_duel` | Challenge the player to a duel |
+| `conjure_refreshments` / `open_portal` | Mage class services: conjure food or water and walk it over to the asker, or open a portal to a capital city ([details](FEATURES.md#class-services)) |
+| `summon_player` | Warlock class service: summon a groupmate with a real Ritual of Summoning, recruiting nearby bots to help channel ([details](FEATURES.md#class-services)) |
 
 Returning no tool calls is a valid outcome — most moments deserve no reaction. The tool list
 offered with each request is filtered by trigger kind and live game state, and executors
