@@ -613,10 +613,13 @@ namespace ModLlm::LlmTools
                 return true;
             }
 
+            // The ritual action invites an ungrouped requester into the bot's own
+            // group first (the bot stays put), so only an actor stuck in some other
+            // group is unreachable.
             Group* group = bot->GetGroup();
-            if (!group || !group->IsMember(actor->GetGUID()))
+            if (actor->GetGroup() && (!group || !group->IsMember(actor->GetGUID())))
             {
-                error = "they must join your group before they can be summoned";
+                error = "they are already in another group - they must leave it before you can summon them";
                 return true;
             }
             return false;
@@ -1577,8 +1580,9 @@ namespace ModLlm::LlmTools
         sLlmToolRegistry->Register({
             "summon_player",
             "Perform a Ritual of Summoning to teleport the player you are interacting with to "
-            "your location, like answering a groupmate's 'can I get a summon?'. Nearby helpers "
-            "channel the portal with you and the player receives a summon request to accept.",
+            "your location, like answering 'can I get a summon?'. If they are not in your "
+            "group yet you send them a group invite first and begin once they accept. Nearby "
+            "helpers channel the portal with you and the player receives a summon request.",
             {
                 { "type", "object" },
                 { "properties", nlohmann::json::object() }
@@ -1592,8 +1596,8 @@ namespace ModLlm::LlmTools
                     return false;
                 if (!context.ai->DoSpecificAction("ritual", Event("llm", "", context.actor), true))
                 {
-                    error = "the ritual cannot start - you need two group members or bystanders "
-                        "nearby to help channel it";
+                    error = "the ritual cannot start - it needs the player to accept your group "
+                        "invite and two group members or bystanders nearby to help channel it";
                     return false;
                 }
                 return true;

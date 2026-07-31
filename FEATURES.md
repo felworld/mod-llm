@@ -195,18 +195,21 @@ water?" or "can I get a summon?" works on an LLM bot with no command syntax:
   that guesses an unknown destination is told which cities qualify.
 - `summon_player` — a real Ritual of Summoning: two nearby group members
   (or bystander bots recruited for the ritual) channel the portal with the
-  warlock, and the asker gets the standard summon-accept dialog.
+  warlock, and the asker gets the standard summon-accept dialog. An asker
+  who isn't in the warlock's group yet (the game only lets group members
+  work the portal) gets a group invite from the bot first — the ritual
+  begins once they accept. The invite runs in that direction on purpose:
+  a distant bot invited into *your* group teleports to you on accept,
+  which defeats the summon.
 
 The mechanics are the playerbots actions themselves — real casts and cast
-times, walking into trade range, recruiting ritual helpers — the LLM layer
-only decides *whether* to do the favor. Services are favors for the bot's
-own circle: the asker must be a groupmate, raidmate, or guildmate (never
-inside a battleground), and they're free. Anyone else isn't offered the
-tools at all, so the bot declines in character. Summoning also requires the
-asker in the warlock's group (the game only lets group members work the
-portal); a guildmate who asks while ungrouped is told to join the group
-first, which the model can arrange with `invite_to_party`. Bots charging
-strangers for services is a possible later step.
+times, walking into trade range, inviting the summon target, recruiting
+ritual helpers — the LLM layer only decides *whether* to do the favor.
+Services are favors for the bot's own circle: the asker must be a
+groupmate, raidmate, or guildmate (never inside a battleground), and
+they're free. Anyone else isn't offered the tools at all, so the bot
+declines in character. Bots charging strangers for services is a possible
+later step.
 
 ## Game events
 
