@@ -49,9 +49,7 @@ namespace ModLlm
             "someone keeps pestering you => dude stop\n"
             "you agree to meet someone => omw\n"
             "defense channel reports a ganker and you decide to go fight => hold on, omw\n"
-            "you spot an enemy player attacking a town => redridge under attack, lvl 60 rogue at the bridge\n"
-            "teammate calls inc at your base in a battleground and you go => omw base\n"
-            "you decide to hunt the enemy flag carrier after an fc callout => on it, getting their fc";
+            "you spot an enemy player attacking a town => redridge under attack, lvl 60 rogue at the bridge";
 
         constexpr char DEFAULT_PROMPT_CHAT[] =
             "{memory_block}{history_block}[{channel_label}] {actor_name} (level {actor_level} {actor_race} "

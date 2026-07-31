@@ -149,17 +149,20 @@ tool with four plays: `attack_fc` (hunt the enemy carrying your flag),
 
 The tool wraps
 [playerbots' `bg strategy` order machinery](https://github.com/felworld/mod-playerbots/blob/main/FEATURES.md#warsong-gulch-teamwork)
-— the same one behind the explicit `!bg strategy` chat command — so a
-followed call redirects the bot immediately, lasts
-`AiPlayerbot.BgStrategyOrderDuration` seconds, and then lets the bot drift
-back to its role. Two things differ from the command path: the model's
-decision to follow *is* the compliance decision (no
-`BgStrategyComplianceChance` roll — the router and the model's own
-judgment already decide who responds), and there is no canned announcement
-— the prompt asks the model to send a short "omw" in the same reply, in
-its own voice. A bot carrying the flag is never offered the tool and is
-told its job is getting the flag home; `fc` plays fail with feedback when
-the flag carrier they need doesn't exist. Setting
+— the same one behind the explicit `!bg strategy` chat command. The routed
+bot acts as the team's interpreter, not a privileged complier: its tool
+call relays the play to every bot on the team, and each of them — the
+interpreter included — rolls the usual
+`AiPlayerbot.BgStrategyComplianceChance`, announces the canned line when
+it complies, follows the order for `AiPlayerbot.BgStrategyOrderDuration`
+seconds, and throttles re-rolls, exactly as if the player had typed the
+command. "inc!!" therefore moves the same ~65% of the team the explicit
+command does, at the cost of one routing call plus one interpretation
+call — not one LLM call per teammate. The prompt tells the model the tool
+call alone is a full response, so it doesn't double-announce on top of
+the compliance lines. A bot carrying the flag is never offered the tool
+and is told its job is getting the flag home; `fc` plays fail with
+feedback when the flag carrier they need doesn't exist. Setting
 `AiPlayerbot.BgStrategyComplianceChance = 0` disables the tool along with
 the command.
 

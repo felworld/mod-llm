@@ -178,11 +178,12 @@ namespace ModLlm::ContextBuilder
             return guidance
                 + " Teammates call plays here in shorthand: inc means enemies incoming, at your flag room"
                 " unless another spot is named, and fc points at a flag carrier, like fc mid or fc tunnel"
-                " for where one is. When a call convinces you, follow it with the bg_strategy tool -"
-                " defend_base for inc at your base, attack_fc to hunt the enemy carrying your flag,"
-                " defend_fc to stick with your carrier, attack_base to push their flag room - and send a"
-                " short omw or on it in the same reply so the caller knows who is coming. You read the"
-                " game yourself: follow the calls that make sense to you.";
+                " for where one is. When a callout deserves the team's attention, relay it with the"
+                " bg_strategy tool - defend_base for inc at your base, attack_fc to hunt the enemy"
+                " carrying your flag, defend_fc to stick with your carrier, attack_base to push their"
+                " flag room. Whoever takes up the play announces it in this chat, so the tool call alone"
+                " is a full response and staying otherwise silent is normal. You read the game yourself:"
+                " relay the calls that make sense to you.";
         }
     }
 

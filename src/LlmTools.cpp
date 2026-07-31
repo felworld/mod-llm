@@ -1428,19 +1428,19 @@ namespace ModLlm::LlmTools
             }
         });
 
-        // bg_strategy - follow a Warsong Gulch play call ("inc!", "get their
-        // fc") by actually switching objective: hands the order to playerbots'
-        // "bg strategy" command action, which redirects the bot for a limited
-        // time and then lets it drift back to its role. An "llm" event source
-        // tells that action the model's choice already is the compliance
-        // decision (no roll) and that the bot speaks for itself (no canned
-        // announcement) - the battleground reply guidance asks the model to
-        // send a short acknowledgment alongside the tool.
+        // bg_strategy - relay a Warsong Gulch play call ("inc!", "get their
+        // fc") to the whole team: hands the order to playerbots' "bg strategy"
+        // command action, which - for an "llm" event source - fans it out to
+        // every bot on the team through the same machinery as the explicit
+        // "!bg strategy" chat command: per-bot compliance rolls, canned
+        // announcements from whoever complies, and the spam throttle. The
+        // routed bot is the team's interpreter, not a privileged complier -
+        // it rolls like everyone else.
         sLlmToolRegistry->Register({
             "bg_strategy",
-            "Change what you are doing in this battleground to follow a teammate's play call, like "
-            "reacting to an inc or fc callout. Pick the play that fits the situation and send a short "
-            "acknowledgment with it so the caller knows you are coming.",
+            "Call a play for your whole battleground team in response to a teammate's callout, like "
+            "an inc or fc warning. Teammates who take it up announce what they are doing, so the "
+            "tool call alone is a full response.",
             {
                 { "type", "object" },
                 { "properties", { { "play", { { "type", "string" },
