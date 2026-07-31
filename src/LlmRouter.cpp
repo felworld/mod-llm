@@ -260,11 +260,20 @@ namespace ModLlm::Router
             rosterText += RosterLine(bot, OnLinkedQuest(bot, trigger.linkedQuests));
         }
 
+        // Battleground chat is a tactics channel: a play callout is aimed at
+        // whoever will act on it, which the most-messages-are-for-nobody rule
+        // below would otherwise route to [].
+        std::string bgNote;
+        if (bg)
+            bgNote = "It is a battleground team: short play callouts like inc, help mid, or fc low "
+                "concern the whole team - for those, pick teammates who would act on them.\n";
+
         fmt::dynamic_format_arg_store<fmt::format_context> args;
         args.push_back(fmt::arg("channel_label", bg ? "battleground" : "raid"));
         args.push_back(fmt::arg("actor_name", trigger.actorName));
         args.push_back(fmt::arg("message", trigger.message));
         args.push_back(fmt::arg("roster", rosterText));
+        args.push_back(fmt::arg("bg_note", bgNote));
         args.push_back(fmt::arg("max_picks", route.maxPick));
 
         try

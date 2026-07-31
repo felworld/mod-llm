@@ -6,6 +6,8 @@
 #include "LlmTools.h"
 
 #include "Bag.h"
+#include "Battleground.h"
+#include "BattlegroundWS.h"
 #include "BotSelector.h"
 #include "Channel.h"
 #include "ChannelMgr.h"
@@ -615,6 +617,41 @@ namespace ModLlm::LlmTools
             if (!group || !group->IsMember(actor->GetGUID()))
             {
                 error = "they must join your group before they can be summoned";
+                return true;
+            }
+            return false;
+        }
+
+        // bg_strategy needs an active Warsong Gulch match and a bot whose
+        // hands are free - a flag carrier's play is already decided. The
+        // playerbots-side kill switch (compliance chance 0) hides the tool too.
+        bool BgStrategyBlocked(Player* bot, std::string& error)
+        {
+            if (!sPlayerbotAIConfig.bgStrategyComplianceChance)
+            {
+                error = "you play your own game";
+                return true;
+            }
+
+            Battleground* bg = bot->GetBattleground();
+            if (!bg || bg->GetStatus() != STATUS_IN_PROGRESS)
+            {
+                error = "you are not in an active battleground";
+                return true;
+            }
+
+            BattlegroundTypeId bgType = bg->GetBgTypeID();
+            if (bgType == BATTLEGROUND_RB)
+                bgType = bg->GetBgTypeID(true);
+            if (bgType != BATTLEGROUND_WS)
+            {
+                error = "plays are only called in Warsong Gulch";
+                return true;
+            }
+
+            if (bot->HasAura(BG_WS_SPELL_WARSONG_FLAG) || bot->HasAura(BG_WS_SPELL_SILVERWING_FLAG))
+            {
+                error = "you are carrying the flag - your job is running it home";
                 return true;
             }
             return false;
@@ -1388,6 +1425,53 @@ namespace ModLlm::LlmTools
             [](TriggerContext const& trigger)
             {
                 return trigger.defenseChannel;
+            }
+        });
+
+        // bg_strategy - follow a Warsong Gulch play call ("inc!", "get their
+        // fc") by actually switching objective: hands the order to playerbots'
+        // "bg strategy" command action, which redirects the bot for a limited
+        // time and then lets it drift back to its role. An "llm" event source
+        // tells that action the model's choice already is the compliance
+        // decision (no roll) and that the bot speaks for itself (no canned
+        // announcement) - the battleground reply guidance asks the model to
+        // send a short acknowledgment alongside the tool.
+        sLlmToolRegistry->Register({
+            "bg_strategy",
+            "Change what you are doing in this battleground to follow a teammate's play call, like "
+            "reacting to an inc or fc callout. Pick the play that fits the situation and send a short "
+            "acknowledgment with it so the caller knows you are coming.",
+            {
+                { "type", "object" },
+                { "properties", { { "play", { { "type", "string" },
+                    { "enum", { "attack_fc", "attack_base", "defend_fc", "defend_base" } },
+                    { "description", "attack_fc: hunt down the enemy carrying your team's flag. "
+                        "attack_base: push into the enemy flag room. defend_fc: escort your teammate "
+                        "carrying the enemy flag. defend_base: fall back and hold your own flag room." } } } },
+                { "required", { "play" } }
+            },
+            TRIGGER_CHAT_PARTY | TRIGGER_CHAT_WHISPER,
+            false,
+            [](ToolExecContext& context, nlohmann::json const& args, std::string& error)
+            {
+                if (BgStrategyBlocked(context.bot, error))
+                    return false;
+
+                // Tool enum -> command parameter: attack_fc -> "attack fc"
+                std::string play = args["play"].get<std::string>();
+                std::replace(play.begin(), play.end(), '_', ' ');
+
+                if (!context.ai->DoSpecificAction("bg strategy", Event("llm", play, context.actor), true))
+                {
+                    error = "that play does not fit right now - the flag carrier it needs may not exist";
+                    return false;
+                }
+                return true;
+            },
+            [](Player* bot, Player* /*actor*/)
+            {
+                std::string ignored;
+                return !BgStrategyBlocked(bot, ignored);
             }
         });
 

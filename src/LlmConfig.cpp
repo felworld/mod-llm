@@ -49,7 +49,9 @@ namespace ModLlm
             "someone keeps pestering you => dude stop\n"
             "you agree to meet someone => omw\n"
             "defense channel reports a ganker and you decide to go fight => hold on, omw\n"
-            "you spot an enemy player attacking a town => redridge under attack, lvl 60 rogue at the bridge";
+            "you spot an enemy player attacking a town => redridge under attack, lvl 60 rogue at the bridge\n"
+            "teammate calls inc at your base in a battleground and you go => omw base\n"
+            "you decide to hunt the enemy flag carrier after an fc callout => on it, getting their fc";
 
         constexpr char DEFAULT_PROMPT_CHAT[] =
             "{memory_block}{history_block}[{channel_label}] {actor_name} (level {actor_level} {actor_race} "
@@ -73,7 +75,7 @@ namespace ModLlm
             "{actor_name} says: \"{message}\"\n"
             "Group members who could answer:\n"
             "{roster}\n"
-            "Which of them, if any, is this message meant for or best placed to answer? Consider who is "
+            "{bg_note}Which of them, if any, is this message meant for or best placed to answer? Consider who is "
             "addressed and which class or role the request needs; most such messages are for nobody in "
             "particular. Reply with only a JSON array of at most {max_picks} names from the list, most "
             "relevant first - for example [\"Name\"] - or [] if nobody in the list should answer.";

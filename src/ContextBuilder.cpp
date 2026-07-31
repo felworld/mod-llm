@@ -5,6 +5,8 @@
 
 #include "ContextBuilder.h"
 
+#include "Battleground.h"
+#include "BattlegroundWS.h"
 #include "CellImpl.h"
 #include "ChatHelper.h"
 #include "GridNotifiers.h"
@@ -15,6 +17,7 @@
 #include "HistoryStore.h"
 #include "LlmConfig.h"
 #include "MemoryStore.h"
+#include "ObjectAccessor.h"
 #include "ObjectMgr.h"
 #include "Player.h"
 #include "PlayerbotAI.h"
@@ -99,6 +102,87 @@ namespace ModLlm::ContextBuilder
             return Acore::StringFormat(" Everyone in the {} heard this. You are one voice among many:"
                 " stay silent unless you are directly addressed or have something that truly needs saying.",
                 bg ? "battleground" : "raid");
+        }
+
+        // What the Warsong Gulch scoreboard shows a player - score and both
+        // flags' status with carrier names - plus how teammates' play
+        // callouts read. The model needs the facts to interpret a callout
+        // ("inc" and "fc mid" mean different plays depending on whose flag is
+        // where) before deciding on the bg_strategy tool. Empty outside an
+        // active WSG match.
+        std::string WsgGuidance(Player* bot)
+        {
+            Battleground* bg = bot->GetBattleground();
+            if (!bg || bg->GetStatus() != STATUS_IN_PROGRESS)
+                return "";
+
+            BattlegroundTypeId bgType = bg->GetBgTypeID();
+            if (bgType == BATTLEGROUND_RB)
+                bgType = bg->GetBgTypeID(true);
+            if (bgType != BATTLEGROUND_WS)
+                return "";
+
+            BattlegroundWS* ws = static_cast<BattlegroundWS*>(bg);
+            TeamId myTeam = bot->GetTeamId();
+            TeamId enemyTeam = myTeam == TEAM_ALLIANCE ? TEAM_HORDE : TEAM_ALLIANCE;
+
+            auto carrierName = [](ObjectGuid guid) -> std::string
+            {
+                Player* carrier = ObjectAccessor::FindPlayer(guid);
+                return carrier ? carrier->GetName() : "someone";
+            };
+
+            // Flag state and picker are indexed by the flag's owning team;
+            // the picker is always on the other team.
+            std::string myFlag;
+            switch (ws->GetFlagState(myTeam))
+            {
+                case BG_WS_FLAG_STATE_ON_PLAYER:
+                    myFlag = Acore::StringFormat("your flag was taken by enemy {}",
+                        carrierName(ws->GetFlagPickerGUID(myTeam)));
+                    break;
+                case BG_WS_FLAG_STATE_ON_GROUND:
+                    myFlag = "your flag is loose on the ground";
+                    break;
+                default:
+                    myFlag = "your flag is safe in your base";
+                    break;
+            }
+
+            std::string enemyFlag;
+            switch (ws->GetFlagState(enemyTeam))
+            {
+                case BG_WS_FLAG_STATE_ON_PLAYER:
+                    enemyFlag = Acore::StringFormat("your teammate {} is carrying the enemy flag",
+                        carrierName(ws->GetFlagPickerGUID(enemyTeam)));
+                    break;
+                case BG_WS_FLAG_STATE_ON_GROUND:
+                    enemyFlag = "the enemy flag is loose on the ground";
+                    break;
+                default:
+                    enemyFlag = "the enemy flag sits in their base";
+                    break;
+            }
+
+            std::string guidance = Acore::StringFormat(" You are mid-match in Warsong Gulch, first to 3"
+                " flag captures wins. Score {}-{} in captures (you-them); {}; {}.",
+                bg->GetTeamScore(myTeam), bg->GetTeamScore(enemyTeam), myFlag, enemyFlag);
+
+            // A flag carrier's play is already decided - it never gets the
+            // bg_strategy tool, so it gets marching orders instead of the
+            // callout key.
+            if (bot->HasAura(BG_WS_SPELL_WARSONG_FLAG) || bot->HasAura(BG_WS_SPELL_SILVERWING_FLAG))
+                return guidance + " You are the one carrying the enemy flag: whatever gets called,"
+                    " your job is getting it home alive.";
+
+            return guidance
+                + " Teammates call plays here in shorthand: inc means enemies incoming, at your flag room"
+                " unless another spot is named, and fc points at a flag carrier, like fc mid or fc tunnel"
+                " for where one is. When a call convinces you, follow it with the bg_strategy tool -"
+                " defend_base for inc at your base, attack_fc to hunt the enemy carrying your flag,"
+                " defend_fc to stick with your carrier, attack_base to push their flag room - and send a"
+                " short omw or on it in the same reply so the caller knows who is coming. You read the"
+                " game yourself: follow the calls that make sense to you.";
         }
     }
 
@@ -199,6 +283,11 @@ namespace ModLlm::ContextBuilder
 
         snapshot.channelLabel = ChannelLabel(trigger);
         snapshot.replyGuidance = ReplyGuidance(trigger);
+
+        // Battleground chat brings the scoreboard facts a player sees on
+        // screen plus the key to reading play callouts (WSG only for now).
+        if (trigger.chatType == CHAT_MSG_BATTLEGROUND || trigger.chatType == CHAT_MSG_BATTLEGROUND_LEADER)
+            snapshot.replyGuidance += WsgGuidance(bot);
 
         // No shared language across the faction line: steer the bot toward
         // the emote tool's built-in emotes - the only thing that carries

@@ -132,6 +132,37 @@ hitting the area's NPCs, or an already-reported ganker merely prowling — so
 the raised alarm matches the events instead of framing every sighting as
 "attacking" whatever spot the witness happens to stand in.
 
+### Battleground play calls
+
+In Warsong Gulch, a callout in battleground chat — "inc!!", "fc mid", "get
+their flag carrier" — can actually change what bots do. The group router's
+prompt carries a battleground note (play callouts concern the whole team,
+so route them to teammates who would act, not to nobody), and a routed
+bot's prompt carries what the scoreboard would show a player: the capture
+score and both flags' status with carrier names, because a callout is
+situational — "inc" usually means enemies closing on your flag room, while
+"fc mid" points at whichever flag carrier the flag states make relevant.
+Alongside the facts comes the key to the shorthand and the `bg_strategy`
+tool with four plays: `attack_fc` (hunt the enemy carrying your flag),
+`attack_base` (push their flag room), `defend_fc` (escort your carrier),
+`defend_base` (hold your own flag room).
+
+The tool wraps
+[playerbots' `bg strategy` order machinery](https://github.com/felworld/mod-playerbots/blob/main/FEATURES.md#warsong-gulch-teamwork)
+— the same one behind the explicit `!bg strategy` chat command — so a
+followed call redirects the bot immediately, lasts
+`AiPlayerbot.BgStrategyOrderDuration` seconds, and then lets the bot drift
+back to its role. Two things differ from the command path: the model's
+decision to follow *is* the compliance decision (no
+`BgStrategyComplianceChance` roll — the router and the model's own
+judgment already decide who responds), and there is no canned announcement
+— the prompt asks the model to send a short "omw" in the same reply, in
+its own voice. A bot carrying the flag is never offered the tool and is
+told its job is getting the flag home; `fc` plays fail with feedback when
+the flag carrier they need doesn't exist. Setting
+`AiPlayerbot.BgStrategyComplianceChance = 0` disables the tool along with
+the command.
+
 ## Emotes
 
 Emotes aimed at a bot, or performed nearby — including cross-faction ones,
