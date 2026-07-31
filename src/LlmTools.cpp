@@ -1447,7 +1447,7 @@ namespace ModLlm::LlmTools
                     { "enum", { "attack_fc", "attack_base", "defend_fc", "defend_base" } },
                     { "description", "attack_fc: hunt down the enemy carrying your team's flag. "
                         "attack_base: push into the enemy flag room. defend_fc: escort your teammate "
-                        "carrying the enemy flag. defend_base: fall back and hold your own flag room." } } } },
+                        "carrying the enemy flag. defend_base: fall back and hold your own flag room." } } } } },
                 { "required", { "play" } }
             },
             TRIGGER_CHAT_PARTY | TRIGGER_CHAT_WHISPER,
