@@ -130,12 +130,45 @@ namespace ModLlm
                 TriggerContext trigger;
                 trigger.kind = TRIGGER_INITIATIVE;
 
+                // A slice of initiative fires becomes a market ad instead of
+                // an idle remark: the prompt gets seeded with the bot's real
+                // sellables and wants. Mostly bound to the city Trade channel
+                // (bots are on Trade exactly while in a city, so membership
+                // doubles as the in-a-city check); a small share goes to zone
+                // General or plain /say, the way players occasionally hawk
+                // outside Trade. When the ad cannot bind - not in a city, no
+                // human in the channel - fall through to the ordinary idle
+                // remark path.
+                if (urand(0, 99) < sLlmConfig->tradeAdChance)
+                {
+                    TriggerContext ad;
+                    if (BotSelector::BindTradeChannel(player, ad))
+                    {
+                        uint32 destination = urand(0, 99);
+                        if (destination < sLlmConfig->tradeAdGeneralPercent)
+                        {
+                            TriggerContext general;
+                            if (BotSelector::BindZoneChannel(player, general))
+                                ad = general;  // else keep the Trade binding
+                        }
+                        else if (destination < sLlmConfig->tradeAdGeneralPercent + sLlmConfig->tradeAdSayPercent
+                            && BotSelector::HasRealPlayerNearby(player, sLlmConfig->sayDistance))
+                            ad = TriggerContext{};  // unbound: the reply goes out as /say
+
+                        trigger = std::move(ad);
+                        trigger.kind = TRIGGER_INITIATIVE;
+                        trigger.tradeAd = true;
+                    }
+                }
+
                 // Some remarks go to the zone's General channel instead of
                 // /say; the human-audience gate widens to "anyone in the
                 // channel" to match the wider reach. A /say remark needs a
                 // human close enough to actually hear it.
-                bool channelBound = urand(0, 99) < sLlmConfig->initiativeChannelChance
-                    && BotSelector::BindZoneChannel(player, trigger);
+                bool channelBound = trigger.chatType == CHAT_MSG_CHANNEL;
+                if (!trigger.tradeAd)
+                    channelBound = urand(0, 99) < sLlmConfig->initiativeChannelChance
+                        && BotSelector::BindZoneChannel(player, trigger);
                 if (!channelBound
                     && !BotSelector::HasRealPlayerNearby(player, sLlmConfig->sayDistance))
                     continue;

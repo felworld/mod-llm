@@ -21,6 +21,7 @@ to do:
 | `bg_strategy` | Relay a Warsong Gulch play call ("inc!!", "fc mid") to the whole team — fans out playerbots' `bg strategy` orders, every bot rolling its own compliance ([details](FEATURES.md#battleground-play-calls)) |
 | `conjure_refreshments` / `open_portal` | Mage class services: conjure food or water and walk it over to the asker, or open a portal to a capital city ([details](FEATURES.md#class-services)) |
 | `summon_player` | Warlock class service: summon the asker with a real Ritual of Summoning — inviting them to the bot's group first if needed, and recruiting nearby bots to help channel ([details](FEATURES.md#class-services)) |
+| `evaluate_offer` / `list_sellables` / `commit_trade` | Market trading: appraise a WTS/WTB offer, list the bot's real spare stock and wants with price quotes, and seal an agreed deal — the bot then walks over and completes it through an actual trade window ([details](FEATURES.md#market-trading)) |
 
 Returning no tool calls is a valid outcome — most moments deserve no reaction. The tool list
 offered with each request is filtered by trigger kind and live game state, and executors
@@ -51,6 +52,9 @@ in [FEATURES.md](FEATURES.md).
   narrated into every nearby bot's overheard transcript whether or not anyone was picked to react.
 - **[Initiative](FEATURES.md#initiative)** — an idle scheduler gives each bot periodic
   opportunities to act unprompted.
+- **[Market trading](FEATURES.md#market-trading)** — a slice of city initiative becomes
+  grounded WTS/WTB ads in the Trade channel (rarely General or /say), bots evaluate other
+  people's ads as buyers, and agreed deals actually happen through real trade windows.
 
 ## Architecture
 

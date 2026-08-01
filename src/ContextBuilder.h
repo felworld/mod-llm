@@ -42,6 +42,7 @@ namespace ModLlm
         std::string channelLabel;     // "say", "party", "guild - <name>", channel name, ...
         std::string replyGuidance;    // audience reminder (group heard it / zone channel)
         std::string environment;   // initiative triggers only
+        std::string marketBlock;   // trade-ad triggers only: real sellables/wants with quotes
     };
 
     namespace ContextBuilder

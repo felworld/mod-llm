@@ -256,6 +256,53 @@ story zone-wide (level-ups, achievements, notable loot) roll for General;
 play-by-play like mob pulls, deaths, and duels is invisible to readers across
 the zone and stays in local /say.
 
+## Market trading
+
+Bots take part in the WTS/WTB economy, with the judgment/mechanics split the
+module always uses: mod-playerbots owns valuation and fulfillment (the
+`!wts`/`!wtb`/`!appraise`/`!sellables`/`!sellto`/`!buyfrom` commands and the
+walk-up trade-window machinery documented in
+[mod-playerbots' FEATURES](https://github.com/felworld/mod-playerbots/blob/main/FEATURES.md#city-market-trading)),
+and the model only decides *whether* and *how to say it*.
+
+**Advertising.** A configurable slice of initiative opportunities
+(`LLM.TradeAd.Chance`) becomes a market ad when the bot is in a city — Trade
+channel membership is the check — with a real player somewhere in the
+channel. The prompt is seeded with the bot's actual spare stock
+(things it would otherwise vendor) and actual wants (reagents it ran out of,
+consumables it is low on), each priced by the deterministic layer
+(mod-ah-bot-plus's jittered valuation when that module is enabled, a
+vendor-price heuristic otherwise) — so the model phrases a grounded one-liner
+like `WTS [Light Leather] x14 40s` or posts nothing. Most ads go to Trade; a
+small share lands in zone General or plain /say
+(`LLM.TradeAd.GeneralPercent`/`SayPercent`), the way players occasionally
+hawk outside the channel.
+
+**Buying and negotiation.** Nothing auto-buys. A bot that reads someone
+else's WTS ad (or gets whispered an offer) calls `evaluate_offer`, which
+answers deterministically — is the item an upgrade/reagent/consumable it
+wants, what it would pay, what it can afford — and the model engages in chat
+only when the answer says to. `list_sellables` gives it its own stock and
+wants with `{item:ID}` tags ready to paste. When a specific item, amount, and
+price have been agreed, `commit_trade` seals the deal; the price still has to
+pass the deterministic sanity bounds and gold budget, so a sweet-talked model
+cannot be talked into a scam.
+
+**Fulfillment and hanging around.** A committed deal is completed by the
+playerbots layer: the bot walks over, opens a real trade window, places the
+goods or gold, and accepts only while the counterparty's side covers the
+deal. Any Trade-channel line (and every market tool call) stamps a short
+market anchor that makes the busy-capitals dwell guaranteed, renewed on
+engagement and extended once a deal commits — and the anchor surfaces in the
+prompt as an on-screen fact ("you recently put out trade chatter and are
+sticking around town"), so the model doesn't `travel_to` away mid-haggle;
+the deterministic dwell force underneath covers a model that ignores the
+hint. Deals are same-city only: a bite from another city's Trade channel
+(the channel is faction-wide) gets a chat reply, not a cross-continent hike.
+In LLM sessions upstream's keyword-matched responders should be off
+(`AiPlayerbot.KeywordTradeReplies = 0`) so deterministic whispers don't
+double-respond next to LLM-driven buyers.
+
 ## Persistence
 
 Two features persist to the characters DB (schema auto-applied at worldserver

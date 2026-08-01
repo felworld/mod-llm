@@ -25,6 +25,7 @@
 #include "QuestDef.h"
 #include "SharedDefines.h"
 #include "StringFormat.h"
+#include "TradeOfferMgr.h"
 
 namespace ModLlm::ContextBuilder
 {
@@ -81,8 +82,10 @@ namespace ModLlm::ContextBuilder
             // An initiative remark or event comment pointed at the zone
             // channel: the audience is the whole zone, and none of them saw
             // what the bot just saw - a bare reaction lands as noise, so the
-            // model must retell or stay quiet.
+            // model must retell or stay quiet. Trade ads carry their own
+            // guidance in the trade-ad prompt instead.
             if ((trigger.kind == TRIGGER_INITIATIVE || trigger.kind == TRIGGER_GAME_EVENT)
+                && !trigger.tradeAd
                 && trigger.chatType == CHAT_MSG_CHANNEL && !trigger.channelName.empty())
                 return Acore::StringFormat(" If you say something, it goes to the zone-wide \"{}\" channel."
                     " Nobody there saw what just happened around you, so a remark only makes sense if you"
@@ -312,6 +315,45 @@ namespace ModLlm::ContextBuilder
 
         if (trigger.kind == TRIGGER_INITIATIVE)
             snapshot.environment = DescribeEnvironment(bot);
+
+        // A market ad is only as good as its grounding: the bot's actual
+        // spare stock and actual wants, priced by the deterministic layer.
+        if (trigger.tradeAd)
+        {
+            if (PlayerbotAI* botAI = sPlayerbotsMgr.GetPlayerbotAI(bot))
+            {
+                std::string lines;
+                uint32 listed = 0;
+                for (MarketQuote::Sellable const& sellable : MarketQuote::CollectSellables(botAI))
+                {
+                    if (++listed > 8)
+                        break;
+                    lines += Acore::StringFormat("selling: {} x{} {{item:{}}} - about {} each\n",
+                        sellable.proto->Name1, sellable.count, sellable.proto->ItemId,
+                        ChatHelper::formatMoney(sellable.askEach));
+                }
+
+                listed = 0;
+                for (MarketQuote::Want const& want : MarketQuote::CollectWants(botAI))
+                {
+                    if (++listed > 6)
+                        break;
+                    lines += Acore::StringFormat("buying: {} {{item:{}}} - up to {} each\n",
+                        want.proto->Name1, want.proto->ItemId, ChatHelper::formatMoney(want.bidEach));
+                }
+
+                snapshot.marketBlock = lines.empty() ? "nothing worth advertising right now" : lines;
+            }
+        }
+
+        // What a player remembers over the last few minutes: they posted an
+        // ad and are hanging around town for the bites. Keeps the model from
+        // wandering off mid-negotiation via travel_to (the deterministic
+        // dwell force underneath covers a model that ignores this anyway).
+        if (uint32 anchorLeft = sTradeOfferMgr->AnchorSecondsLeft(bot->GetGUID()))
+            snapshot.replyGuidance += Acore::StringFormat(" You recently put out trade chatter and are"
+                " sticking around town for another {} minutes or so in case someone bites.",
+                std::max<uint32>(1, (anchorLeft + 30) / 60));
 
         return snapshot;
     }

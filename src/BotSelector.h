@@ -95,6 +95,10 @@ namespace ModLlm::BotSelector
     // player is there to read it; returns false (trigger untouched)
     // otherwise. World thread only (ChannelMgr access).
     bool BindZoneChannel(Player* bot, TriggerContext& trigger);
+
+    // Same for the city-bound Trade channel, which playerbots keeps a bot
+    // joined to exactly while it is in a city. World thread only.
+    bool BindTradeChannel(Player* bot, TriggerContext& trigger);
 }
 
 #endif

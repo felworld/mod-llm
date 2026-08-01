@@ -68,6 +68,17 @@ namespace ModLlm
             "{memory_block}{history_block}Nothing is being said to you. Around you: {environment}. You may "
             "make an idle remark, emote, or do nothing.{reply_guidance}";
 
+        // Doubled braces keep the {item:ID} examples literal through fmt; a
+        // single-braced tag would parse as a (missing) template argument.
+        constexpr char DEFAULT_PROMPT_TRADE_AD[] =
+            "{memory_block}{history_block}You are hanging around town and could drum up some trade. "
+            "Your actual stock and needs, at your own price estimates:\n{market_block}\n"
+            "If something there is worth it, post one short WTS or WTB line the way players write them - "
+            "the {{item:ID}} tag copied verbatim so it lands as a clickable link, plus your price, like "
+            "\"WTS {{item:2318}} x14 40s\" or \"wtb {{item:3355}} paying 2s each\". Only advertise items "
+            "and prices from the list above. One line at most; if nothing is worth posting, do "
+            "nothing.{reply_guidance}";
+
         constexpr char DEFAULT_PROMPT_ROUTER[] =
             "You are routing a chat message between players in World of Warcraft. In {channel_label} chat, "
             "{actor_name} says: \"{message}\"\n"
@@ -218,6 +229,10 @@ namespace ModLlm
         initiativeChannelChance = sConfigMgr->GetOption<uint32>("LLM.Initiative.ChannelChance", 25);
         initiativeMaxBotsPerTick = sConfigMgr->GetOption<uint32>("LLM.Initiative.MaxBotsPerTick", 2);
 
+        tradeAdChance = sConfigMgr->GetOption<uint32>("LLM.TradeAd.Chance", 30);
+        tradeAdGeneralPercent = sConfigMgr->GetOption<uint32>("LLM.TradeAd.GeneralPercent", 10);
+        tradeAdSayPercent = sConfigMgr->GetOption<uint32>("LLM.TradeAd.SayPercent", 5);
+
         memoryEnabled = sConfigMgr->GetOption<bool>("LLM.Memory.Enable", true);
         memoryMaxNotesPerBot = sConfigMgr->GetOption<uint32>("LLM.Memory.MaxNotesPerBot", 40);
         memoryMaxNotesPerSubject = sConfigMgr->GetOption<uint32>("LLM.Memory.MaxNotesPerSubject", 8);
@@ -239,6 +254,7 @@ namespace ModLlm
         promptEmote = LoadPrompt("LLM.Prompt.Emote", DEFAULT_PROMPT_EMOTE);
         promptEvent = LoadPrompt("LLM.Prompt.Event", DEFAULT_PROMPT_EVENT);
         promptInitiative = LoadPrompt("LLM.Prompt.Initiative", DEFAULT_PROMPT_INITIATIVE);
+        promptTradeAd = LoadPrompt("LLM.Prompt.TradeAd", DEFAULT_PROMPT_TRADE_AD);
         promptHistoryLine = LoadPrompt("LLM.Prompt.HistoryLine", DEFAULT_PROMPT_HISTORY_LINE);
         promptRouter = LoadPrompt("LLM.Prompt.Router", DEFAULT_PROMPT_ROUTER);
         promptSayRouter = LoadPrompt("LLM.Prompt.SayRouter", DEFAULT_PROMPT_SAY_ROUTER);

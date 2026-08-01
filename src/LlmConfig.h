@@ -128,6 +128,13 @@ namespace ModLlm
         uint32 initiativeChannelChance = 25;
         uint32 initiativeMaxBotsPerTick = 2;
 
+        // Market ads (WTS/WTB chatter grounded in the bot's real inventory).
+        // Of the ads, a small share goes to zone General or plain /say
+        // instead of the Trade channel; the rest is Trade.
+        uint32 tradeAdChance = 30;
+        uint32 tradeAdGeneralPercent = 10;
+        uint32 tradeAdSayPercent = 5;
+
         // Memory scratchpad (remember/forget tools)
         bool memoryEnabled = true;
         uint32 memoryMaxNotesPerBot = 40;
@@ -152,6 +159,7 @@ namespace ModLlm
         std::string promptEmote;
         std::string promptEvent;
         std::string promptInitiative;
+        std::string promptTradeAd;
         std::string promptHistoryLine;
         std::string promptRouter;
         std::string promptSayRouter;

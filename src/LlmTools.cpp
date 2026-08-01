@@ -34,6 +34,7 @@
 #include "StringFormat.h"
 #include "TextEmoteCatalog.h"
 #include "ToolRegistry.h"
+#include "TradeOfferMgr.h"
 #include "Util.h"
 #include "World.h"
 #include "WorldPacket.h"
@@ -78,6 +79,12 @@ namespace ModLlm::LlmTools
                 if (channel && bot->IsInChannel(channel))
                 {
                     channel->Say(bot->GetGUID(), message, LANG_UNIVERSAL);
+
+                    // Speaking into Trade is market chatter: stamp the town
+                    // anchor so the bot hangs around for bites instead of
+                    // rolling its next activity out of the city.
+                    if (channel->GetChannelId() == ChatChannelId::TRADE)
+                        sTradeOfferMgr->RenewAdAnchor(bot->GetGUID());
                     return true;
                 }
             }
@@ -1606,6 +1613,201 @@ namespace ModLlm::LlmTools
             {
                 std::string ignored;
                 return !SummonBlocked(bot, actor, ignored);
+            }
+        });
+
+        // Market tools: judgment and phrasing stay with the model, valuation
+        // and fulfillment with the deterministic layer (TradeOfferMgr /
+        // MarketQuote, the machinery behind the !wts/!wtb/!appraise/
+        // !sellables/!sellto/!buyfrom playerbot commands).
+        auto parseItemArg = [](std::string const& value) -> ItemTemplate const*
+        {
+            ItemIds ids = ChatHelper::parseItems(ExpandChatLinks(value));
+            if (!ids.empty())
+                return sObjectMgr->GetItemTemplate(*ids.begin());
+
+            std::string digits;
+            for (char c : value)
+                if (std::isdigit(static_cast<unsigned char>(c)))
+                    digits += c;
+            if (digits.empty() || digits.size() > 6)
+                return nullptr;
+            return sObjectMgr->GetItemTemplate(uint32(std::stoul(digits)));
+        };
+
+        auto parsePriceArg = [](std::string const& value) -> uint32
+        {
+            std::string compact;
+            for (char c : value)
+                if (!std::isspace(static_cast<unsigned char>(c)))
+                    compact += c;
+            if (uint32 copper = ChatHelper::parseMoney(compact))
+                return copper;
+            // Bare digits are taken as copper.
+            if (!compact.empty() && std::all_of(compact.begin(), compact.end(),
+                    [](unsigned char c) { return std::isdigit(c) != 0; }))
+                return uint32(std::stoul(compact));
+            return 0;
+        };
+
+        sLlmToolRegistry->Register({
+            "evaluate_offer",
+            "Appraise an item someone is selling (WTS) or asking for (WTB): whether you actually "
+            "want or have it, and the price you would pay or ask. Use this before agreeing to any "
+            "trade - your answer in chat should follow what it says.",
+            {
+                { "type", "object" },
+                { "properties", {
+                    { "item", { { "type", "string" },
+                        { "description", "The item, as a link tag like {item:2318} copied from the "
+                            "message, or its name-bearing item link" } } }
+                } },
+                { "required", { "item" } }
+            },
+            TRIGGER_ALL,
+            false,
+            [parseItemArg](ToolExecContext& context, nlohmann::json const& args, std::string& error)
+            {
+                ItemTemplate const* proto = parseItemArg(args["item"].get<std::string>());
+                if (!proto)
+                {
+                    error = "that item is not recognizable - copy the {item:ID} tag from the message";
+                    return false;
+                }
+
+                MarketQuote::Appraisal appraisal = MarketQuote::Appraise(context.ai, proto);
+                sTradeOfferMgr->RenewAdAnchor(context.bot->GetGUID());
+
+                std::string result = Acore::StringFormat("{} {{item:{}}} is {} to you.",
+                    proto->Name1, proto->ItemId, appraisal.reason);
+                if (appraisal.wants && appraisal.bidEach)
+                {
+                    uint32 budget = MarketQuote::SpendableMoney(context.ai);
+                    result += Acore::StringFormat(" You would pay up to about {} each, and you have {} "
+                        "free to spend. If a price is agreed, seal it with commit_trade (direction "
+                        "\"buy\").", ChatHelper::formatMoney(appraisal.bidEach), ChatHelper::formatMoney(budget));
+                }
+                else if (appraisal.stock && appraisal.askEach)
+                    result += Acore::StringFormat(" You carry {} to spare and would ask about {} each. "
+                        "If a price is agreed, seal it with commit_trade (direction \"sell\").",
+                        appraisal.stock, ChatHelper::formatMoney(appraisal.askEach));
+                else
+                    result += " No trade to make here - decline or ignore.";
+
+                context.result = result;
+                return true;
+            }
+        });
+
+        sLlmToolRegistry->Register({
+            "list_sellables",
+            "Look up what you could sell (spare items you have no use for) and what you want to buy "
+            "(reagents you ran out of, consumables you are low on), each with your own price "
+            "estimate. Copy the {item:ID} tags verbatim into chat to advertise them as clickable "
+            "links.",
+            {
+                { "type", "object" },
+                { "properties", nlohmann::json::object() }
+            },
+            TRIGGER_ALL,
+            false,
+            [](ToolExecContext& context, nlohmann::json const& /*args*/, std::string& /*error*/)
+            {
+                std::string lines;
+                uint32 listed = 0;
+                for (MarketQuote::Sellable const& sellable : MarketQuote::CollectSellables(context.ai))
+                {
+                    if (++listed > 10)
+                        break;
+                    lines += Acore::StringFormat("selling: {} x{} {{item:{}}} - about {} each\n",
+                        sellable.proto->Name1, sellable.count, sellable.proto->ItemId,
+                        ChatHelper::formatMoney(sellable.askEach));
+                }
+
+                listed = 0;
+                for (MarketQuote::Want const& want : MarketQuote::CollectWants(context.ai))
+                {
+                    if (++listed > 8)
+                        break;
+                    lines += Acore::StringFormat("buying: {} {{item:{}}} - up to {} each\n",
+                        want.proto->Name1, want.proto->ItemId, ChatHelper::formatMoney(want.bidEach));
+                }
+
+                context.result = lines.empty()
+                    ? "Nothing worth buying or selling right now."
+                    : lines + Acore::StringFormat("You are carrying {}.",
+                        ChatHelper::formatMoney(context.bot->GetMoney()));
+                return true;
+            }
+        });
+
+        sLlmToolRegistry->Register({
+            "commit_trade",
+            "Seal an agreed item-for-gold deal. You then automatically walk over to the player and "
+            "complete it through a real trade window, so only call this once a specific item, "
+            "amount, and price have been agreed in chat. Direction \"sell\" means you hand over the "
+            "item and take their gold; \"buy\" means you pay gold for their item.",
+            {
+                { "type", "object" },
+                { "properties", {
+                    { "direction", { { "type", "string" }, { "enum", { "sell", "buy" } } } },
+                    { "item", { { "type", "string" },
+                        { "description", "The item, as a link tag like {item:2318}" } } },
+                    { "count", { { "type", "integer" },
+                        { "description", "How many units, default 1" } } },
+                    { "price", { { "type", "string" },
+                        { "description", "The agreed total price, like 2g50s" } } },
+                    { "player", { { "type", "string" },
+                        { "description", "Name of the trading partner; omit for the player you are "
+                            "talking with" } } }
+                } },
+                { "required", { "direction", "item", "price" } }
+            },
+            TRIGGER_CHAT_SAY | TRIGGER_CHAT_WHISPER | TRIGGER_CHAT_PARTY | TRIGGER_CHAT_GUILD
+                | TRIGGER_CHAT_CHANNEL,
+            false,
+            [parseItemArg, parsePriceArg](ToolExecContext& context, nlohmann::json const& args, std::string& error)
+            {
+                ItemTemplate const* proto = parseItemArg(args["item"].get<std::string>());
+                if (!proto)
+                {
+                    error = "that item is not recognizable - copy the {item:ID} tag from the message";
+                    return false;
+                }
+
+                uint32 price = parsePriceArg(args["price"].get<std::string>());
+                if (!price)
+                {
+                    error = "the price is not readable - write it like 2g50s";
+                    return false;
+                }
+
+                int64 count = args.value("count", 1);
+                if (count < 1 || count > 1000)
+                {
+                    error = "count must be between 1 and 1000";
+                    return false;
+                }
+
+                std::string name = args.value("player", "");
+                if (name.empty())
+                    name = context.actor ? context.actor->GetName() : context.trigger->actorName;
+                Player* counterparty = name.empty() ? nullptr : ObjectAccessor::FindPlayerByName(name);
+                if (!counterparty)
+                {
+                    error = "no such player is around";
+                    return false;
+                }
+
+                bool selling = args["direction"].get<std::string>() == "sell";
+                if (!MarketQuote::Commit(context.ai, counterparty, proto, uint32(count), price, selling, error))
+                    return false;
+
+                context.result = Acore::StringFormat("Deal registered: {} {} x{} for {} with {}. You "
+                    "will automatically walk over and complete the trade - stay in town until it is "
+                    "done.", selling ? "selling" : "buying", proto->Name1, uint32(count),
+                    ChatHelper::formatMoney(price), counterparty->GetName());
+                return true;
             }
         });
 

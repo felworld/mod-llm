@@ -536,6 +536,33 @@ LLM.Initiative.Chance = 5
 LLM.Initiative.ChannelChance = 25
 LLM.Initiative.MaxBotsPerTick = 2
 
+#
+#    LLM.TradeAd.Chance
+#        Description: Percent of initiative opportunities that become a
+#                     WTS/WTB market ad instead of an idle remark, when the
+#                     bot is in a city (on the Trade channel) with a real
+#                     player somewhere in the channel. The prompt is seeded
+#                     with the bot's actual spare stock and actual wants at
+#                     its own price estimates (mod-ah-bot-plus valuation when
+#                     enabled, vendor-price heuristic otherwise), so ads are
+#                     grounded - the model only phrases them. An ad the model
+#                     posts (or any Trade-channel line) anchors the bot in
+#                     town (AiPlayerbot.TradeAdAnchorSeconds) so it is still
+#                     around when the bites come.
+#        Default:     30
+#
+#    LLM.TradeAd.GeneralPercent / LLM.TradeAd.SayPercent
+#        Description: Of those ads, the share aimed at the zone General
+#                     channel and at plain /say instead of Trade - the
+#                     occasional out-of-channel hawking real servers see,
+#                     kept rare. The remainder goes to Trade.
+#        Default:     10 / 5
+#
+
+LLM.TradeAd.Chance = 30
+LLM.TradeAd.GeneralPercent = 10
+LLM.TradeAd.SayPercent = 5
+
 ########################################
 # Memory scratchpad
 ########################################
@@ -619,6 +646,10 @@ LLM.History.RetentionDays = 2
 #               {history_block} includes, when present: overheard nearby
 #               say/yell, the shared room transcript, and the pair
 #               conversation with the actor
+#               {market_block} (trade-ad prompt only) is the bot's real
+#               spare stock and wants with its own price quotes; literal
+#               {item:ID} examples in a template must be written with
+#               doubled braces, {{item:ID}}, to survive formatting
 #      router:  {channel_label} {actor_name} {message} {roster} {bg_note}
 #               {max_picks}
 #               ({bg_note} tells the router that battleground play callouts
@@ -648,6 +679,7 @@ LLM.Prompt.StyleExamples = "\n\nHow you type - examples of situation => message 
 # LLM.Prompt.Emote = ""
 # LLM.Prompt.Event = ""
 # LLM.Prompt.Initiative = ""
+# LLM.Prompt.TradeAd = ""
 # LLM.Prompt.HistoryLine = ""
 # LLM.Prompt.Router = ""
 # LLM.Prompt.SayRouter = ""

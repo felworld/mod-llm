@@ -437,4 +437,28 @@ namespace ModLlm::BotSelector
         }
         return false;
     }
+
+    bool BindTradeChannel(Player* bot, TriggerContext& trigger)
+    {
+        ChannelMgr* mgr = ChannelMgr::forTeam(bot->GetTeamId());
+        if (!mgr)
+            return false;
+
+        // Bots are only on Trade while in a city, so membership doubles as
+        // the "is somewhere worth advertising" check.
+        for (auto const& [name, channel] : mgr->GetChannels())
+        {
+            if (!channel || channel->GetChannelId() != ChatChannelId::TRADE || !bot->IsInChannel(channel))
+                continue;
+            if (!HasRealPlayerInChannel(channel))
+                return false;
+
+            trigger.chatType = CHAT_MSG_CHANNEL;
+            trigger.channelName = channel->GetName();
+            trigger.roomKey = Acore::StringFormat("channel:{}:{}",
+                channel->GetName(), uint32(bot->GetTeamId()));
+            return true;
+        }
+        return false;
+    }
 }
