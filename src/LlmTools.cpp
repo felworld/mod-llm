@@ -1820,10 +1820,16 @@ namespace ModLlm::LlmTools
                 if (!MarketQuote::Commit(context.ai, counterparty, proto, uint32(count), price, selling, error))
                     return false;
 
-                context.result = Acore::StringFormat("Deal registered: {} {} x{} for {} with {}. You "
-                    "will automatically walk over and complete the trade - stay in town until it is "
-                    "done.", selling ? "selling" : "buying", proto->Name1, uint32(count),
-                    ChatHelper::formatMoney(price), counterparty->GetName());
+                PendingTradeDeal deal;
+                bool traveling = sTradeOfferMgr->GetPending(context.bot->GetGUID(), deal) && deal.departAt;
+                context.result = Acore::StringFormat("Deal registered: {} {} x{} for {} with {}. {}",
+                    selling ? "selling" : "buying", proto->Name1, uint32(count),
+                    ChatHelper::formatMoney(price), counterparty->GetName(),
+                    traveling
+                        ? "They are in another town - you will automatically make your way over and "
+                          "complete the trade; it takes a few minutes, and you told them so."
+                        : "You will automatically walk over and complete the trade - stay in town "
+                          "until it is done.");
                 return true;
             }
         });
@@ -1847,7 +1853,7 @@ namespace ModLlm::LlmTools
             }
 
             // Conditions that merely postpone it.
-            if (!bot->IsAlive() || bot->IsInCombat() || bot->IsBeingTeleported()
+            if (!bot->IsAlive() || bot->IsInCombat() || bot->IsBeingTeleported() || bot->IsInFlight()
                 || BotSelector::HasRealPlayerNearby(bot, TRAVEL_HIDE_DISTANCE))
             {
                 ++it;
@@ -1855,7 +1861,21 @@ namespace ModLlm::LlmTools
             }
 
             PendingTravel const& travel = it->second;
+
+            // The same full reset every other bot teleport performs: without
+            // it the bot lands still chasing a movement target - or an
+            // rpgInfo destination - from the old map, and the distance math
+            // feeds garbage until stuck recovery yanks it back.
+            if (PlayerbotAI* botAI = sPlayerbotsMgr.GetPlayerbotAI(bot))
+            {
+                bot->GetMotionMaster()->Clear();
+                botAI->Reset(true);
+                bot->RemoveAurasWithInterruptFlags(
+                    AURA_INTERRUPT_FLAG_TELEPORTED | AURA_INTERRUPT_FLAG_CHANGE_MAP);
+            }
+
             bot->TeleportTo(travel.mapId, travel.x, travel.y, travel.z, travel.orientation);
+            bot->SendMovementFlagUpdate();
             it = pendingTravels.erase(it);
         }
     }

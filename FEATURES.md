@@ -266,9 +266,9 @@ walk-up trade-window machinery documented in
 and the model only decides *whether* and *how to say it*.
 
 **Advertising.** A configurable slice of initiative opportunities
-(`LLM.TradeAd.Chance`) becomes a market ad when the bot is in a city — Trade
-channel membership is the check — with a real player somewhere in the
-channel. The prompt is seeded with the bot's actual spare stock
+(`LLM.TradeAd.Chance`) becomes a market ad when the bot is standing in a
+friendly capital (the same `IsFriendlyCapital` predicate as the
+busy-capitals dwell) with a real player somewhere in the Trade channel. The prompt is seeded with the bot's actual spare stock
 (things it would otherwise vendor) and actual wants (reagents it ran out of,
 consumables it is low on), each priced by the deterministic layer
 (mod-ah-bot-plus's jittered valuation when that module is enabled, a
@@ -278,28 +278,37 @@ small share lands in zone General or plain /say
 (`LLM.TradeAd.GeneralPercent`/`SayPercent`), the way players occasionally
 hawk outside the channel.
 
-**Buying and negotiation.** Nothing auto-buys. A bot that reads someone
-else's WTS ad (or gets whispered an offer) calls `evaluate_offer`, which
-answers deterministically — is the item an upgrade/reagent/consumable it
-wants, what it would pay, what it can afford — and the model engages in chat
-only when the answer says to. `list_sellables` gives it its own stock and
-wants with `{item:ID}` tags ready to paste. When a specific item, amount, and
-price have been agreed, `commit_trade` seals the deal; the price still has to
-pass the deterministic sanity bounds and gold budget, so a sweet-talked model
-cannot be talked into a scam.
+**Buying and negotiation.** Nothing auto-buys. A player's ad finds its
+audience through the room router: item links in channel messages keep their
+ids (normalized to the `{item:ID}` tag convention), and the router appraises
+a sample of candidate bots through the same deterministic layer, floating
+the ones that genuinely want the item (or carry it to sell) ahead of the
+roster cut with a "would buy that item" / "carries that item to sell" mark.
+A picked bot calls `evaluate_offer`, which answers deterministically — is
+the item an upgrade/reagent/consumable it wants, what it would pay, what it
+can afford — and the model engages in chat only when the answer says to.
+`list_sellables` gives it its own stock and wants with `{item:ID}` tags
+ready to paste. When a specific item, amount, and price have been agreed,
+`commit_trade` seals the deal; the price still has to pass the deterministic
+sanity bounds and gold budget, so a sweet-talked model cannot be talked into
+a scam — and deals only register against real players, so bot-to-bot
+haggling stays pure ambience.
 
 **Fulfillment and hanging around.** A committed deal is completed by the
 playerbots layer: the bot walks over, opens a real trade window, places the
 goods or gold, and accepts only while the counterparty's side covers the
-deal. Any Trade-channel line (and every market tool call) stamps a short
-market anchor that makes the busy-capitals dwell guaranteed, renewed on
-engagement and extended once a deal commits — and the anchor surfaces in the
-prompt as an on-screen fact ("you recently put out trade chatter and are
-sticking around town"), so the model doesn't `travel_to` away mid-haggle;
-the deterministic dwell force underneath covers a model that ignores the
-hint. Deals are same-city only: a bite from another city's Trade channel
-(the channel is faction-wide) gets a chat reply, not a cross-continent hike.
-In LLM sessions upstream's keyword-matched responders should be off
+deal. A player in another city (Trade is faction-wide) gets met halfway
+around the world: the deal holds for a simulated ride, then the bot arrives
+a couple hundred yards out — never where a real player could watch — and
+walks in; the confirmation whisper names the bot's starting zone and asks
+for a few minutes. Any Trade-channel line (and every market tool call)
+stamps a short market anchor that makes the busy-capitals dwell guaranteed,
+renewed on engagement and extended once a deal commits — and the deal or
+anchor surfaces in the prompt as an on-screen fact ("you recently put out
+trade chatter and are sticking around town", "you are making your way over
+to close the deal"), so the model doesn't `travel_to` away mid-haggle; the
+deterministic force underneath covers a model that ignores the hint. In LLM
+sessions upstream's keyword-matched responders should be off
 (`AiPlayerbot.KeywordTradeReplies = 0`) so deterministic whispers don't
 double-respond next to LLM-driven buyers.
 

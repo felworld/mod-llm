@@ -53,8 +53,10 @@ in [FEATURES.md](FEATURES.md).
 - **[Initiative](FEATURES.md#initiative)** — an idle scheduler gives each bot periodic
   opportunities to act unprompted.
 - **[Market trading](FEATURES.md#market-trading)** — a slice of city initiative becomes
-  grounded WTS/WTB ads in the Trade channel (rarely General or /say), bots evaluate other
-  people's ads as buyers, and agreed deals actually happen through real trade windows.
+  grounded WTS/WTB ads in the Trade channel (rarely General or /say), a player's own ads
+  route to bots that genuinely want (or stock) the linked item, and deals agreed with a
+  player actually happen through real trade windows — with the bot traveling over from
+  another city when it has to.
 
 ## Architecture
 

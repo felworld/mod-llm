@@ -347,10 +347,27 @@ namespace ModLlm::ContextBuilder
         }
 
         // What a player remembers over the last few minutes: they posted an
-        // ad and are hanging around town for the bites. Keeps the model from
+        // ad and are hanging around town for the bites - or they shook hands
+        // on a deal and are on their way to close it. Keeps the model from
         // wandering off mid-negotiation via travel_to (the deterministic
         // dwell force underneath covers a model that ignores this anyway).
-        if (uint32 anchorLeft = sTradeOfferMgr->AnchorSecondsLeft(bot->GetGUID()))
+        PendingTradeDeal deal;
+        if (sTradeOfferMgr->GetPending(bot->GetGUID(), deal))
+        {
+            ItemTemplate const* dealProto = sObjectMgr->GetItemTemplate(deal.itemId);
+            Player* counterparty = ObjectAccessor::FindPlayer(deal.counterpartyGuid);
+            std::string what = dealProto ? dealProto->Name1 : "goods";
+            std::string who = counterparty ? counterparty->GetName() : "a customer";
+            if (deal.departAt && !deal.teleported)
+                snapshot.replyGuidance += Acore::StringFormat(" You just shook hands on a deal and are"
+                    " making your way over to {} in another town to {} {} - it takes a few minutes,"
+                    " no need to narrate the trip.", who, deal.selling ? "hand over" : "buy", what);
+            else
+                snapshot.replyGuidance += Acore::StringFormat(" You have a deal going with {} to {} {}"
+                    " and are heading over to close it - stay on that.",
+                    who, deal.selling ? "hand over" : "buy", what);
+        }
+        else if (uint32 anchorLeft = sTradeOfferMgr->AnchorSecondsLeft(bot->GetGUID()))
             snapshot.replyGuidance += Acore::StringFormat(" You recently put out trade chatter and are"
                 " sticking around town for another {} minutes or so in case someone bites.",
                 std::max<uint32>(1, (anchorLeft + 30) / 60));

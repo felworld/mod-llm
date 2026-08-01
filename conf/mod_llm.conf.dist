@@ -540,8 +540,8 @@ LLM.Initiative.MaxBotsPerTick = 2
 #    LLM.TradeAd.Chance
 #        Description: Percent of initiative opportunities that become a
 #                     WTS/WTB market ad instead of an idle remark, when the
-#                     bot is in a city (on the Trade channel) with a real
-#                     player somewhere in the channel. The prompt is seeded
+#                     bot is standing in a friendly capital with a real
+#                     player somewhere in the Trade channel. The prompt is seeded
 #                     with the bot's actual spare stock and actual wants at
 #                     its own price estimates (mod-ah-bot-plus valuation when
 #                     enabled, vendor-price heuristic otherwise), so ads are
