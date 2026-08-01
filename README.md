@@ -47,8 +47,8 @@ in [FEATURES.md](FEATURES.md).
 - **[Emotes](FEATURES.md#emotes)** — emotes aimed at a bot or performed nearby, including
   cross-faction ones.
 - **[Game events](FEATURES.md#game-events)** — kills, deaths, level-ups, quest completions,
-  duels, achievements, notable loot, group joins, out-of-group heals — narrated into every
-  nearby bot's overheard transcript whether or not anyone was picked to react.
+  duels, achievements, notable loot, loot-roll wins/losses, group joins, out-of-group heals —
+  narrated into every nearby bot's overheard transcript whether or not anyone was picked to react.
 - **[Initiative](FEATURES.md#initiative)** — an idle scheduler gives each bot periodic
   opportunities to act unprompted.
 

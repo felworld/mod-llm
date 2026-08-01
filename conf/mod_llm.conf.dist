@@ -445,6 +445,12 @@ LLM.Event.MaxBotsPerEvent = 2
 #    LLM.Event.Chance.*
 #        Description: Percent chance per candidate bot, by event type.
 #                     0 disables an event type entirely.
+#                     RollWon/RollLost fire when a group loot roll resolves:
+#                     the winning bot may gloat, bots that Need-rolled and
+#                     lost may grumble (in party/raid chat). Only Need rolls
+#                     on items at/above LootMinQuality draw reactions - Greed
+#                     rolls are routine - but every participant bot learns
+#                     the outcome either way via its overheard transcript.
 #                     GroupJoin fires when a bot joins a party or raid with a
 #                     real player in it; the greeting goes to party/raid chat.
 #                     Healed fires only for the healed bot itself when a
@@ -469,6 +475,8 @@ LLM.Event.Chance.LevelUp = 50
 LLM.Event.Chance.Duel = 40
 LLM.Event.Chance.Achievement = 40
 LLM.Event.Chance.Loot = 15
+LLM.Event.Chance.RollWon = 20
+LLM.Event.Chance.RollLost = 10
 LLM.Event.Chance.GroupJoin = 100
 LLM.Event.Chance.Healed = 20
 LLM.Event.Chance.DefenseCallout = 100
@@ -486,7 +494,8 @@ LLM.Event.ChannelChance = 10
 
 #
 #    LLM.Event.LootMinQuality
-#        Description: Minimum item quality to trigger loot comments
+#        Description: Minimum item quality to trigger loot comments and
+#                     loot-roll reactions
 #                     (0 poor, 1 common, 2 uncommon, 3 rare, 4 epic, 5 legendary).
 #        Default:     3
 #

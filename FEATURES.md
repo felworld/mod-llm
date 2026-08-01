@@ -224,7 +224,16 @@ own name in a third-person line may not realize it was the loser, and
 trash-talk accordingly. PvP kills are described relative to each reacting
 bot's faction ("your ally X killed the enemy Y") — names carry no faction,
 and a faction-blind "X killed Y" once had bots warning their own side about
-an ally clearing enemy gankers. Also group joins: a bot that joins a party or raid
+an ally clearing enemy gankers. Also loot rolls: when a
+group roll resolves, the winning bot may gloat and bots that Need-rolled and
+lost may grumble or congratulate, in party/raid chat
+(`LLM.Event.Chance.RollWon` / `.RollLost`). Most rolls draw no reaction: only
+Need rolls on items at/above `LLM.Event.LootMinQuality` roll the dice — Greed
+rolls are routine — but every participant bot learns the outcome through its
+overheard transcript regardless, addressed in the second person for the
+winner and losers ("you lost the need roll on [X] to Y"). Rolled items skip
+the generic "obtained notable loot" comment so the two paths don't talk over
+each other. Also group joins: a bot that joins a party or raid
 greets it in party/raid chat (this replaces playerbots' canned "Hello"
 whisper, which we keep disabled via `AiPlayerbot.EnableGreet = 0`). And heals:
 a bot healed by a player outside its group thanks them aloud

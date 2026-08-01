@@ -49,7 +49,8 @@ namespace ModLlm
             PLAYERHOOK_ON_DUEL_REQUEST,
             PLAYERHOOK_ON_DUEL_END,
             PLAYERHOOK_ON_ACHI_COMPLETE,
-            PLAYERHOOK_ON_STORE_NEW_ITEM
+            PLAYERHOOK_ON_STORE_NEW_ITEM,
+            PLAYERHOOK_ON_GROUP_ROLL_REWARD_ITEM
         }) { }
 
         void OnPlayerCreatureKill(Player* killer, Creature* killed) override
@@ -163,10 +164,89 @@ namespace ModLlm
             ItemTemplate const* proto = item->GetTemplate();
             if (!proto || proto->Quality < sLlmConfig->eventLootMinQuality)
                 return;
+
+            // Under a rolling loot method, an item at or above the group's
+            // threshold reached the winner's bags through a roll - the roll
+            // hook below tells that story ("you won the need roll on ..."),
+            // so the generic loot comment stays out of its way.
+            if (Group* group = player->GetGroup())
+                if ((group->GetLootMethod() == GROUP_LOOT || group->GetLootMethod() == NEED_BEFORE_GREED)
+                    && proto->Quality >= static_cast<uint32>(group->GetLootThreshold()))
+                    return;
+
             DispatchEvent(player, "loot", sLlmConfig->eventChanceLoot,
                 ActorAware(player->GetGUID(),
                     Acore::StringFormat("you obtained [{}]", proto->Name1),
                     Acore::StringFormat("{} obtained [{}]", player->GetName(), proto->Name1)));
+        }
+
+        // Group loot roll decided: the winner may gloat, losing rollers may
+        // grumble (or congratulate - the model's call), and every bot that
+        // saw the roll frames learns the outcome. Greed rolls are routine
+        // and stay narration-only; Need rolls carry the drama.
+        void OnPlayerGroupRollRewardItem(Player* winner, Item* item, uint32 /*count*/, RollVote voteType,
+            Roll* roll) override
+        {
+            if (!sLlmConfig->IsEnabled() || !sLlmConfig->eventEnabled)
+                return;
+
+            Group* group = winner->GetGroup();
+            ItemTemplate const* proto = item->GetTemplate();
+            if (!group || group->isBGGroup() || group->isBFGroup() || !proto)
+                return;
+
+            char const* rollWord = voteType == NEED ? "need" : "greed";
+            ObjectGuid winnerGuid = winner->GetGUID();
+            std::string winnerName = winner->GetName();
+
+            bool reactWorthy = voteType == NEED && proto->Quality >= sLlmConfig->eventLootMinQuality
+                && BotSelector::GroupHasRealPlayer(group);
+
+            uint32 dispatched = 0;
+            for (auto const& [voterGuid, vote] : roll->playerVote)
+            {
+                Player* bot = ObjectAccessor::FindPlayer(voterGuid);
+                if (!bot || BotSelector::IsRealPlayer(bot))
+                    continue;
+
+                bool won = voterGuid == winnerGuid;
+                bool lost = !won && vote == voteType; // rolled the winning way, dice said no
+
+                std::string description = won
+                    ? Acore::StringFormat("you won the {} roll on [{}]", rollWord, proto->Name1)
+                    : lost
+                        ? Acore::StringFormat("you lost the {} roll on [{}] to {}", rollWord, proto->Name1,
+                            winnerName)
+                        : Acore::StringFormat("{} won the {} roll on [{}]", winnerName, rollWord, proto->Name1);
+
+                // Every participant watched the roll frames resolve on
+                // screen, so the outcome lands in each bot's overheard
+                // transcript whether or not the dice pick it to react.
+                sLlmHistoryStore->AddOverheardLine(bot->GetGUID(), "",
+                    Acore::StringFormat("({})", description));
+
+                if (!reactWorthy || (!won && !lost))
+                    continue;
+                if (dispatched >= sLlmConfig->eventMaxBotsPerEvent)
+                    continue;
+                if (urand(0, 99) >= (won ? sLlmConfig->eventChanceRollWon : sLlmConfig->eventChanceRollLost))
+                    continue;
+                if (IsOnCooldown(bot->GetGUID()))
+                    continue;
+
+                TriggerContext trigger;
+                trigger.kind = TRIGGER_GAME_EVENT;
+                trigger.eventType = won ? "roll_won" : "roll_lost";
+                trigger.message = description;
+                trigger.chatType = group->isRaidGroup() ? CHAT_MSG_RAID : CHAT_MSG_PARTY;
+                trigger.roomKey = Acore::StringFormat("group:{}", group->GetGUID().GetCounter());
+
+                if (!Dispatch::Submit(bot, won ? nullptr : winner, std::move(trigger)))
+                    continue;
+
+                StartCooldown(bot->GetGUID());
+                ++dispatched;
+            }
         }
 
     private:

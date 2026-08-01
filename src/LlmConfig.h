@@ -111,6 +111,8 @@ namespace ModLlm
         uint32 eventChanceDuel = 40;
         uint32 eventChanceAchievement = 40;
         uint32 eventChanceLoot = 15;
+        uint32 eventChanceRollWon = 20;
+        uint32 eventChanceRollLost = 10;
         uint32 eventChanceGroupJoin = 100;
         uint32 eventChanceHealed = 20;
         uint32 eventChanceDefenseCallout = 100;

@@ -202,6 +202,8 @@ namespace ModLlm
         eventChanceDuel = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.Duel", 40);
         eventChanceAchievement = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.Achievement", 40);
         eventChanceLoot = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.Loot", 15);
+        eventChanceRollWon = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.RollWon", 20);
+        eventChanceRollLost = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.RollLost", 10);
         eventChanceGroupJoin = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.GroupJoin", 100);
         eventChanceHealed = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.Healed", 20);
         eventChanceDefenseCallout = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.DefenseCallout", 100);
