@@ -444,8 +444,9 @@ namespace ModLlm::BotSelector
         if (!mgr)
             return false;
 
-        // Bots are only on Trade while in a city, so membership doubles as
-        // the "is somewhere worth advertising" check.
+        // Membership alone proves nothing about location - playerbots keeps
+        // every bot on the faction-wide Trade channel wherever it roams, so
+        // callers gate on the bot actually standing in a city themselves.
         for (auto const& [name, channel] : mgr->GetChannels())
         {
             if (!channel || channel->GetChannelId() != ChatChannelId::TRADE || !bot->IsInChannel(channel))

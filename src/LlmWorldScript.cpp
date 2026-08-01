@@ -15,6 +15,7 @@
 #include "Player.h"
 #include "Random.h"
 #include "ScriptMgr.h"
+#include "TravelMgr.h"
 
 #include <unordered_map>
 
@@ -132,14 +133,16 @@ namespace ModLlm
 
                 // A slice of initiative fires becomes a market ad instead of
                 // an idle remark: the prompt gets seeded with the bot's real
-                // sellables and wants. Mostly bound to the city Trade channel
-                // (bots are on Trade exactly while in a city, so membership
-                // doubles as the in-a-city check); a small share goes to zone
-                // General or plain /say, the way players occasionally hawk
-                // outside Trade. When the ad cannot bind - not in a city, no
-                // human in the channel - fall through to the ordinary idle
-                // remark path.
-                if (urand(0, 99) < sLlmConfig->tradeAdChance)
+                // sellables and wants. Only bots actually standing in a
+                // friendly capital advertise (playerbots keeps every bot on
+                // the faction-wide Trade channel wherever it is, so channel
+                // membership proves nothing) - mostly into Trade, with a
+                // small share to zone General or plain /say, the way players
+                // occasionally hawk outside Trade. When the ad cannot bind -
+                // no human in the channel - fall through to the ordinary
+                // idle remark path.
+                if (urand(0, 99) < sLlmConfig->tradeAdChance &&
+                    sTravelMgr.IsFriendlyCapital(player->GetZoneId(), player->GetTeamId()))
                 {
                     TriggerContext ad;
                     if (BotSelector::BindTradeChannel(player, ad))
