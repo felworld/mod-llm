@@ -13,6 +13,7 @@
 
 #include <functional>
 #include <string>
+#include <utility>
 #include <vector>
 
 class Player;
@@ -51,11 +52,20 @@ namespace ModLlm
 
     struct ToolSpec
     {
+        // Constructed (not aggregate-initialized) so registrations can omit
+        // the optional trailing fields without -Wmissing-field-initializers.
+        ToolSpec(std::string name_, std::string description_, nlohmann::json parameters_,
+            uint32 triggerMask_ = TRIGGER_ALL, bool requiresActor_ = false, ToolExecutor execute_ = nullptr,
+            ToolAvailability available_ = nullptr, ToolTriggerFilter triggerFilter_ = nullptr)
+            : name(std::move(name_)), description(std::move(description_)), parameters(std::move(parameters_)),
+            triggerMask(triggerMask_), requiresActor(requiresActor_), execute(std::move(execute_)),
+            available(std::move(available_)), triggerFilter(std::move(triggerFilter_)) { }
+
         std::string name;
         std::string description;
         nlohmann::json parameters;  // JSON Schema object for the arguments
-        uint32 triggerMask = TRIGGER_ALL;
-        bool requiresActor = false;
+        uint32 triggerMask;
+        bool requiresActor;
         ToolExecutor execute;
         ToolAvailability available;  // optional; unset = always offered
         ToolTriggerFilter triggerFilter;  // optional; unset = any trigger matching the mask
