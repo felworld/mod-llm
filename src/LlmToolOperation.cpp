@@ -56,7 +56,7 @@ namespace ModLlm
         {
             nlohmann::json args;
             args["message"] = _bareContent;
-            calls.push_back({ "say", args.dump() });
+            calls.push_back({ "say", args.dump(), "" }); // synthetic call: no model-assigned id
         }
 
         // Tool outcomes surface at INFO under LLM.Debug.Enable; the default
