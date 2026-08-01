@@ -1626,13 +1626,30 @@ namespace ModLlm::LlmTools
             if (!ids.empty())
                 return sObjectMgr->GetItemTemplate(*ids.begin());
 
-            std::string digits;
-            for (char c : value)
-                if (std::isdigit(static_cast<unsigned char>(c)))
-                    digits += c;
-            if (digits.empty() || digits.size() > 6)
+            // Strip the wrapping a model plausibly copies along: quotes,
+            // whitespace, and the [brackets] of a link caption.
+            std::string bare = value;
+            while (!bare.empty() && (std::isspace(static_cast<unsigned char>(bare.front()))
+                || bare.front() == '"' || bare.front() == '['))
+                bare.erase(bare.begin());
+            while (!bare.empty() && (std::isspace(static_cast<unsigned char>(bare.back()))
+                || bare.back() == '"' || bare.back() == ']'))
+                bare.pop_back();
+            if (bare.empty())
                 return nullptr;
-            return sObjectMgr->GetItemTemplate(uint32(std::stoul(digits)));
+
+            if (bare.size() <= 6 && std::all_of(bare.begin(), bare.end(),
+                    [](unsigned char c) { return std::isdigit(c) != 0; }))
+                return sObjectMgr->GetItemTemplate(uint32(std::stoul(bare)));
+
+            // A plain item name, the way it reads in a player's message once
+            // the link markup is normalized away. Exact matches only; ties
+            // (identically-named items) go to the lowest id for determinism.
+            uint32 bestId = 0;
+            for (auto const& [id, proto] : *sObjectMgr->GetItemTemplateStore())
+                if ((!bestId || id < bestId) && StringEqualI(proto.Name1, bare))
+                    bestId = id;
+            return bestId ? sObjectMgr->GetItemTemplate(bestId) : nullptr;
         };
 
         auto parsePriceArg = [](std::string const& value) -> uint32
@@ -1671,7 +1688,7 @@ namespace ModLlm::LlmTools
                 ItemTemplate const* proto = parseItemArg(args["item"].get<std::string>());
                 if (!proto)
                 {
-                    error = "that item is not recognizable - copy the {item:ID} tag from the message";
+                    error = "that item is not recognizable - give its exact name or the {item:ID} tag from the message";
                     return false;
                 }
 
@@ -1771,7 +1788,7 @@ namespace ModLlm::LlmTools
                 ItemTemplate const* proto = parseItemArg(args["item"].get<std::string>());
                 if (!proto)
                 {
-                    error = "that item is not recognizable - copy the {item:ID} tag from the message";
+                    error = "that item is not recognizable - give its exact name or the {item:ID} tag from the message";
                     return false;
                 }
 

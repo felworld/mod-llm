@@ -24,6 +24,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <string_view>
 
 namespace ModLlm::BotSelector
 {
@@ -161,7 +162,10 @@ namespace ModLlm::BotSelector
     {
         // Client chat links arrive as |cAARRGGBB|Hkind:data|h[Visible Text]|h|r.
         // Keep what a player sees - the bracketed text - and drop the markup,
-        // which only confuses a small model. || is the client's escaped pipe.
+        // which only confuses a small model. Item links additionally keep
+        // their id, re-encoded as the {item:ID} tag convention the tools
+        // understand, so a bot can appraise what a player just linked.
+        // || is the client's escaped pipe.
         std::string result;
         result.reserve(message.size());
         for (size_t i = 0; i < message.size();)
@@ -183,8 +187,36 @@ namespace ModLlm::BotSelector
                     break;
                 case 'H':
                 {
-                    size_t end = message.find("|h", i);
-                    i = end == std::string::npos ? message.size() : end + 2;
+                    size_t dataEnd = message.find("|h", i);
+                    if (dataEnd == std::string::npos)
+                    {
+                        i = message.size();
+                        break;
+                    }
+
+                    size_t textStart = dataEnd + 2;
+                    size_t textEnd = message.find("|h", textStart);
+                    if (textEnd == std::string::npos)
+                    {
+                        // Truncated link: fall back to scanning the rest.
+                        i = textStart;
+                        break;
+                    }
+
+                    result.append(message, textStart, textEnd - textStart);
+
+                    std::string_view data(message.data() + i + 2, dataEnd - i - 2);
+                    if (data.rfind("item:", 0) == 0)
+                    {
+                        std::string digits;
+                        for (size_t j = 5; j < data.size()
+                            && std::isdigit(static_cast<unsigned char>(data[j])); ++j)
+                            digits += data[j];
+                        if (!digits.empty())
+                            result += " {item:" + digits + "}";
+                    }
+
+                    i = textEnd + 2;
                     break;
                 }
                 case 'h':
