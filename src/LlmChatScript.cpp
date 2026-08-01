@@ -161,10 +161,13 @@ namespace ModLlm
                 return;
 
             // Chat links arrive as raw client markup: pull the linked quest
-            // ids out for routing (a candidate on the quest is a natural
-            // responder), then reduce the message to the text a player sees.
+            // and item ids out for routing (a candidate on the quest - or in
+            // the market for the item - is a natural responder), then reduce
+            // the message to the text a player sees.
             std::set<uint32> questIds = ChatHelper::ExtractAllQuestIds(msg);
             std::vector<uint32> linkedQuests(questIds.begin(), questIds.end());
+            ItemIds itemIds = ChatHelper::parseItems(msg);
+            std::vector<uint32> linkedItems(itemIds.begin(), itemIds.end());
             std::string text = BotSelector::NormalizeChatLinks(msg);
 
             // Whispers: only the addressed bot may react, and always does.
@@ -242,6 +245,7 @@ namespace ModLlm
                 trigger.roomKey = roomKey;
                 trigger.message = text;
                 trigger.linkedQuests = linkedQuests;
+                trigger.linkedItems = linkedItems;
                 Router::RouteGroupMessage(sender, candidates, std::move(trigger));
                 return;
             }
@@ -262,6 +266,7 @@ namespace ModLlm
                 trigger.chatType = type;
                 trigger.message = text;
                 trigger.linkedQuests = linkedQuests;
+                trigger.linkedItems = linkedItems;
                 Router::RouteSayMessage(sender, candidates, std::move(trigger));
                 return;
             }
@@ -286,6 +291,7 @@ namespace ModLlm
                 trigger.roomKey = roomKey;
                 trigger.message = text;
                 trigger.linkedQuests = linkedQuests;
+                trigger.linkedItems = linkedItems;
                 if (channel)
                 {
                     trigger.channelName = channel->GetName();
@@ -319,6 +325,7 @@ namespace ModLlm
                 trigger.roomKey = roomKey;
                 trigger.message = text;
                 trigger.linkedQuests = linkedQuests;
+                trigger.linkedItems = linkedItems;
                 if (channel)
                 {
                     trigger.channelName = channel->GetName();

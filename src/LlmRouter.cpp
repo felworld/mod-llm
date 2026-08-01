@@ -15,11 +15,14 @@
 #include "LlmConfig.h"
 #include "LlmDispatch.h"
 #include "Log.h"
+#include "ObjectMgr.h"
 #include "Player.h"
 #include "PlayerbotAI.h"
+#include "Playerbots.h"
 #include "QuestDef.h"
 #include "SharedDefines.h"
 #include "StringFormat.h"
+#include "TradeOfferMgr.h"
 
 #include <fmt/args.h>
 #include <fmt/format.h>
@@ -66,16 +69,59 @@ namespace ModLlm::Router
             return false;
         }
 
-        std::string RosterLine(Player* bot, bool onLinkedQuest)
+        // How a bot relates to the items linked in the routed message - the
+        // market analogue of the quest signal: a WTS ad is meant for whoever
+        // would buy the item, a WTB ad for whoever carries it to sell.
+        enum class MarketInterest : uint8
+        {
+            None,
+            WouldBuy,   // genuinely wants it and can afford its own bid
+            CouldSell,  // carries tradeable spare stock of it
+        };
+
+        MarketInterest MarketInterestIn(Player* bot, std::vector<uint32> const& itemIds)
+        {
+            PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
+            if (!botAI)
+                return MarketInterest::None;
+
+            for (uint32 itemId : itemIds)
+            {
+                ItemTemplate const* proto = sObjectMgr->GetItemTemplate(itemId);
+                if (!proto)
+                    continue;
+
+                MarketQuote::Appraisal appraisal = MarketQuote::Appraise(botAI, proto);
+                if (appraisal.wants && appraisal.bidEach
+                    && appraisal.bidEach <= MarketQuote::SpendableMoney(botAI))
+                    return MarketInterest::WouldBuy;
+                if (appraisal.stock && appraisal.askEach)
+                    return MarketInterest::CouldSell;
+            }
+            return MarketInterest::None;
+        }
+
+        // Appraising is not free, so a faction-wide channel roster only
+        // samples this many shuffled candidates for market interest.
+        constexpr size_t MARKET_SCAN_CAP = 48;
+
+        std::string RosterLine(Player* bot, bool onLinkedQuest,
+            MarketInterest interest = MarketInterest::None)
         {
             std::string classDesc = ChatHelper::FormatClass(bot->getClass());
             std::string spec = AiFactory::GetPlayerSpecName(bot);
             if (!spec.empty())
                 classDesc = spec + " " + classDesc;
 
-            return Acore::StringFormat("- {} (level {} {}, {}{})",
+            char const* marketMark = "";
+            if (interest == MarketInterest::WouldBuy)
+                marketMark = ", would buy that item";
+            else if (interest == MarketInterest::CouldSell)
+                marketMark = ", carries that item to sell";
+
+            return Acore::StringFormat("- {} (level {} {}, {}{}{})",
                 bot->GetName(), bot->GetLevel(), classDesc, RoleWord(bot),
-                onLinkedQuest ? ", on that quest too" : "");
+                onLinkedQuest ? ", on that quest too" : "", marketMark);
         }
 
         // One routing request: the assembled prompt plus everything its
@@ -107,6 +153,16 @@ namespace ModLlm::Router
         // after shuffling, so the drop is a fair sample of the room.
         void PromoteMentionAndCap(std::vector<Player*>& candidates, TriggerContext const& trigger)
         {
+            // Market interest floats ahead of the cut first, then quests on
+            // top of it (the stronger signal), then a name-mention wins all.
+            if (!trigger.linkedItems.empty())
+            {
+                auto scanEnd = candidates.begin()
+                    + std::min(candidates.size(), MARKET_SCAN_CAP);
+                std::stable_partition(candidates.begin(), scanEnd, [&trigger](Player* bot)
+                    { return MarketInterestIn(bot, trigger.linkedItems) != MarketInterest::None; });
+            }
+
             if (!trigger.linkedQuests.empty())
                 std::stable_partition(candidates.begin(), candidates.end(),
                     [&trigger](Player* bot) { return OnLinkedQuest(bot, trigger.linkedQuests); });
@@ -393,12 +449,18 @@ namespace ModLlm::Router
         RouteRequest route;
         route.maxPick = MaxPickFor(sender);
         std::string rosterText;
+        bool anyMarketInterest = false;
         for (Player* bot : shuffled)
         {
+            MarketInterest interest = trigger.linkedItems.empty()
+                ? MarketInterest::None
+                : MarketInterestIn(bot, trigger.linkedItems);
+            anyMarketInterest = anyMarketInterest || interest != MarketInterest::None;
+
             route.roster.push_back({ bot->GetGUID(), bot->GetName() });
             if (!rosterText.empty())
                 rosterText += "\n";
-            rosterText += RosterLine(bot, OnLinkedQuest(bot, trigger.linkedQuests));
+            rosterText += RosterLine(bot, OnLinkedQuest(bot, trigger.linkedQuests), interest);
         }
 
         // A linked quest softens the silence bias: "anyone for [quest]?" is
@@ -407,6 +469,14 @@ namespace ModLlm::Router
             [&trigger](Player* bot) { return OnLinkedQuest(bot, trigger.linkedQuests); }))
             roomNote += "The message asks about a quest: a character marked \"on that quest too\""
                 " would naturally answer.\n";
+
+        // So does a linked item with an interested trader on the roster: a
+        // sale offer is meant for whoever wants the goods, a buy request for
+        // whoever carries them.
+        if (anyMarketInterest)
+            roomNote += "The message offers or asks for an item: someone selling it is answered by a "
+                "character marked \"would buy that item\", someone asking to buy it by one marked "
+                "\"carries that item to sell\" - pick such a character.\n";
 
         fmt::dynamic_format_arg_store<fmt::format_context> args;
         args.push_back(fmt::arg("actor_name", trigger.actorName));

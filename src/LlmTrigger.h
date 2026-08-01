@@ -64,6 +64,9 @@ namespace ModLlm
         std::string message;         // incoming chat text / emote description / event description
         std::vector<uint32> linkedQuests; // quest ids linked in the message: routers treat a
                                           // candidate on one of them as a natural responder
+        std::vector<uint32> linkedItems;  // item ids linked in the message: the room router
+                                          // treats a candidate who would buy (or stocks) one
+                                          // as a natural responder to a WTS/WTB ad
         std::string eventType;       // "creature_kill", "level_up", ... for TRIGGER_GAME_EVENT
         uint32 chainDepth = 0;       // bot-to-bot hops so far (caps runaway bot conversations)
         bool wantZoneChannel = false; // bind to the zone General channel at world-thread
