@@ -37,7 +37,7 @@ namespace ModLlm::TextEmoteCatalog
             "congratulate", "cry", "dance", "facepalm", "flex", "flirt",
             "golfclap", "greet", "grin", "hug", "joke", "kiss", "laugh",
             "moo", "mourn", "no", "nod", "point", "poke", "roar", "rude",
-            "salute", "shrug", "sigh", "sleep", "spit", "taunt", "thank",
+            "salute", "shoo", "shrug", "sigh", "sleep", "spit", "taunt", "thank",
             "violin", "wave", "wink", "yawn",
         };
 
