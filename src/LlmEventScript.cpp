@@ -113,13 +113,19 @@ namespace ModLlm
                     Acore::StringFormat("{} reached level {}", player->GetName(), player->GetLevel())));
         }
 
+        // Duels are the duelists' story: at gate duel spots a spoken comment
+        // per challenge and per outcome - times two picked bots, times the
+        // replies each line invites - drowned the area in "gl"/"gg" chatter
+        // (felworld/mod-llm#22). Bystanders now only see the narration; the
+        // one reaction that carries weight, the "gg" at the end, comes from
+        // the participants themselves.
         void OnPlayerDuelRequest(Player* target, Player* challenger) override
         {
             ObjectGuid targetGuid = target->GetGUID();
             ObjectGuid challengerGuid = challenger->GetGUID();
             std::string targetName = target->GetName();
             std::string challengerName = challenger->GetName();
-            DispatchEvent(target, "duel_request", sLlmConfig->eventChanceDuel,
+            DispatchEvent(target, "duel_request", 0,
                 [targetGuid, challengerGuid, targetName, challengerName](Player* bot)
                 {
                     if (bot->GetGUID() == targetGuid)
@@ -135,19 +141,25 @@ namespace ModLlm
         {
             if (type != DUEL_WON)
                 return;
+
             ObjectGuid winnerGuid = winner->GetGUID();
             ObjectGuid loserGuid = loser->GetGUID();
             std::string winnerName = winner->GetName();
             std::string loserName = loser->GetName();
-            DispatchEvent(winner, "duel_end", sLlmConfig->eventChanceDuel,
+
+            // The duelists themselves are described (and dispatched) by
+            // DispatchDuelist below; an empty description keeps this loop
+            // from narrating their own duel at them in the third person.
+            DispatchEvent(winner, "duel_end", 0,
                 [winnerGuid, loserGuid, winnerName, loserName](Player* bot)
                 {
-                    if (bot->GetGUID() == winnerGuid)
-                        return Acore::StringFormat("you won a duel against {}", loserName);
-                    if (bot->GetGUID() == loserGuid)
-                        return Acore::StringFormat("you lost a duel against {}", winnerName);
+                    if (bot->GetGUID() == winnerGuid || bot->GetGUID() == loserGuid)
+                        return std::string();
                     return Acore::StringFormat("{} won a duel against {}", winnerName, loserName);
                 });
+
+            DispatchDuelist(winner, loser, Acore::StringFormat("you won a duel against {}", loserName));
+            DispatchDuelist(loser, winner, Acore::StringFormat("you lost a duel against {}", winnerName));
         }
 
         void OnPlayerAchievementComplete(Player* player, AchievementEntry const* achievement) override
@@ -288,10 +300,51 @@ namespace ModLlm
                 actorOverride, narrate);
         }
 
+        // The duelists' own reactions, dispatched directly rather than
+        // through SelectNearby: OnPlayerDuelEnd fires before DuelComplete's
+        // AttackStop, so both are still flagged in combat and the
+        // skip-in-combat filter would drop exactly the two bots whose story
+        // this is. Submit() itself has no combat gate, and the reply is
+        // "typed" out over a few seconds anyway - by delivery the dust has
+        // settled.
+        void DispatchDuelist(Player* bot, Player* opponent, std::string description)
+        {
+            if (!sLlmConfig->IsEnabled() || !sLlmConfig->eventEnabled)
+                return;
+            if (BotSelector::IsRealPlayer(bot))
+                return;
+
+            // The duelist remembers its own duel whether or not it speaks.
+            sLlmHistoryStore->AddOverheardLine(bot->GetGUID(), "",
+                Acore::StringFormat("({})", description));
+
+            if (urand(0, 99) >= sLlmConfig->eventChanceDuel)
+                return;
+            if (IsOnCooldown(bot->GetGUID()))
+                return;
+            if (!BotSelector::HasRealPlayerNearby(bot, sLlmConfig->sayDistance))
+                return;
+
+            TriggerContext trigger;
+            trigger.kind = TRIGGER_GAME_EVENT;
+            trigger.eventType = "duel_end";
+            trigger.message = std::move(description);
+
+            if (!Dispatch::Submit(bot, opponent, std::move(trigger)))
+                return;
+
+            StartCooldown(bot->GetGUID());
+        }
+
         void DispatchEvent(Player* source, char const* eventType, uint32 chance, EventDescriber describe,
             Player* actorOverride = nullptr, bool narrate = true)
         {
-            if (!sLlmConfig->IsEnabled() || !sLlmConfig->eventEnabled || !chance)
+            if (!sLlmConfig->IsEnabled() || !sLlmConfig->eventEnabled)
+                return;
+
+            // chance 0 = narration only: every nearby bot still sees the
+            // event, nobody is picked to comment on it.
+            if (!chance && !narrate)
                 return;
 
             Player* actor = actorOverride ? actorOverride : source;
@@ -304,6 +357,11 @@ namespace ModLlm
             for (Player* bot : bots)
             {
                 std::string description = describe(bot);
+
+                // An empty description means this bot is handled outside the
+                // loop (e.g. the duelists themselves) - nothing to see or say.
+                if (description.empty())
+                    continue;
 
                 // Seeing and reacting are different things: the event lands in
                 // every nearby bot's overheard transcript whether or not the

@@ -200,6 +200,9 @@ LLM.Chat.Overhear.Enable = 1
 #    LLM.Chat.BotTrigger.MaxChainDepth
 #        Description: Cap on consecutive bot-to-bot hops from one origin
 #                     (higher = longer bot conversations, more LLM calls).
+#                     A comment on a game event (a duelist's "gg", a level-up
+#                     "grats") allows a single reply hop regardless: chains of
+#                     acknowledgements spiraled at duel hotspots.
 #        Default:     3
 #
 #    LLM.Chat.BotTrigger.MaxBotsToPick
@@ -444,7 +447,12 @@ LLM.Event.MaxBotsPerEvent = 2
 #
 #    LLM.Event.Chance.*
 #        Description: Percent chance per candidate bot, by event type.
-#                     0 disables an event type entirely.
+#                     0 disables spoken reactions for an event type (nearby
+#                     bots still see the event in their transcripts).
+#                     Duel fires only for the two duelists at the duel's end
+#                     ("gg" territory): bystanders see challenges and
+#                     outcomes but never comment on them - at gate duel
+#                     spots, spectator commentary drowned the area.
 #                     RollWon/RollLost fire when a group loot roll resolves:
 #                     the winning bot may gloat, bots that Need-rolled and
 #                     lost may grumble (in party/raid chat). Only Need rolls

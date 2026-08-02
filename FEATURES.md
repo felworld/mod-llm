@@ -247,10 +247,18 @@ loot. A comment about a groupmate's deed goes to party/raid chat; enemy-faction
 deeds draw comment only on the same cross-faction dice. Whether or not a bot
 is picked to react, the event is narrated into every nearby bot's overheard
 transcript (mob kills exempt — grinding would flood it), because seeing and
-reacting are different things. Duel events address participants in the second
+reacting are different things. Duels are the duelists' story: bystanders see
+challenges and outcomes in their transcripts but never comment on them (at
+gate duel spots, spectator commentary — and the reply chains it seeded —
+drowned the area in "gl"/"gg" chatter), and the one spoken reaction,
+the "gg" at the end, comes from the two who fought (`LLM.Event.Chance.Duel`).
+Duel events address participants in the second
 person — "you lost a duel against X" — since a small model that only sees its
 own name in a third-person line may not realize it was the loser, and
-trash-talk accordingly. PvP kills are described relative to each reacting
+trash-talk accordingly. A comment on a game event allows at most one chained
+reply — an answering "well fought", then the exchange ends — rather than the
+full bot-to-bot chain depth, which is what spiraled acknowledgements at duel
+hotspots. PvP kills are described relative to each reacting
 bot's faction ("your ally X killed the enemy Y") — names carry no faction,
 and a faction-blind "X killed Y" once had bots warning their own side about
 an ally clearing enemy gankers. Also loot rolls: when a

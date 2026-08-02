@@ -71,7 +71,15 @@ namespace ModLlm::Overhear
         trigger.kind = TRIGGER_CHAT_SAY;
         trigger.chatType = yell ? CHAT_MSG_YELL : CHAT_MSG_SAY;
         trigger.message = message;
-        trigger.chainDepth = sourceTrigger.chainDepth + 1;
+
+        // An event comment is a coda, not an opener: a duelist's "gg" may
+        // draw one answering line, but chains of acknowledgements ("gg" ->
+        // "gl" -> "np") spiraled endlessly at duel hotspots
+        // (felworld/mod-llm#22). Starting the chain at its cap leaves
+        // exactly one reply hop.
+        trigger.chainDepth = sourceTrigger.kind == TRIGGER_GAME_EVENT
+            ? sLlmConfig->botTriggerMaxChainDepth
+            : sourceTrigger.chainDepth + 1;
 
         // A bot's say routes exactly like a real player's: one cheap LLM
         // call, seeing the roster and the recent conversation, judges who -
@@ -114,7 +122,11 @@ namespace ModLlm::Overhear
         trigger.defenseChannel = BotSelector::IsDefenseChannel(channel);
         trigger.roomKey = Acore::StringFormat("channel:{}:{}", channelName, uint32(bot->GetTeamId()));
         trigger.message = message;
-        trigger.chainDepth = sourceTrigger.chainDepth + 1;
+
+        // Same event-comment coda rule as OnBotSpeech: one reply hop.
+        trigger.chainDepth = sourceTrigger.kind == TRIGGER_GAME_EVENT
+            ? sLlmConfig->botTriggerMaxChainDepth
+            : sourceTrigger.chainDepth + 1;
 
         // Channel messages get the same routing judgment as say (the room
         // transcript stands in for the overheard conversation). Defense
