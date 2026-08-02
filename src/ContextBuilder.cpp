@@ -7,6 +7,7 @@
 
 #include "Battleground.h"
 #include "BattlegroundWS.h"
+#include "BotSelector.h"
 #include "CellImpl.h"
 #include "ChatHelper.h"
 #include "GridNotifiers.h"
@@ -373,7 +374,31 @@ namespace ModLlm::ContextBuilder
         // wandering off mid-negotiation via travel_to (the deterministic
         // dwell force underneath covers a model that ignores this anyway).
         PendingTradeDeal deal;
-        if (sTradeOfferMgr->GetPending(bot->GetGUID(), deal))
+        bool hasDeal = sTradeOfferMgr->GetPending(bot->GetGUID(), deal);
+
+        // A seller answering chat knows how its own trade works: the tool
+        // call is what takes a job, and a bare "sure thing" in chat sets
+        // nothing in motion (felworld/mod-llm#17). Standing knowledge, not
+        // keyword-triggered - whether the message is actually asking is the
+        // model's judgment. Skipped mid-deal: one deal at a time, and the
+        // guidance below already says to see it through.
+        constexpr uint32 chatKinds = TRIGGER_CHAT_SAY | TRIGGER_CHAT_WHISPER | TRIGGER_CHAT_PARTY
+            | TRIGGER_CHAT_GUILD | TRIGGER_CHAT_CHANNEL;
+        if (!hasDeal && (trigger.kind & chatKinds) && actor && BotSelector::IsRealPlayer(actor))
+        {
+            if (ClassServices::SellsPortals(bot))
+                snapshot.replyGuidance += " You sell portals to the capitals for coin (groupmates and"
+                    " guildmates ride free). Taking such a job means calling the open_portal tool with"
+                    " the destination city - it sets up your price quote, the payment hand-off, and any"
+                    " travel to the customer, and your chat reply then confirms what it reports back.";
+            if (ClassServices::SellsSummons(bot))
+                snapshot.replyGuidance += " You sell summons for coin (groupmates and guildmates ride"
+                    " free), pulling a customer to wherever you are standing right now. Taking such a"
+                    " job means calling the summon_player tool - it sets up your price quote, the group"
+                    " invite, and the ritual, and your chat reply then confirms what it reports back.";
+        }
+
+        if (hasDeal)
         {
             Player* counterparty = ObjectAccessor::FindPlayer(deal.counterpartyGuid);
             std::string who = counterparty ? counterparty->GetName() : "a customer";

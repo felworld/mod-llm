@@ -57,6 +57,12 @@ namespace ModLlm
         std::string FormatOverheard(ObjectGuid botGuid, uint32 maxLines,
             std::string const& selfName = "");
 
+        // Distinct speaker names among the room's last `maxLines` lines still
+        // inside the scrollback window, newest first. The room router
+        // promotes these past its roster cap so a follow-up message can reach
+        // whoever is already mid-exchange with the sender.
+        std::vector<std::string> RecentRoomSpeakers(std::string const& roomKey, uint32 maxLines);
+
     private:
         struct Line
         {

@@ -107,28 +107,17 @@ namespace ModLlm::Router
         // samples this many shuffled candidates for market interest.
         constexpr size_t MARKET_SCAN_CAP = 48;
 
-        // Paid class services ride on plain words rather than item links:
-        // a message mentioning a portal or a summon is worth marking the
-        // sellers on the roster (the router still judges the intent).
-        bool AsksForPortal(std::string const& message)
+        // The roster mark for a service seller, always shown: whether the
+        // message is actually asking for a portal or a summon is the
+        // router's judgment, not a keyword's. For summons the bot's current
+        // zone is the whole signal - the router matches it against wherever
+        // the asker wants to go.
+        std::string ServiceMark(Player* bot)
         {
-            return StringContainsStringI(message, "portal");
-        }
-
-        bool AsksForSummon(std::string const& message)
-        {
-            return StringContainsStringI(message, "summon");
-        }
-
-        // The roster mark for a service seller; for summons the bot's
-        // current zone is the whole signal - the router matches it against
-        // wherever the asker wants to go.
-        std::string ServiceMark(Player* bot, bool wantsPortal, bool wantsSummon)
-        {
-            if (wantsPortal && ClassServices::SellsPortals(bot))
+            if (ClassServices::SellsPortals(bot))
                 return ", sells portals for coin";
 
-            if (wantsSummon && ClassServices::SellsSummons(bot))
+            if (ClassServices::SellsSummons(bot))
             {
                 if (PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot))
                     return Acore::StringFormat(", sells summons for coin - currently in {}",
@@ -182,32 +171,57 @@ namespace ModLlm::Router
 
         // The routing prompt cannot grow with the crowd: cap the roster,
         // keeping a bot addressed by name (the deterministic always-pick)
-        // and anyone on a quest the message links ahead of the cut. Call
-        // after shuffling, so the drop is a fair sample of the room.
-        void PromoteMentionAndCap(std::vector<Player*>& candidates, TriggerContext const& trigger)
+        // and anyone with a reason to answer ahead of the cut. Call after
+        // shuffling, so the drop is a fair sample of the room. Ascending
+        // priority: market interest, linked quests, recent room speakers,
+        // reserved service sellers, then a name-mention wins all.
+        void PromoteMentionAndCap(std::vector<Player*>& candidates, TriggerContext const& trigger,
+            std::vector<std::string> const& recentSpeakers = {}, bool reserveServiceSellers = false)
         {
-            // Market interest floats ahead of the cut first, then quests on
-            // top of it (the stronger signal), then a name-mention wins all.
-            // Service sellers (portals, summons) count as market interest.
-            bool wantsPortal = AsksForPortal(trigger.message);
-            bool wantsSummon = AsksForSummon(trigger.message);
-            if (!trigger.linkedItems.empty() || wantsPortal || wantsSummon)
+            // Appraising every candidate is not affordable, so item interest
+            // only samples the shuffled head of the roster.
+            if (!trigger.linkedItems.empty())
             {
                 auto scanEnd = candidates.begin()
                     + std::min(candidates.size(), MARKET_SCAN_CAP);
                 std::stable_partition(candidates.begin(), scanEnd,
-                    [&trigger, wantsPortal, wantsSummon](Player* bot)
-                    {
-                        if (!trigger.linkedItems.empty()
-                            && MarketInterestIn(bot, trigger.linkedItems) != MarketInterest::None)
-                            return true;
-                        return !ServiceMark(bot, wantsPortal, wantsSummon).empty();
-                    });
+                    [&trigger](Player* bot)
+                    { return MarketInterestIn(bot, trigger.linkedItems) != MarketInterest::None; });
             }
 
             if (!trigger.linkedQuests.empty())
                 std::stable_partition(candidates.begin(), candidates.end(),
                     [&trigger](Player* bot) { return OnLinkedQuest(bot, trigger.linkedQuests); });
+
+            // A candidate who spoke in the room moments ago is who a
+            // follow-up ("yes please", "how much?") is aimed at - keep them
+            // in the roster so the router's mid-exchange rule can fire.
+            if (!recentSpeakers.empty())
+                std::stable_partition(candidates.begin(), candidates.end(),
+                    [&recentSpeakers](Player* bot)
+                    {
+                        for (std::string const& speaker : recentSpeakers)
+                            if (EqualsIgnoreCase(speaker, bot->GetName()))
+                                return true;
+                        return false;
+                    });
+
+            // Room rosters guarantee one portal seller and one summon seller
+            // (when the room has any) survive the cut: whether the message is
+            // a service ask is the router's judgment, and it can only pick a
+            // seller it can see (felworld/mod-llm#17). The list is shuffled,
+            // so which seller gets the reserved slot varies per message.
+            if (reserveServiceSellers)
+            {
+                auto reserveFirst = [&candidates](bool (*sells)(Player*))
+                {
+                    auto it = std::find_if(candidates.begin(), candidates.end(), sells);
+                    if (it != candidates.end())
+                        std::rotate(candidates.begin(), it, it + 1);
+                };
+                reserveFirst(&ClassServices::SellsSummons);
+                reserveFirst(&ClassServices::SellsPortals);
+            }
 
             for (size_t i = 0; i < candidates.size(); ++i)
             {
@@ -474,10 +488,15 @@ namespace ModLlm::Router
             roomLabel = Acore::StringFormat("the \"{}\" channel", trigger.channelName);
 
         // Shuffled up front so the roster cap drops a fair sample and the
-        // model sees no meaningful ordering.
+        // model sees no meaningful ordering. Whoever spoke in the room
+        // recently is promoted past the cut: the prompt tells the router to
+        // pick a character already mid-exchange with the sender, which only
+        // works while that character is still on the roster.
         std::vector<Player*> shuffled = candidates;
         Acore::Containers::RandomShuffle(shuffled);
-        PromoteMentionAndCap(shuffled, trigger);
+        PromoteMentionAndCap(shuffled, trigger,
+            sLlmHistoryStore->RecentRoomSpeakers(trigger.roomKey, sLlmConfig->historyMaxRoomLines),
+            /*reserveServiceSellers*/ !trigger.defenseChannel);
 
         // The room transcript ends with the message being routed (it was
         // recorded before us).
@@ -493,8 +512,6 @@ namespace ModLlm::Router
         std::string rosterText;
         bool anyMarketInterest = false;
         bool anyServiceSeller = false;
-        bool wantsPortal = AsksForPortal(trigger.message);
-        bool wantsSummon = AsksForSummon(trigger.message);
         for (Player* bot : shuffled)
         {
             MarketInterest interest = trigger.linkedItems.empty()
@@ -502,7 +519,7 @@ namespace ModLlm::Router
                 : MarketInterestIn(bot, trigger.linkedItems);
             anyMarketInterest = anyMarketInterest || interest != MarketInterest::None;
 
-            std::string serviceMark = ServiceMark(bot, wantsPortal, wantsSummon);
+            std::string serviceMark = ServiceMark(bot);
             anyServiceSeller = anyServiceSeller || !serviceMark.empty();
 
             route.roster.push_back({ bot->GetGUID(), bot->GetName() });
@@ -526,12 +543,13 @@ namespace ModLlm::Router
                 "character marked \"would buy that item\", someone asking to buy it by one marked "
                 "\"carries that item to sell\" - pick such a character.\n";
 
-        // And a service ask with a seller on the roster: portals can come
-        // from any seller, summons only from one already standing where the
-        // asker wants to go.
+        // Sellers are marked on every roster; whether this message is a
+        // service ask is the router's call. Portals can come from any
+        // seller, summons only from one already standing where the asker
+        // wants to go.
         if (anyServiceSeller)
-            roomNote += "The message asks about a portal or a summon: someone wanting a portal is "
-                "answered by a character marked \"sells portals\"; someone wanting a summon only by "
+            roomNote += "If the message asks for a portal (also phrased \"port\" or \"teleport\"), it "
+                "is answered by a character marked \"sells portals\"; if it asks for a summon, only by "
                 "a \"sells summons\" character whose current location matches where they ask to go - "
                 "if the locations differ, that character stays silent.\n";
 

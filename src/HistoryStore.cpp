@@ -17,6 +17,8 @@
 #include <fmt/args.h>
 #include <fmt/format.h>
 
+#include <algorithm>
+
 namespace ModLlm
 {
     namespace
@@ -204,6 +206,36 @@ namespace ModLlm
         auto it = _overheard.find(botGuid.GetRawValue());
         return it != _overheard.end()
             ? FormatLines(it->second, maxLines, sLlmConfig->historyScrollbackSeconds, selfName) : "";
+    }
+
+    std::vector<std::string> HistoryStore::RecentRoomSpeakers(std::string const& roomKey, uint32 maxLines)
+    {
+        std::vector<std::string> speakers;
+
+        std::lock_guard<std::mutex> lock(_mutex);
+        auto it = _rooms.find(roomKey);
+        if (it == _rooms.end())
+            return speakers;
+
+        // Same window FormatRoom shows the router: the last maxLines lines,
+        // minus anything past the scrollback horizon.
+        std::deque<Line> const& lines = it->second;
+        time_t now = GameTime::GetGameTime().count();
+        uint32 maxAgeSeconds = sLlmConfig->historyScrollbackSeconds;
+        size_t start = lines.size() > maxLines ? lines.size() - maxLines : 0;
+
+        for (size_t i = lines.size(); i-- > start;)
+        {
+            if (maxAgeSeconds && now - lines[i].at > time_t(maxAgeSeconds))
+                break;
+            // A line with no speaker is narration, not a voice in the room.
+            if (lines[i].speakerName.empty())
+                continue;
+            if (std::find(speakers.begin(), speakers.end(), lines[i].speakerName) == speakers.end())
+                speakers.push_back(lines[i].speakerName);
+        }
+
+        return speakers;
     }
 
     std::string HistoryStore::FormatLines(std::deque<Line> const& lines, uint32 maxLines, uint32 maxAgeSeconds,

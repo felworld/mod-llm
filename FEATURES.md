@@ -59,7 +59,10 @@ offer reaches that bot), and the room router for guild and named channels sees
 the room transcript. Both transcript-aware routers treat a follow-up as
 directed: a question or reply about something a listed bot said above routes
 to that bot, so a newcomer's "how'd you die?" reaches whoever just said they
-died. All routers know that the bigger the crowd, the less
+died. The room router also promotes anyone who spoke in the transcript's
+recent window ahead of the roster cap — on a faction-wide channel the bot
+mid-exchange with the sender would otherwise be shuffled out of a capped
+roster, and a "yes please" would route to nobody. All routers know that the bigger the crowd, the less
 likely any one bystander was being addressed; rosters are capped at
 `LLM.Chat.Router.MaxRoster` per call, a name-mention always picks that bot,
 and the `LLM.Chat.*ReplyChance.*` dice roll only when a router is disabled —
@@ -232,13 +235,19 @@ collected through a real trade window, `AiPlayerbot.ClassService.*Tip`):
   the warlock's feet.
 
 A "wtb portal darn" / "wtb summon tanaris" ad in Trade finds its sellers
-through the room router (see [Market trading](#market-trading)): messages
-mentioning portals or summons get mage sellers marked "sells portals for
-coin" and warlock sellers marked with their *current zone*, and the router
-is told a summon seller only fits when their location matches where the
-asker wants to go. Sellers also work their services into their own market
-ads. Only world (random) bots sell — never someone's alt — and a tip set
-to 0 keeps that service circle-only, exactly as before.
+through the room router (see [Market trading](#market-trading)): mage
+sellers are marked "sells portals for coin" and warlock sellers with their
+*current zone* on every channel roster — no keyword gate; whether a
+message is actually asking for a service is the router's judgment — and
+one seller of each kind is reserved past the roster cap, so on a
+faction-wide Trade channel there is always a seller the router *can*
+pick. The router is told a summon seller only fits when their location
+matches where the asker wants to go. A picked seller's own prompt states
+how its trade works — the tool call is what takes a job — so it commits
+via `open_portal`/`summon_player` instead of leaving a "sure thing" in
+chat that sets nothing in motion. Sellers also work their services into
+their own market ads. Only world (random) bots sell — never someone's alt
+— and a tip set to 0 keeps that service circle-only, exactly as before.
 
 ## Game events
 
@@ -309,7 +318,10 @@ busy-capitals dwell) with a real player somewhere in the Trade channel. The prom
 (things it would otherwise vendor) and actual wants (reagents it ran out of,
 consumables it is low on), each priced by the deterministic layer
 (mod-ah-bot-plus's jittered valuation when that module is enabled, a
-vendor-price heuristic otherwise) — plus the class services it sells to
+vendor-price heuristic otherwise; quotes come in whole silver, and
+sub-silver items or leveling leftovers never make the list — see
+[mod-playerbots' FEATURES](https://github.com/felworld/mod-playerbots/blob/main/FEATURES.md#city-market-trading))
+— plus the class services it sells to
 strangers ([portals and summons](#class-services), priced by the configured
 tips) — so the model phrases a grounded one-liner like
 `WTS [Light Leather] x14 40s` or `wts portals 50s a head`, or posts
@@ -323,9 +335,9 @@ ids (normalized to the `{item:ID}` tag convention), and the router appraises
 a sample of candidate bots through the same deterministic layer, floating
 the ones that genuinely want the item (or carry it to sell) ahead of the
 roster cut with a "would buy that item" / "carries that item to sell" mark.
-Service asks work the same way without needing an item link: a message
-mentioning portals or summons floats and marks the
-[sellers](#class-services) instead.
+Service asks need no item link at all: [sellers](#class-services) are
+marked on every roster with one of each kind reserved past the cap, and
+the router judges whether the message is asking.
 A picked bot calls `evaluate_offer`, which answers deterministically — is
 the item an upgrade/reagent/consumable it wants, what it would pay, what it
 can afford — and the model engages in chat only when the answer says to.
