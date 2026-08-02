@@ -1472,9 +1472,29 @@ namespace ModLlm::LlmTools
                 std::string play = args["play"].get<std::string>();
                 std::replace(play.begin(), play.end(), '_', ' ');
 
+                // Name the missing flag carrier while this side still knows
+                // why - the command path itself fails without explanation. A
+                // flag's picker slot is indexed by the team that owns the
+                // flag, so the enemy carrying ours sits in our team's slot
+                TeamId team = context.bot->GetTeamId();
+                if (BattlegroundWS* ws = context.bot->GetBattleground()->ToBattlegroundWS())
+                {
+                    if (play == "attack fc" && ws->GetFlagPickerGUID(team).IsEmpty())
+                    {
+                        error = "no enemy is carrying your team's flag right now";
+                        return false;
+                    }
+                    if (play == "defend fc"
+                        && ws->GetFlagPickerGUID(team == TEAM_ALLIANCE ? TEAM_HORDE : TEAM_ALLIANCE).IsEmpty())
+                    {
+                        error = "no teammate is carrying the enemy flag right now";
+                        return false;
+                    }
+                }
+
                 if (!context.ai->DoSpecificAction("bg strategy", Event("llm", play, context.actor), true))
                 {
-                    error = "that play does not fit right now - the flag carrier it needs may not exist";
+                    error = "that play cannot be relayed right now";
                     return false;
                 }
                 return true;

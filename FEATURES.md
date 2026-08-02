@@ -154,11 +154,15 @@ bot acts as the team's interpreter, not a privileged complier: its tool
 call relays the play to every bot on the team, and each of them — the
 interpreter included — rolls the usual
 `AiPlayerbot.BgStrategyComplianceChance`, announces the canned line when
-it complies, follows the order for `AiPlayerbot.BgStrategyOrderDuration`
-seconds, and throttles re-rolls, exactly as if the player had typed the
-command. "inc!!" therefore moves the same ~65% of the team the explicit
-command does, at the cost of one routing call plus one interpretation
-call — not one LLM call per teammate. The prompt tells the model the tool
+it complies, and follows the order for `AiPlayerbot.BgStrategyOrderDuration`
+seconds, exactly as if the player had typed the command. "inc!!" therefore
+moves the same ~65% of the team the explicit command does, at the cost of
+one routing call plus one interpretation call — not one LLM call per
+teammate. Repeating a callout re-rolls the bots not yet on the play
+(bots already complying quietly keep at it; a short guard absorbs the
+same message being interpreted by two routed bots at once), so calling
+again rallies more of the team. Each relay logs how many bots complied
+at INFO in the `playerbots` category. The prompt tells the model the tool
 call alone is a full response, so it doesn't double-announce on top of
 the compliance lines. A bot carrying the flag is never offered the tool
 and is told its job is getting the flag home; `fc` plays fail with
