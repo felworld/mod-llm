@@ -544,8 +544,10 @@ LLM.Initiative.MaxBotsPerTick = 2
 #                     player somewhere in the Trade channel. The prompt is seeded
 #                     with the bot's actual spare stock and actual wants at
 #                     its own price estimates (mod-ah-bot-plus valuation when
-#                     enabled, vendor-price heuristic otherwise), so ads are
-#                     grounded - the model only phrases them. An ad the model
+#                     enabled, vendor-price heuristic otherwise) - plus the
+#                     class services it sells to strangers (portals, summons;
+#                     AiPlayerbot.ClassService.*Tip) - so ads are grounded:
+#                     the model only phrases them. An ad the model
 #                     posts (or any Trade-channel line) anchors the bot in
 #                     town (AiPlayerbot.TradeAdAnchorSeconds) so it is still
 #                     around when the bites come.

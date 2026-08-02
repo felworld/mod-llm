@@ -10,10 +10,28 @@
 
 #include <functional>
 #include <string>
+#include <utility>
+#include <vector>
+
+class Player;
 
 namespace ModLlm
 {
     struct ToolExecContext;
+
+    // Paid class-service capability, shared by the service tools, the room
+    // router's roster marks, and the ad/context builders.
+    namespace ClassServices
+    {
+        // The "Portal: <city>" spells the mage knows, as (spell id, city name).
+        std::vector<std::pair<uint32, std::string>> KnownPortals(Player* bot);
+
+        // Whether the bot sells the service to strangers: right class and
+        // spells, a tip configured (ClassService.*Tip), and a proper world
+        // (random) bot rather than someone's alt.
+        bool SellsPortals(Player* bot);
+        bool SellsSummons(Player* bot);
+    }
 
     namespace LlmTools
     {

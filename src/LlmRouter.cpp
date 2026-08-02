@@ -14,6 +14,7 @@
 #include "LlmClient.h"
 #include "LlmConfig.h"
 #include "LlmDispatch.h"
+#include "LlmTools.h"
 #include "Log.h"
 #include "ObjectMgr.h"
 #include "Player.h"
@@ -23,6 +24,7 @@
 #include "SharedDefines.h"
 #include "StringFormat.h"
 #include "TradeOfferMgr.h"
+#include "Util.h"
 
 #include <fmt/args.h>
 #include <fmt/format.h>
@@ -105,8 +107,39 @@ namespace ModLlm::Router
         // samples this many shuffled candidates for market interest.
         constexpr size_t MARKET_SCAN_CAP = 48;
 
+        // Paid class services ride on plain words rather than item links:
+        // a message mentioning a portal or a summon is worth marking the
+        // sellers on the roster (the router still judges the intent).
+        bool AsksForPortal(std::string const& message)
+        {
+            return StringContainsStringI(message, "portal");
+        }
+
+        bool AsksForSummon(std::string const& message)
+        {
+            return StringContainsStringI(message, "summon");
+        }
+
+        // The roster mark for a service seller; for summons the bot's
+        // current zone is the whole signal - the router matches it against
+        // wherever the asker wants to go.
+        std::string ServiceMark(Player* bot, bool wantsPortal, bool wantsSummon)
+        {
+            if (wantsPortal && ClassServices::SellsPortals(bot))
+                return ", sells portals for coin";
+
+            if (wantsSummon && ClassServices::SellsSummons(bot))
+            {
+                if (PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot))
+                    return Acore::StringFormat(", sells summons for coin - currently in {}",
+                        PlayerbotAI::GetLocalizedAreaName(botAI->GetCurrentZone()));
+            }
+
+            return "";
+        }
+
         std::string RosterLine(Player* bot, bool onLinkedQuest,
-            MarketInterest interest = MarketInterest::None)
+            MarketInterest interest = MarketInterest::None, std::string const& serviceMark = "")
         {
             std::string classDesc = ChatHelper::FormatClass(bot->getClass());
             std::string spec = AiFactory::GetPlayerSpecName(bot);
@@ -119,9 +152,9 @@ namespace ModLlm::Router
             else if (interest == MarketInterest::CouldSell)
                 marketMark = ", carries that item to sell";
 
-            return Acore::StringFormat("- {} (level {} {}, {}{}{})",
+            return Acore::StringFormat("- {} (level {} {}, {}{}{}{})",
                 bot->GetName(), bot->GetLevel(), classDesc, RoleWord(bot),
-                onLinkedQuest ? ", on that quest too" : "", marketMark);
+                onLinkedQuest ? ", on that quest too" : "", marketMark, serviceMark);
         }
 
         // One routing request: the assembled prompt plus everything its
@@ -155,12 +188,21 @@ namespace ModLlm::Router
         {
             // Market interest floats ahead of the cut first, then quests on
             // top of it (the stronger signal), then a name-mention wins all.
-            if (!trigger.linkedItems.empty())
+            // Service sellers (portals, summons) count as market interest.
+            bool wantsPortal = AsksForPortal(trigger.message);
+            bool wantsSummon = AsksForSummon(trigger.message);
+            if (!trigger.linkedItems.empty() || wantsPortal || wantsSummon)
             {
                 auto scanEnd = candidates.begin()
                     + std::min(candidates.size(), MARKET_SCAN_CAP);
-                std::stable_partition(candidates.begin(), scanEnd, [&trigger](Player* bot)
-                    { return MarketInterestIn(bot, trigger.linkedItems) != MarketInterest::None; });
+                std::stable_partition(candidates.begin(), scanEnd,
+                    [&trigger, wantsPortal, wantsSummon](Player* bot)
+                    {
+                        if (!trigger.linkedItems.empty()
+                            && MarketInterestIn(bot, trigger.linkedItems) != MarketInterest::None)
+                            return true;
+                        return !ServiceMark(bot, wantsPortal, wantsSummon).empty();
+                    });
             }
 
             if (!trigger.linkedQuests.empty())
@@ -450,6 +492,9 @@ namespace ModLlm::Router
         route.maxPick = MaxPickFor(sender);
         std::string rosterText;
         bool anyMarketInterest = false;
+        bool anyServiceSeller = false;
+        bool wantsPortal = AsksForPortal(trigger.message);
+        bool wantsSummon = AsksForSummon(trigger.message);
         for (Player* bot : shuffled)
         {
             MarketInterest interest = trigger.linkedItems.empty()
@@ -457,10 +502,13 @@ namespace ModLlm::Router
                 : MarketInterestIn(bot, trigger.linkedItems);
             anyMarketInterest = anyMarketInterest || interest != MarketInterest::None;
 
+            std::string serviceMark = ServiceMark(bot, wantsPortal, wantsSummon);
+            anyServiceSeller = anyServiceSeller || !serviceMark.empty();
+
             route.roster.push_back({ bot->GetGUID(), bot->GetName() });
             if (!rosterText.empty())
                 rosterText += "\n";
-            rosterText += RosterLine(bot, OnLinkedQuest(bot, trigger.linkedQuests), interest);
+            rosterText += RosterLine(bot, OnLinkedQuest(bot, trigger.linkedQuests), interest, serviceMark);
         }
 
         // A linked quest softens the silence bias: "anyone for [quest]?" is
@@ -477,6 +525,15 @@ namespace ModLlm::Router
             roomNote += "The message offers or asks for an item: someone selling it is answered by a "
                 "character marked \"would buy that item\", someone asking to buy it by one marked "
                 "\"carries that item to sell\" - pick such a character.\n";
+
+        // And a service ask with a seller on the roster: portals can come
+        // from any seller, summons only from one already standing where the
+        // asker wants to go.
+        if (anyServiceSeller)
+            roomNote += "The message asks about a portal or a summon: someone wanting a portal is "
+                "answered by a character marked \"sells portals\"; someone wanting a summon only by "
+                "a \"sells summons\" character whose current location matches where they ask to go - "
+                "if the locations differ, that character stays silent.\n";
 
         fmt::dynamic_format_arg_store<fmt::format_context> args;
         args.push_back(fmt::arg("actor_name", trigger.actorName));

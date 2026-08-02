@@ -72,12 +72,12 @@ namespace ModLlm
         // single-braced tag would parse as a (missing) template argument.
         constexpr char DEFAULT_PROMPT_TRADE_AD[] =
             "{memory_block}{history_block}You are hanging around town and could drum up some trade. "
-            "Your actual stock and needs, at your own price estimates:\n{market_block}\n"
+            "Your actual stock, needs, and services, at your own price estimates:\n{market_block}\n"
             "If something there is worth it, post one short WTS or WTB line the way players write them - "
             "the {{item:ID}} tag copied verbatim so it lands as a clickable link, plus your price, like "
-            "\"WTS {{item:2318}} x14 40s\" or \"wtb {{item:3355}} paying 2s each\". Only advertise items "
-            "and prices from the list above. One line at most; if nothing is worth posting, do "
-            "nothing.{reply_guidance}";
+            "\"WTS {{item:2318}} x14 40s\", \"wtb {{item:3355}} paying 2s each\", or \"wts portals, 50s "
+            "a head\". Only advertise items, services, and prices from the list above. One line at "
+            "most; if nothing is worth posting, do nothing.{reply_guidance}";
 
         constexpr char DEFAULT_PROMPT_ROUTER[] =
             "You are routing a chat message between players in World of Warcraft. In {channel_label} chat, "

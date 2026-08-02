@@ -16,14 +16,18 @@
 #include "GuildMgr.h"
 #include "HistoryStore.h"
 #include "LlmConfig.h"
+#include "LlmTools.h"
 #include "MemoryStore.h"
 #include "ObjectAccessor.h"
 #include "ObjectMgr.h"
 #include "Player.h"
 #include "PlayerbotAI.h"
+#include "PlayerbotAIConfig.h"
 #include "PlayerbotMgr.h"
 #include "QuestDef.h"
 #include "SharedDefines.h"
+#include "SpellInfo.h"
+#include "SpellMgr.h"
 #include "StringFormat.h"
 #include "TradeOfferMgr.h"
 
@@ -342,6 +346,23 @@ namespace ModLlm::ContextBuilder
                         want.proto->Name1, want.proto->ItemId, ChatHelper::formatMoney(want.bidEach));
                 }
 
+                // Class services the bot sells to strangers advertise
+                // alongside the goods (the quote is jittered at deal time,
+                // so the ad price stays approximate).
+                if (ClassServices::SellsPortals(bot))
+                {
+                    std::string cities;
+                    for (auto const& [spellId, city] : ClassServices::KnownPortals(bot))
+                        cities += (cities.empty() ? "" : ", ") + city;
+                    lines += Acore::StringFormat("offering: portals to {} - about {} a head\n",
+                        cities, ChatHelper::formatMoney(sPlayerbotAIConfig.classServicePortalTip));
+                }
+                if (ClassServices::SellsSummons(bot))
+                    lines += Acore::StringFormat(
+                        "offering: summons to your spot here in {} - about {}\n",
+                        PlayerbotAI::GetLocalizedAreaName(botAI->GetCurrentZone()),
+                        ChatHelper::formatMoney(sPlayerbotAIConfig.classServiceSummonTip));
+
                 snapshot.marketBlock = lines.empty() ? "nothing worth advertising right now" : lines;
             }
         }
@@ -354,18 +375,42 @@ namespace ModLlm::ContextBuilder
         PendingTradeDeal deal;
         if (sTradeOfferMgr->GetPending(bot->GetGUID(), deal))
         {
-            ItemTemplate const* dealProto = sObjectMgr->GetItemTemplate(deal.itemId);
             Player* counterparty = ObjectAccessor::FindPlayer(deal.counterpartyGuid);
-            std::string what = dealProto ? dealProto->Name1 : "goods";
             std::string who = counterparty ? counterparty->GetName() : "a customer";
-            if (deal.departAt && !deal.teleported)
-                snapshot.replyGuidance += Acore::StringFormat(" You just shook hands on a deal and are"
-                    " making your way over to {} in another town to {} {} - it takes a few minutes,"
-                    " no need to narrate the trip.", who, deal.selling ? "hand over" : "buy", what);
+            std::string money = ChatHelper::formatMoney(deal.price);
+            if (deal.service == TradeService::Summon)
+                snapshot.replyGuidance += Acore::StringFormat(" You have a paid summon going for {} -"
+                    " {} collected in a trade once they land here. Stay put and see it through.",
+                    who, money);
+            else if (deal.service == TradeService::Portal)
+            {
+                std::string what = "a portal";
+                if (SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(deal.serviceSpellId))
+                    if (std::string(spellInfo->SpellName[0]).rfind("Portal: ", 0) == 0)
+                        what = "a portal to " + std::string(spellInfo->SpellName[0]).substr(8);
+                if (deal.departAt && !deal.teleported)
+                    snapshot.replyGuidance += Acore::StringFormat(" You just shook hands with {} on {}"
+                        " for {} and are making your way over to them in another town - it takes a few"
+                        " minutes, no need to narrate the trip. The coin changes hands in a trade"
+                        " before you cast.", who, what, money);
+                else
+                    snapshot.replyGuidance += Acore::StringFormat(" You have a deal going with {} -"
+                        " {} for {}, coin first through a trade window - and are heading over to close"
+                        " it. Stay on that.", who, what, money);
+            }
             else
-                snapshot.replyGuidance += Acore::StringFormat(" You have a deal going with {} to {} {}"
-                    " and are heading over to close it - stay on that.",
-                    who, deal.selling ? "hand over" : "buy", what);
+            {
+                ItemTemplate const* dealProto = sObjectMgr->GetItemTemplate(deal.itemId);
+                std::string what = dealProto ? dealProto->Name1 : "goods";
+                if (deal.departAt && !deal.teleported)
+                    snapshot.replyGuidance += Acore::StringFormat(" You just shook hands on a deal and are"
+                        " making your way over to {} in another town to {} {} - it takes a few minutes,"
+                        " no need to narrate the trip.", who, deal.selling ? "hand over" : "buy", what);
+                else
+                    snapshot.replyGuidance += Acore::StringFormat(" You have a deal going with {} to {} {}"
+                        " and are heading over to close it - stay on that.",
+                        who, deal.selling ? "hand over" : "buy", what);
+            }
         }
         else if (uint32 anchorLeft = sTradeOfferMgr->AnchorSecondsLeft(bot->GetGUID()))
             snapshot.replyGuidance += Acore::StringFormat(" You recently put out trade chatter and are"

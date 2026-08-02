@@ -205,11 +205,36 @@ water?" or "can I get a summon?" works on an LLM bot with no command syntax:
 The mechanics are the playerbots actions themselves — real casts and cast
 times, walking into trade range, inviting the summon target, recruiting
 ritual helpers — the LLM layer only decides *whether* to do the favor.
-Services are favors for the bot's own circle: the asker must be a
-groupmate, raidmate, or guildmate (never inside a battleground), and
-they're free. Anyone else isn't offered the tools at all, so the bot
-declines in character. Bots charging strangers for services is a possible
-later step.
+Conjured refreshments are favors for the bot's own circle: the asker must
+be a groupmate, raidmate, or guildmate (never inside a battleground), and
+they're free. Anyone else isn't offered the tool at all, so the bot
+declines in character.
+
+**Portals and summons are also for sale.** The circle still rides free,
+but for a real player outside it the same two tools switch to the paid
+path mod-playerbots provides (the trade-deal machinery behind
+`!portal`/`!ritual` for strangers — quote whispered deterministically, tip
+collected through a real trade window, `AiPlayerbot.ClassService.*Tip`):
+
+- `open_portal` registers the deal and reports the quote back to the
+  model; the bot walks over — from another city if need be, with the same
+  simulated ride as a cross-city trade — takes the coin in a trade
+  window, and casts. No payment, no portal.
+- `summon_player` quotes, then starts the ritual right away (the customer
+  is far away by definition, so payment can't come first) and collects by
+  trade once they land; a customer who skips out just lets the deal
+  expire. The tool takes the place the asker named, and refuses when it
+  doesn't match the warlock's current zone — a summon only ever lands at
+  the warlock's feet.
+
+A "wtb portal darn" / "wtb summon tanaris" ad in Trade finds its sellers
+through the room router (see [Market trading](#market-trading)): messages
+mentioning portals or summons get mage sellers marked "sells portals for
+coin" and warlock sellers marked with their *current zone*, and the router
+is told a summon seller only fits when their location matches where the
+asker wants to go. Sellers also work their services into their own market
+ads. Only world (random) bots sell — never someone's alt — and a tip set
+to 0 keeps that service circle-only, exactly as before.
 
 ## Game events
 
@@ -272,11 +297,13 @@ busy-capitals dwell) with a real player somewhere in the Trade channel. The prom
 (things it would otherwise vendor) and actual wants (reagents it ran out of,
 consumables it is low on), each priced by the deterministic layer
 (mod-ah-bot-plus's jittered valuation when that module is enabled, a
-vendor-price heuristic otherwise) — so the model phrases a grounded one-liner
-like `WTS [Light Leather] x14 40s` or posts nothing. Most ads go to Trade; a
-small share lands in zone General or plain /say
-(`LLM.TradeAd.GeneralPercent`/`SayPercent`), the way players occasionally
-hawk outside the channel.
+vendor-price heuristic otherwise) — plus the class services it sells to
+strangers ([portals and summons](#class-services), priced by the configured
+tips) — so the model phrases a grounded one-liner like
+`WTS [Light Leather] x14 40s` or `wts portals 50s a head`, or posts
+nothing. Most ads go to Trade; a small share lands in zone General or
+plain /say (`LLM.TradeAd.GeneralPercent`/`SayPercent`), the way players
+occasionally hawk outside the channel.
 
 **Buying and negotiation.** Nothing auto-buys. A player's ad finds its
 audience through the room router: item links in channel messages keep their
@@ -284,6 +311,9 @@ ids (normalized to the `{item:ID}` tag convention), and the router appraises
 a sample of candidate bots through the same deterministic layer, floating
 the ones that genuinely want the item (or carry it to sell) ahead of the
 roster cut with a "would buy that item" / "carries that item to sell" mark.
+Service asks work the same way without needing an item link: a message
+mentioning portals or summons floats and marks the
+[sellers](#class-services) instead.
 A picked bot calls `evaluate_offer`, which answers deterministically — is
 the item an upgrade/reagent/consumable it wants, what it would pay, what it
 can afford — and the model engages in chat only when the answer says to.

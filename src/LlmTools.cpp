@@ -28,6 +28,7 @@
 #include "PlayerbotAI.h"
 #include "PlayerbotAIConfig.h"
 #include "PlayerbotMgr.h"
+#include "RandomPlayerbotMgr.h"
 #include "SharedDefines.h"
 #include "SpellInfo.h"
 #include "SpellMgr.h"
@@ -541,31 +542,18 @@ namespace ModLlm::LlmTools
 
         constexpr uint32 SPELL_RITUAL_OF_SUMMONING = 698;
 
-        // The "Portal: <city>" spells the mage knows, as (spell id, city name).
-        std::vector<std::pair<uint32, std::string>> KnownPortals(Player* bot)
+        // The bot's own circle - groupmates (outside BG/BF groups) and
+        // guildmates - gets class services for free.
+        bool InServiceCircle(Player* bot, Player* actor)
         {
-            std::vector<std::pair<uint32, std::string>> portals;
-            for (auto const& [spellId, playerSpell] : bot->GetSpellMap())
-            {
-                if (playerSpell->State == PLAYERSPELL_REMOVED || !playerSpell->Active)
-                    continue;
-
-                SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(spellId);
-                if (!spellInfo)
-                    continue;
-
-                std::string const name = spellInfo->SpellName[0];
-                if (name.rfind("Portal: ", 0) != 0)
-                    continue;
-
-                portals.emplace_back(spellId, name.substr(8));
-            }
-            return portals;
+            Group* group = bot->GetGroup();
+            bool const grouped = group && group->IsMember(actor->GetGUID())
+                && !group->isBGGroup() && !group->isBFGroup();
+            return grouped || (bot->GetGuildId() && bot->GetGuildId() == actor->GetGuildId());
         }
 
-        // Class services (conjured refreshments, portals, summons) are favors
-        // for the bot's own circle: groupmates, raidmates, and guildmates get
-        // them for free. Battlegrounds are off-limits.
+        // Conjured refreshments stay a favor for the circle only.
+        // Battlegrounds are off-limits for every service.
         bool ClassServiceBlocked(Player* bot, Player* actor, std::string& error)
         {
             if (bot->InBattleground() || actor->InBattleground())
@@ -574,11 +562,7 @@ namespace ModLlm::LlmTools
                 return true;
             }
 
-            Group* group = bot->GetGroup();
-            bool const grouped = group && group->IsMember(actor->GetGUID())
-                && !group->isBGGroup() && !group->isBFGroup();
-            bool const guilded = bot->GetGuildId() && bot->GetGuildId() == actor->GetGuildId();
-            if (!grouped && !guilded)
+            if (!InServiceCircle(bot, actor))
             {
                 error = "you only do that for groupmates and guildmates";
                 return true;
@@ -598,27 +582,44 @@ namespace ModLlm::LlmTools
             return false;
         }
 
-        bool PortalBlocked(Player* bot, Player* actor, std::string& error)
+        // Portals and summons are free for the circle and for sale to real
+        // players outside it (ClassService.*Tip); anyone else is refused.
+        bool PaidServiceBlocked(Player* bot, Player* actor, bool sells, std::string& error)
         {
-            if (ClassServiceBlocked(bot, actor, error))
-                return true;
-            if (bot->getClass() != CLASS_MAGE || KnownPortals(bot).empty())
+            if (bot->InBattleground() || actor->InBattleground())
             {
-                error = "you have no portal spells";
+                error = "not inside a battleground";
+                return true;
+            }
+
+            if (!InServiceCircle(bot, actor) && !(sells && BotSelector::IsRealPlayer(actor)))
+            {
+                error = "you only do that for groupmates and guildmates";
                 return true;
             }
             return false;
         }
 
+        bool PortalBlocked(Player* bot, Player* actor, std::string& error)
+        {
+            if (bot->getClass() != CLASS_MAGE || ClassServices::KnownPortals(bot).empty())
+            {
+                error = "you have no portal spells";
+                return true;
+            }
+            return PaidServiceBlocked(bot, actor, ClassServices::SellsPortals(bot), error);
+        }
+
         bool SummonBlocked(Player* bot, Player* actor, std::string& error)
         {
-            if (ClassServiceBlocked(bot, actor, error))
-                return true;
             if (bot->getClass() != CLASS_WARLOCK || !bot->HasSpell(SPELL_RITUAL_OF_SUMMONING))
             {
                 error = "you cannot perform summoning rituals";
                 return true;
             }
+
+            if (PaidServiceBlocked(bot, actor, ClassServices::SellsSummons(bot), error))
+                return true;
 
             // The ritual action invites an ungrouped requester into the bot's own
             // group first (the bot stays put), so only an actor stuck in some other
@@ -1548,11 +1549,13 @@ namespace ModLlm::LlmTools
                     return false;
 
                 std::string const wanted = args["destination"].get<std::string>();
+                uint32 portalSpellId = 0;
                 std::string city;
-                for (auto const& [spellId, portalCity] : KnownPortals(context.bot))
+                for (auto const& [spellId, portalCity] : ClassServices::KnownPortals(context.bot))
                 {
                     if (StringContainsStringI(portalCity, wanted))
                     {
+                        portalSpellId = spellId;
                         city = portalCity;
                         break;
                     }
@@ -1560,11 +1563,47 @@ namespace ModLlm::LlmTools
                 if (city.empty())
                 {
                     error = "you can only open portals to:";
-                    for (auto const& [spellId, portalCity] : KnownPortals(context.bot))
+                    for (auto const& [spellId, portalCity] : ClassServices::KnownPortals(context.bot))
                         error += " " + portalCity + ",";
                     error.pop_back();
                     return false;
                 }
+
+                // A paying customer: the deterministic deal machinery quotes
+                // the tip (whispered), collects it through a trade window,
+                // and casts - traveling over first when they are in another
+                // city. The circle keeps the free instant cast below.
+                if (!InServiceCircle(context.bot, context.actor))
+                {
+                    if (sTradeOfferMgr->HasDealWith(context.bot->GetGUID(), context.actor->GetGUID()))
+                    {
+                        context.result = "you already shook hands with them on a deal - it is in "
+                            "motion, no need to arrange it twice";
+                        return true;
+                    }
+
+                    if (!MarketQuote::CommitService(context.ai, context.actor, TradeService::Portal,
+                            portalSpellId, city, error))
+                        return false;
+
+                    PendingTradeDeal deal;
+                    if (!sTradeOfferMgr->GetPending(context.bot->GetGUID(), deal))
+                    {
+                        error = "the deal fell through";
+                        return false;
+                    }
+
+                    context.result = Acore::StringFormat(
+                        "You quoted them {} for a portal to {} - you told them so. {}",
+                        ChatHelper::formatMoney(deal.price), city,
+                        deal.departAt
+                            ? "They are in another town: you will automatically make your way over "
+                              "(a few minutes), take the coin in a trade window, and open it."
+                            : "You will automatically walk over, take the coin in a trade window, "
+                              "and open it - stay in town until it is done.");
+                    return true;
+                }
+
                 if (!context.bot->IsWithinDistInMap(context.actor, sPlayerbotAIConfig.sightDistance))
                 {
                     error = "they are too far away to reach your portal - they would have to come to you";
@@ -1587,26 +1626,69 @@ namespace ModLlm::LlmTools
         sLlmToolRegistry->Register({
             "summon_player",
             "Perform a Ritual of Summoning to teleport the player you are interacting with to "
-            "your location, like answering 'can I get a summon?'. If they are not in your "
-            "group yet you send them a group invite first and begin once they accept. Nearby "
-            "helpers channel the portal with you and the player receives a summon request.",
+            "your location - where you are standing right now, nowhere else - like answering "
+            "'can I get a summon?'. If they are not in your group yet you send them a group "
+            "invite first and begin once they accept. Nearby helpers channel the portal with "
+            "you and the player receives a summon request.",
             {
                 { "type", "object" },
-                { "properties", nlohmann::json::object() }
+                { "properties", { { "destination", { { "type", "string" },
+                    { "description", "The place they asked to be brought to, if they named one - "
+                        "you can only summon them to where you currently are" } } } } }
             },
             TRIGGER_CHAT_SAY | TRIGGER_CHAT_WHISPER | TRIGGER_CHAT_PARTY | TRIGGER_CHAT_GUILD
                 | TRIGGER_CHAT_CHANNEL,
             true,
-            [](ToolExecContext& context, nlohmann::json const& /*args*/, std::string& error)
+            [](ToolExecContext& context, nlohmann::json const& args, std::string& error)
             {
                 if (SummonBlocked(context.bot, context.actor, error))
                     return false;
+
+                // The ritual only ever lands them at the warlock's feet: when
+                // they named a place, it has to be this one.
+                std::string zone = PlayerbotAI::GetLocalizedAreaName(context.ai->GetCurrentZone());
+                std::string const wanted = args.value("destination", "");
+                if (!wanted.empty() && !StringContainsStringI(zone, wanted)
+                    && !StringContainsStringI(wanted, zone))
+                {
+                    error = "you are in " + zone + ", not " + wanted
+                        + " - you can only summon them to where you stand";
+                    return false;
+                }
+
+                // A paying customer: register the deal first so the model
+                // knows the quote (whispered deterministically); the tip is
+                // collected through a trade window once they land.
+                bool paidHere = false;
+                uint32 tip = 0;
+                if (!InServiceCircle(context.bot, context.actor)
+                    && !sTradeOfferMgr->HasDealWith(context.bot->GetGUID(), context.actor->GetGUID()))
+                {
+                    if (!MarketQuote::CommitService(context.ai, context.actor, TradeService::Summon,
+                            SPELL_RITUAL_OF_SUMMONING, "", error))
+                        return false;
+
+                    PendingTradeDeal deal;
+                    if (sTradeOfferMgr->GetPending(context.bot->GetGUID(), deal))
+                        tip = deal.price;
+                    paidHere = true;
+                }
+
                 if (!context.ai->DoSpecificAction("ritual", Event("llm", "", context.actor), true))
                 {
+                    if (paidHere)
+                        sTradeOfferMgr->Clear(context.bot->GetGUID());
                     error = "the ritual cannot start - it needs the player to accept your group "
                         "invite and two group members or bystanders nearby to help channel it";
                     return false;
                 }
+
+                if (paidHere)
+                    context.result = Acore::StringFormat(
+                        "You quoted them {} for a summon here to {} - you told them so, and the "
+                        "ritual machinery is starting. Once they land, the tip changes hands "
+                        "through a trade window automatically.",
+                        ChatHelper::formatMoney(tip), zone);
                 return true;
             },
             [](Player* bot, Player* actor)
@@ -1878,5 +1960,41 @@ namespace ModLlm::LlmTools
             bot->SendMovementFlagUpdate();
             it = pendingTravels.erase(it);
         }
+    }
+}
+
+namespace ModLlm::ClassServices
+{
+    std::vector<std::pair<uint32, std::string>> KnownPortals(Player* bot)
+    {
+        std::vector<std::pair<uint32, std::string>> portals;
+        for (auto const& [spellId, playerSpell] : bot->GetSpellMap())
+        {
+            if (playerSpell->State == PLAYERSPELL_REMOVED || !playerSpell->Active)
+                continue;
+
+            SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(spellId);
+            if (!spellInfo)
+                continue;
+
+            std::string const name = spellInfo->SpellName[0];
+            if (name.rfind("Portal: ", 0) != 0)
+                continue;
+
+            portals.emplace_back(spellId, name.substr(8));
+        }
+        return portals;
+    }
+
+    bool SellsPortals(Player* bot)
+    {
+        return sPlayerbotAIConfig.classServicePortalTip && bot->getClass() == CLASS_MAGE
+            && sRandomPlayerbotMgr.IsRandomBot(bot) && !KnownPortals(bot).empty();
+    }
+
+    bool SellsSummons(Player* bot)
+    {
+        return sPlayerbotAIConfig.classServiceSummonTip && bot->getClass() == CLASS_WARLOCK
+            && sRandomPlayerbotMgr.IsRandomBot(bot) && bot->HasSpell(698 /*Ritual of Summoning*/);
     }
 }
