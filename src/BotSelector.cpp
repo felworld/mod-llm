@@ -327,8 +327,9 @@ namespace ModLlm::BotSelector
 
     bool IsDefenseChannel(Channel const* channel)
     {
+        // WorldDefense is a custom channel (id 0) with a fixed name.
         return channel && (channel->GetChannelId() == ChatChannelId::LOCAL_DEFENSE
-            || channel->GetChannelId() == ChatChannelId::WORLD_DEFENSE);
+            || channel->GetName() == WORLD_DEFENSE_CHANNEL_NAME);
     }
 
     std::vector<Player*> SelectForChat(Player* sender, uint32 triggerKind, std::string const& message,

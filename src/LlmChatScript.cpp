@@ -211,7 +211,8 @@ namespace ModLlm
             }
             else if (channel)
             {
-                if (!channel->GetChannelId() && !sLlmConfig->customChannelsEnabled)
+                if (!channel->GetChannelId() && !sLlmConfig->customChannelsEnabled
+                    && !BotSelector::IsDefenseChannel(channel))
                     return;
                 kind = TRIGGER_CHAT_CHANNEL;
                 roomKey = Acore::StringFormat("channel:{}:{}", channel->GetName(), uint32(sender->GetTeamId()));
