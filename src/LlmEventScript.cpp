@@ -269,12 +269,13 @@ namespace ModLlm
         using EventDescriber = std::function<std::string(Player* bot)>;
 
         // Only feats that carry their own story - a ding, an achievement, a
-        // rare drop - are worth retelling to the zone-wide General channel.
-        // Play-by-play (mob pulls, deaths, duels, PvP kills) is invisible to
-        // readers across the zone: the prompt asks the model to retell or
-        // stay silent, but small models still produce "nice pulls", so the
-        // gate is enforced here and those comments stay in local /say.
-        static bool IsZoneChannelWorthy(char const* eventType)
+        // rare drop - are worth retelling to a whole zone or battleground
+        // team. Play-by-play (mob pulls, deaths, duels, PvP kills) is
+        // invisible to readers who are not standing there: the prompt asks
+        // the model to retell or stay silent, but small models still produce
+        // "nice pulls", so the gate is enforced here and those comments stay
+        // in local /say.
+        static bool IsBroadcastWorthy(char const* eventType)
         {
             std::string_view type(eventType);
             return type == "level_up" || type == "achievement" || type == "loot";
@@ -398,11 +399,13 @@ namespace ModLlm
 
                 // A comment about a groupmate (or the bot's own feat while
                 // grouped) belongs in group chat. Otherwise some comments go
-                // to the zone's General channel - resolving it needs the world
-                // thread, so the wish rides along and the delayed dispatch
-                // binds it (falling back to /say when the bot has no channel
-                // or no human reads it). The rest is said aloud, which is
-                // only worth doing with a human in earshot.
+                // to the wide audience - the battleground team in a match,
+                // the zone's General channel outside one - which needs the
+                // world thread to resolve, so the wish rides along and the
+                // delayed dispatch binds it (falling back to /say when the
+                // bot has no such audience or no human reads it). The rest is
+                // said aloud, which is only worth doing with a human in
+                // earshot.
                 Group* group = bot->GetGroup();
                 if (group && actor->GetGroup() == group && !group->isBGGroup() && !group->isBFGroup())
                 {
@@ -411,12 +414,12 @@ namespace ModLlm
                     trigger.chatType = group->isRaidGroup() ? CHAT_MSG_RAID : CHAT_MSG_PARTY;
                     trigger.roomKey = Acore::StringFormat("group:{}", group->GetGUID().GetCounter());
                 }
-                else if (IsZoneChannelWorthy(eventType) && urand(0, 99) < sLlmConfig->eventChannelChance)
-                    trigger.wantZoneChannel = true;
+                else if (IsBroadcastWorthy(eventType) && urand(0, 99) < sLlmConfig->eventChannelChance)
+                    trigger.wantAmbientChannel = true;
                 else if (!BotSelector::HasRealPlayerNearby(bot, sLlmConfig->sayDistance))
                     continue;
 
-                if (trigger.wantZoneChannel)
+                if (trigger.wantAmbientChannel)
                     Dispatch::SubmitDelayed(bot, actor != bot ? actor : nullptr, std::move(trigger), 1);
                 else if (!Dispatch::Submit(bot, actor != bot ? actor : nullptr, std::move(trigger)))
                     continue;

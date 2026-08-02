@@ -69,8 +69,9 @@ namespace ModLlm
                                           // as a natural responder to a WTS/WTB ad
         std::string eventType;       // "creature_kill", "level_up", ... for TRIGGER_GAME_EVENT
         uint32 chainDepth = 0;       // bot-to-bot hops so far (caps runaway bot conversations)
-        bool wantZoneChannel = false; // bind to the zone General channel at world-thread
-                                      // dispatch (ChannelMgr is unsafe on map threads)
+        bool wantAmbientChannel = false; // bind the wide audience - battleground team chat, else
+                                         // the zone General channel - at world-thread dispatch
+                                         // (ChannelMgr is unsafe on map threads)
         bool tradeAd = false;        // market-ad initiative: the prompt is seeded with the
                                      // bot's real sellables and wants (WTS/WTB chatter)
         bool crossFaction = false;   // the actor is on the opposing faction: no shared language

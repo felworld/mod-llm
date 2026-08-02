@@ -492,9 +492,12 @@ LLM.Event.Chance.DefenseEscalation = 100
 
 #
 #    LLM.Event.ChannelChance
-#        Description: Percent of event comments that go to the bot's zone
-#                     General channel instead of /say (when the bot is on the
-#                     channel and a real player is too; otherwise /say).
+#        Description: Percent of event comments that go to the bot's wide
+#                     audience instead of /say: its zone General channel
+#                     (when the bot is on the channel and a real player is
+#                     too), or its battleground team's chat while the bot is
+#                     in a match, since that is where a battleground talks.
+#                     Otherwise /say.
 #        Default:     10
 #
 
@@ -537,7 +540,9 @@ LLM.Initiative.Chance = 5
 #                     lagging?" zone chatter real servers have. Requires the
 #                     bot on the channel with a real player also on it;
 #                     otherwise the remark stays /say, which requires a human
-#                     in earshot.
+#                     in earshot. In a battleground the remark goes to the
+#                     bot's team chat instead (with a real player on the
+#                     team), where a match actually talks.
 #        Default:     25
 #
 
@@ -650,6 +655,8 @@ LLM.History.RetentionDays = 2
 #               Gulch score/flag status and the key to play callouts like
 #               "inc", beside the bg_strategy tool;
 #               zone-channel remarks: reminds it the whole zone hears it;
+#               team-chat remarks in a battleground: reminds it the whole
+#               team hears it and keeps the remark about the match;
 #               cross-faction emotes/events: explains the language barrier)
 #               {memory_block} is the bot's own notes: those about the actor
 #               plus its most recent general notes (see LLM.Memory.*)

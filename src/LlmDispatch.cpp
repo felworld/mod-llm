@@ -161,12 +161,12 @@ namespace ModLlm::Dispatch
                 continue;
 
             // Deferred from a map-thread hook: now that we are on the world
-            // thread the zone channel can be resolved. An unbound trigger
-            // falls back to /say - worth doing only with a human in earshot.
-            if (trigger.wantZoneChannel)
+            // thread the channel can be resolved. An unbound trigger falls
+            // back to /say - worth doing only with a human in earshot.
+            if (trigger.wantAmbientChannel)
             {
-                trigger.wantZoneChannel = false;
-                if (!BotSelector::BindZoneChannel(bot, trigger)
+                trigger.wantAmbientChannel = false;
+                if (!BotSelector::BindAmbientChannel(bot, trigger)
                     && !BotSelector::HasRealPlayerNearby(bot, sLlmConfig->sayDistance))
                     continue;
             }

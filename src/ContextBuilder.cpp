@@ -57,6 +57,8 @@ namespace ModLlm::ContextBuilder
                 default:
                     if (trigger.chatType == CHAT_MSG_CHANNEL && !trigger.channelName.empty())
                         return trigger.channelName;
+                    if (trigger.chatType == CHAT_MSG_BATTLEGROUND)
+                        return "battleground";
                     if (trigger.chatType == CHAT_MSG_RAID)
                         return "raid";
                     if (trigger.chatType == CHAT_MSG_PARTY)
@@ -98,6 +100,16 @@ namespace ModLlm::ContextBuilder
                     " just ganked a lowbie by the crossroads lol\". Most local moments are not worth"
                     " broadcasting to a whole zone: staying silent is the usual choice.",
                     trigger.channelName);
+
+            // The same remark or comment inside a battleground: the audience
+            // is the bot's own team, and they are all in this match. Team
+            // chat is the match's chat, so what belongs there is what is
+            // happening here - not a story from the world outside.
+            if ((trigger.kind == TRIGGER_INITIATIVE || trigger.kind == TRIGGER_GAME_EVENT)
+                && trigger.chatType == CHAT_MSG_BATTLEGROUND)
+                return " If you say something, it goes to your whole battleground team. They are in this"
+                    " match with you: keep it to what is happening in here - the fight, the flags, the"
+                    " score - and say nothing at all unless it is worth their time.";
 
             if (trigger.kind != TRIGGER_CHAT_PARTY)
                 return "";

@@ -150,9 +150,12 @@ namespace ModLlm::LlmTools
                 default:
                     // Game events normally reply in /say, but a trigger can
                     // bind another audience (a group greeting on join, an
-                    // initiative remark pointed at the zone channel).
+                    // initiative remark pointed at the zone channel or, in a
+                    // battleground, at the team).
                     if (trigger.chatType == CHAT_MSG_CHANNEL)
                         sent = spokeInChannel = SendToChannel(context.bot, trigger.channelName, message);
+                    else if (trigger.chatType == CHAT_MSG_BATTLEGROUND)
+                        sent = SayToBattleground(context, message);
                     else if (trigger.chatType == CHAT_MSG_RAID)
                         sent = context.ai->SayToRaid(message);
                     else if (trigger.chatType == CHAT_MSG_PARTY)

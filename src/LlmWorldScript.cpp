@@ -164,14 +164,16 @@ namespace ModLlm
                     }
                 }
 
-                // Some remarks go to the zone's General channel instead of
-                // /say; the human-audience gate widens to "anyone in the
-                // channel" to match the wider reach. A /say remark needs a
-                // human close enough to actually hear it.
+                // Some remarks go to the wide audience instead of /say - the
+                // zone's General channel, or the team's chat while the bot is
+                // in a battleground, which is where a match talks. The
+                // human-audience gate widens to "anyone in that audience" to
+                // match the wider reach; a /say remark needs a human close
+                // enough to actually hear it.
                 bool channelBound = trigger.chatType == CHAT_MSG_CHANNEL;
                 if (!trigger.tradeAd)
                     channelBound = urand(0, 99) < sLlmConfig->initiativeChannelChance
-                        && BotSelector::BindZoneChannel(player, trigger);
+                        && BotSelector::BindAmbientChannel(player, trigger);
                 if (!channelBound
                     && !BotSelector::HasRealPlayerNearby(player, sLlmConfig->sayDistance))
                     continue;

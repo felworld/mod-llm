@@ -51,7 +51,8 @@ in [FEATURES.md](FEATURES.md).
   duels, achievements, notable loot, loot-roll wins/losses, group joins, out-of-group heals —
   narrated into every nearby bot's overheard transcript whether or not anyone was picked to react.
 - **[Initiative](FEATURES.md#initiative)** — an idle scheduler gives each bot periodic
-  opportunities to act unprompted.
+  opportunities to act unprompted; unprompted remarks reach the zone General channel, or
+  team chat while the bot is in a battleground.
 - **[Market trading](FEATURES.md#market-trading)** — a slice of city initiative becomes
   grounded WTS/WTB ads in the Trade channel (rarely General or /say), a player's own ads
   route to bots that genuinely want (or stock) the linked item — "wtb portal/summon" ads

@@ -96,6 +96,12 @@ namespace ModLlm::BotSelector
     // otherwise. World thread only (ChannelMgr access).
     bool BindZoneChannel(Player* bot, TriggerContext& trigger);
 
+    // Points `trigger` at the widest audience the bot has around it: its
+    // battleground team's chat inside a battleground, the zone General
+    // channel everywhere else. Returns false (trigger untouched) when that
+    // audience has no human in it. World thread only.
+    bool BindAmbientChannel(Player* bot, TriggerContext& trigger);
+
     // Same for the city-bound Trade channel, which playerbots keeps a bot
     // joined to exactly while it is in a city. World thread only.
     bool BindTradeChannel(Player* bot, TriggerContext& trigger);

@@ -302,6 +302,15 @@ story zone-wide (level-ups, achievements, notable loot) roll for General;
 play-by-play like mob pulls, deaths, and duels is invisible to readers across
 the zone and stays in local /say.
 
+Inside a battleground that share goes to **team chat** (/bg) rather than
+General: a match talks in team chat, while a BG zone's General channel is
+shared by every concurrent match on that map and read by nobody. The bot
+needs a real player on its team for the remark to be worth making (it does
+not fall back to General from inside a match), and its prompt gets the same
+scoreboard facts a battleground reply gets — score, flag states, carrier
+names — plus a reminder that the whole team hears it and that team chat is
+about the match.
+
 ## Market trading
 
 Bots take part in the WTS/WTB economy, with the judgment/mechanics split the

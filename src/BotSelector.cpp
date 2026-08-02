@@ -471,6 +471,29 @@ namespace ModLlm::BotSelector
         return false;
     }
 
+    bool BindAmbientChannel(Player* bot, TriggerContext& trigger)
+    {
+        // Inside a battleground nobody reads the zone General channel: it is
+        // shared by every match on that map, while the team's own chat is
+        // where the match talks and where a teammate might act on what is
+        // said. The battleground group is the whole team, so /bg reaches all
+        // of it - and when no human is on the team, nothing is worth saying
+        // (falling back to General would only leak the line into the other
+        // matches).
+        Group* group = bot->GetGroup();
+        if (bot->InBattleground() && group && (group->isBGGroup() || group->isBFGroup()))
+        {
+            if (!GroupHasRealPlayer(group))
+                return false;
+
+            trigger.chatType = CHAT_MSG_BATTLEGROUND;
+            trigger.roomKey = Acore::StringFormat("group:{}", group->GetGUID().GetCounter());
+            return true;
+        }
+
+        return BindZoneChannel(bot, trigger);
+    }
+
     bool BindTradeChannel(Player* bot, TriggerContext& trigger)
     {
         ChannelMgr* mgr = ChannelMgr::forTeam(bot->GetTeamId());
