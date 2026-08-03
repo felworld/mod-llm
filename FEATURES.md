@@ -375,6 +375,32 @@ sessions upstream's keyword-matched responders should be off
 (`AiPlayerbot.KeywordTradeReplies = 0`) so deterministic whispers don't
 double-respond next to LLM-driven buyers.
 
+## Guild recruiting
+
+Bots whose guild rank carries invite rights recruit the way players do. The
+`guild_invite` tool covers the reactive case — someone asks to join or
+clearly wants in — and goes through the core's `HandleInviteMember`, so rank
+rights, faction, and existing membership are all enforced (and pre-checked,
+so the model gets a usable error instead of a silent no-op). Two initiative
+slices add the unprompted side:
+
+**Recruitment ads.** A slice of initiative opportunities
+(`LLM.GuildAd.Chance`) becomes a recruitment line into the city's
+**GuildRecruitment channel** when the bot is standing in a friendly capital
+with a real player on the channel — and since the client auto-joins only
+unguilded players to that channel in cities, a listener is by definition
+recruitable. The prompt is seeded with real guild facts (name, member count,
+online count, MOTD), so the ad only claims what is true.
+
+**Cold pitches.** A rarer slice (`LLM.GuildRecruit.Chance`) fires when the
+closest passing real player within say range is guildless and invitable: the
+bot says one short friendly line and may follow it with a real invite —
+chatty by design, not a silent invite out of nowhere. Firing the pitch puts
+that player on a cooldown shared by *every* bot
+(`LLM.GuildRecruit.CooldownSeconds`, default 30 minutes), so declining or
+ignoring one invite never summons a parade of follow-up recruiters. Asking
+to join a bot's guild yourself is reactive and unaffected by the cooldown.
+
 ## Persistence
 
 Two features persist to the characters DB (schema auto-applied at worldserver

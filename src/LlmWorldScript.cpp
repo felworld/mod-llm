@@ -5,6 +5,7 @@
 
 #include "BotSelector.h"
 #include "GameTime.h"
+#include "Guild.h"
 #include "HistoryStore.h"
 #include "LlmClient.h"
 #include "LlmConfig.h"
@@ -21,6 +22,17 @@
 
 namespace ModLlm
 {
+    namespace
+    {
+        // Bot-side gate for the guild-chatter initiative slices: in a guild,
+        // with a rank that is actually allowed to invite.
+        bool CanRecruitFor(Player* bot)
+        {
+            Guild* guild = bot->GetGuild();
+            return guild && guild->HasRankRight(bot, GR_RIGHT_INVITE);
+        }
+    }
+
     // Owns the module lifecycle (config, stores, worker pool) and the
     // initiative scheduler that lets bots act unprompted. Everything here runs
     // on the world thread.
@@ -105,6 +117,11 @@ namespace ModLlm
             time_t now = GameTime::GetGameTime().count();
             uint32 submitted = 0;
 
+            // The cold-pitch cooldown map stays tiny (one entry per recently
+            // pitched human), so sweeping it every tick is cheap; afterwards
+            // presence alone means "still on cooldown".
+            std::erase_if(_recruitCooldown, [now](auto const& entry) { return entry.second <= now; });
+
             for (auto const& [guid, player] : ObjectAccessor::GetPlayers())
             {
                 if (submitted >= sLlmConfig->initiativeMaxBotsPerTick)
@@ -164,6 +181,48 @@ namespace ModLlm
                     }
                 }
 
+                // Another slice becomes guild chatter, for bots whose guild
+                // rank can actually invite. In a capital that is a
+                // recruitment line into the city's GuildRecruitment channel -
+                // the client auto-joins only unguilded players to it, so a
+                // human on the channel is exactly a human who could be
+                // recruited. Elsewhere it is the rarer cold pitch: the
+                // closest passing unguilded player gets a friendly line and
+                // (if the model commits) a real guild invite. Firing the
+                // pitch puts that player on a cooldown shared by every bot -
+                // set at fire time, so declining or ignoring one invite never
+                // summons a parade of follow-up recruiters; a player who
+                // *asks* to join is unaffected, that path is reactive.
+                Player* recruit = nullptr;
+                if (!trigger.tradeAd && CanRecruitFor(player))
+                {
+                    if (urand(0, 99) < sLlmConfig->guildAdChance
+                        && sTravelMgr.IsFriendlyCapital(player->GetZoneId(), player->GetTeamId()))
+                    {
+                        TriggerContext ad;
+                        if (BotSelector::BindGuildRecruitmentChannel(player, ad))
+                        {
+                            trigger = std::move(ad);
+                            trigger.kind = TRIGGER_INITIATIVE;
+                            trigger.guildAd = true;
+                        }
+                    }
+
+                    if (!trigger.guildAd && !player->InBattleground()
+                        && urand(0, 99) < sLlmConfig->guildRecruitChance)
+                    {
+                        recruit = BotSelector::FindRecruitTarget(player, sLlmConfig->sayDistance);
+                        if (recruit && !_recruitCooldown.contains(recruit->GetGUID().GetRawValue()))
+                        {
+                            _recruitCooldown[recruit->GetGUID().GetRawValue()] =
+                                now + sLlmConfig->guildRecruitCooldownSeconds;
+                            trigger.guildRecruit = true;
+                        }
+                        else
+                            recruit = nullptr;
+                    }
+                }
+
                 // Some remarks go to the wide audience instead of /say - the
                 // zone's General channel, or the team's chat while the bot is
                 // in a battleground, which is where a match talks. The
@@ -171,14 +230,14 @@ namespace ModLlm
                 // match the wider reach; a /say remark needs a human close
                 // enough to actually hear it.
                 bool channelBound = trigger.chatType == CHAT_MSG_CHANNEL;
-                if (!trigger.tradeAd)
+                if (!trigger.tradeAd && !trigger.guildAd && !trigger.guildRecruit)
                     channelBound = urand(0, 99) < sLlmConfig->initiativeChannelChance
                         && BotSelector::BindAmbientChannel(player, trigger);
                 if (!channelBound
                     && !BotSelector::HasRealPlayerNearby(player, sLlmConfig->sayDistance))
                     continue;
 
-                if (Dispatch::Submit(player, nullptr, std::move(trigger)))
+                if (Dispatch::Submit(player, recruit, std::move(trigger)))
                     ++submitted;
             }
         }
@@ -194,6 +253,7 @@ namespace ModLlm
         uint32 _memorySaveTimer = 0;
         uint32 _historySaveTimer = 0;
         std::unordered_map<uint64, time_t> _nextInitiative;
+        std::unordered_map<uint64, time_t> _recruitCooldown; // player guid -> pitchable again at
     };
 }
 

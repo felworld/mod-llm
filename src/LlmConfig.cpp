@@ -79,6 +79,24 @@ namespace ModLlm
             "a head\". Only advertise items, services, and prices from the list above. One line at "
             "most; if nothing is worth posting, do nothing.{reply_guidance}";
 
+        constexpr char DEFAULT_PROMPT_GUILD_AD[] =
+            "{memory_block}{history_block}You are in town and could put out a word for your guild in "
+            "the guild recruitment channel, which unguilded players in cities see. Your guild:\n"
+            "{guild_block}\n"
+            "If you feel like it, post one short recruitment line the way players write them - guild "
+            "name plus something true from the facts above, like \"<Dawnbreakers> recruiting, social "
+            "leveling guild, all welcome\" or \"<Dawnbreakers> lf more for evening dungeon runs, pst\". "
+            "Only claim what the facts above support. One line at most; if nothing feels worth "
+            "posting, do nothing.{reply_guidance}";
+
+        constexpr char DEFAULT_PROMPT_GUILD_RECRUIT[] =
+            "{memory_block}{history_block}You notice {actor_name}, a level {actor_level} {actor_race} "
+            "{actor_class}, passing by - not in any guild. Yours:\n"
+            "{guild_block}\n"
+            "You are in a recruiting mood: if they seem worth having, say one short friendly line to "
+            "them and send an invite with the guild_invite tool. No pressure and no hard sell; if "
+            "they do not seem worth bothering, do nothing.{reply_guidance}";
+
         constexpr char DEFAULT_PROMPT_ROUTER[] =
             "You are routing a chat message between players in World of Warcraft. In {channel_label} chat, "
             "{actor_name} says: \"{message}\"\n"
@@ -233,6 +251,10 @@ namespace ModLlm
         tradeAdGeneralPercent = sConfigMgr->GetOption<uint32>("LLM.TradeAd.GeneralPercent", 10);
         tradeAdSayPercent = sConfigMgr->GetOption<uint32>("LLM.TradeAd.SayPercent", 5);
 
+        guildAdChance = sConfigMgr->GetOption<uint32>("LLM.GuildAd.Chance", 4);
+        guildRecruitChance = sConfigMgr->GetOption<uint32>("LLM.GuildRecruit.Chance", 2);
+        guildRecruitCooldownSeconds = sConfigMgr->GetOption<uint32>("LLM.GuildRecruit.CooldownSeconds", 1800);
+
         memoryEnabled = sConfigMgr->GetOption<bool>("LLM.Memory.Enable", true);
         memoryMaxNotesPerBot = sConfigMgr->GetOption<uint32>("LLM.Memory.MaxNotesPerBot", 40);
         memoryMaxNotesPerSubject = sConfigMgr->GetOption<uint32>("LLM.Memory.MaxNotesPerSubject", 8);
@@ -255,6 +277,8 @@ namespace ModLlm
         promptEvent = LoadPrompt("LLM.Prompt.Event", DEFAULT_PROMPT_EVENT);
         promptInitiative = LoadPrompt("LLM.Prompt.Initiative", DEFAULT_PROMPT_INITIATIVE);
         promptTradeAd = LoadPrompt("LLM.Prompt.TradeAd", DEFAULT_PROMPT_TRADE_AD);
+        promptGuildAd = LoadPrompt("LLM.Prompt.GuildAd", DEFAULT_PROMPT_GUILD_AD);
+        promptGuildRecruit = LoadPrompt("LLM.Prompt.GuildRecruit", DEFAULT_PROMPT_GUILD_RECRUIT);
         promptHistoryLine = LoadPrompt("LLM.Prompt.HistoryLine", DEFAULT_PROMPT_HISTORY_LINE);
         promptRouter = LoadPrompt("LLM.Prompt.Router", DEFAULT_PROMPT_ROUTER);
         promptSayRouter = LoadPrompt("LLM.Prompt.SayRouter", DEFAULT_PROMPT_SAY_ROUTER);

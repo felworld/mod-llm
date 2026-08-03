@@ -1301,14 +1301,14 @@ namespace ModLlm::LlmTools
         // the model gets a usable error instead of a silent no-op.
         sLlmToolRegistry->Register({
             "guild_invite",
-            "Invite the player you are interacting with to join your guild. Only use when they asked "
-            "to join or clearly want in.",
+            "Invite the player you are interacting with to join your guild. Use when they asked to "
+            "join or clearly want in, or when you are recruiting them yourself.",
             {
                 { "type", "object" },
                 { "properties", nlohmann::json::object() }
             },
             TRIGGER_CHAT_SAY | TRIGGER_CHAT_WHISPER | TRIGGER_CHAT_CHANNEL | TRIGGER_EMOTE
-                | TRIGGER_GAME_EVENT,
+                | TRIGGER_GAME_EVENT | TRIGGER_INITIATIVE,
             true,
             [](ToolExecContext& context, nlohmann::json const& /*args*/, std::string& error)
             {
@@ -1323,6 +1323,12 @@ namespace ModLlm::LlmTools
             {
                 std::string ignored;
                 return !GuildInviteBlocked(bot, actor, ignored);
+            },
+            [](TriggerContext const& trigger)
+            {
+                // Unprompted invites only on the dedicated cold-recruit
+                // initiative, never the ordinary idle tick.
+                return trigger.kind != TRIGGER_INITIATIVE || trigger.guildRecruit;
             }
         });
 

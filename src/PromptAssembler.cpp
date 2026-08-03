@@ -85,6 +85,7 @@ namespace ModLlm::PromptAssembler
             args.push_back(fmt::arg("reply_guidance", snapshot.replyGuidance));
             args.push_back(fmt::arg("environment", snapshot.environment));
             args.push_back(fmt::arg("market_block", snapshot.marketBlock));
+            args.push_back(fmt::arg("guild_block", snapshot.guildBlock));
 
             std::string const* templ = nullptr;
             switch (trigger.kind)
@@ -96,7 +97,14 @@ namespace ModLlm::PromptAssembler
                     templ = &sLlmConfig->promptEvent;
                     break;
                 case TRIGGER_INITIATIVE:
-                    templ = trigger.tradeAd ? &sLlmConfig->promptTradeAd : &sLlmConfig->promptInitiative;
+                    if (trigger.tradeAd)
+                        templ = &sLlmConfig->promptTradeAd;
+                    else if (trigger.guildAd)
+                        templ = &sLlmConfig->promptGuildAd;
+                    else if (trigger.guildRecruit)
+                        templ = &sLlmConfig->promptGuildRecruit;
+                    else
+                        templ = &sLlmConfig->promptInitiative;
                     break;
                 default:
                     templ = &sLlmConfig->promptChat;

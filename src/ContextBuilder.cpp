@@ -89,10 +89,10 @@ namespace ModLlm::ContextBuilder
             // An initiative remark or event comment pointed at the zone
             // channel: the audience is the whole zone, and none of them saw
             // what the bot just saw - a bare reaction lands as noise, so the
-            // model must retell or stay quiet. Trade ads carry their own
-            // guidance in the trade-ad prompt instead.
+            // model must retell or stay quiet. Trade and guild ads carry
+            // their own guidance in their prompts instead.
             if ((trigger.kind == TRIGGER_INITIATIVE || trigger.kind == TRIGGER_GAME_EVENT)
-                && !trigger.tradeAd
+                && !trigger.tradeAd && !trigger.guildAd
                 && trigger.chatType == CHAT_MSG_CHANNEL && !trigger.channelName.empty())
                 return Acore::StringFormat(" If you say something, it goes to the zone-wide \"{}\" channel."
                     " Nobody there saw what just happened around you, so a remark only makes sense if you"
@@ -377,6 +377,26 @@ namespace ModLlm::ContextBuilder
                         ChatHelper::formatMoney(sPlayerbotAIConfig.classServiceSummonTip));
 
                 snapshot.marketBlock = lines.empty() ? "nothing worth advertising right now" : lines;
+            }
+        }
+
+        // Same grounding rule for guild chatter: the ad and the cold pitch
+        // may only claim what is true - the guild's name, size, who is on,
+        // and its own message of the day.
+        if (trigger.guildAd || trigger.guildRecruit)
+        {
+            if (Guild* guild = sGuildMgr->GetGuildById(bot->GetGuildId()))
+            {
+                uint32 online = 0;
+                for (auto const& [guid, player] : ObjectAccessor::GetPlayers())
+                    if (player->IsInWorld() && player->GetGuildId() == guild->GetId())
+                        ++online;
+
+                snapshot.guildBlock = Acore::StringFormat("guild: <{}>\nmembers: {} ({} online now)",
+                    guild->GetName(), guild->GetMemberCount(), online);
+                if (!guild->GetMOTD().empty())
+                    snapshot.guildBlock += Acore::StringFormat("\nmessage of the day: \"{}\"",
+                        guild->GetMOTD());
             }
         }
 

@@ -74,6 +74,11 @@ namespace ModLlm
                                          // (ChannelMgr is unsafe on map threads)
         bool tradeAd = false;        // market-ad initiative: the prompt is seeded with the
                                      // bot's real sellables and wants (WTS/WTB chatter)
+        bool guildAd = false;        // guild-ad initiative: the prompt is seeded with the
+                                     // bot's real guild facts, the reply bound to the
+                                     // city GuildRecruitment channel
+        bool guildRecruit = false;   // cold-recruit initiative: the actor is a passing
+                                     // unguilded player the bot may chat up and invite
         bool crossFaction = false;   // the actor is on the opposing faction: no shared language
         bool crossFactionChatOk = false; // rolled permission to shout gibberish at them anyway
     };

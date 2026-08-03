@@ -494,28 +494,67 @@ namespace ModLlm::BotSelector
         return BindZoneChannel(bot, trigger);
     }
 
-    bool BindTradeChannel(Player* bot, TriggerContext& trigger)
+    namespace
     {
-        ChannelMgr* mgr = ChannelMgr::forTeam(bot->GetTeamId());
-        if (!mgr)
-            return false;
-
         // Membership alone proves nothing about location - playerbots keeps
-        // every bot on the faction-wide Trade channel wherever it roams, so
-        // callers gate on the bot actually standing in a city themselves.
-        for (auto const& [name, channel] : mgr->GetChannels())
+        // every bot on the faction-wide city channels (Trade,
+        // GuildRecruitment) wherever it roams, so callers gate on the bot
+        // actually standing in a city themselves.
+        bool BindCityChannel(Player* bot, uint32 channelId, TriggerContext& trigger)
         {
-            if (!channel || channel->GetChannelId() != ChatChannelId::TRADE || !bot->IsInChannel(channel))
-                continue;
-            if (!HasRealPlayerInChannel(channel))
+            ChannelMgr* mgr = ChannelMgr::forTeam(bot->GetTeamId());
+            if (!mgr)
                 return false;
 
-            trigger.chatType = CHAT_MSG_CHANNEL;
-            trigger.channelName = channel->GetName();
-            trigger.roomKey = Acore::StringFormat("channel:{}:{}",
-                channel->GetName(), uint32(bot->GetTeamId()));
-            return true;
+            for (auto const& [name, channel] : mgr->GetChannels())
+            {
+                if (!channel || channel->GetChannelId() != channelId || !bot->IsInChannel(channel))
+                    continue;
+                if (!HasRealPlayerInChannel(channel))
+                    return false;
+
+                trigger.chatType = CHAT_MSG_CHANNEL;
+                trigger.channelName = channel->GetName();
+                trigger.roomKey = Acore::StringFormat("channel:{}:{}",
+                    channel->GetName(), uint32(bot->GetTeamId()));
+                return true;
+            }
+            return false;
         }
-        return false;
+    }
+
+    bool BindTradeChannel(Player* bot, TriggerContext& trigger)
+    {
+        return BindCityChannel(bot, ChatChannelId::TRADE, trigger);
+    }
+
+    bool BindGuildRecruitmentChannel(Player* bot, TriggerContext& trigger)
+    {
+        return BindCityChannel(bot, ChatChannelId::GUILD_RECRUITMENT, trigger);
+    }
+
+    Player* FindRecruitTarget(Player* bot, float distance)
+    {
+        Map* map = bot->FindMap();
+        if (!map)
+            return nullptr;
+
+        Player* closest = nullptr;
+        for (MapReference const& ref : map->GetPlayers())
+        {
+            Player* player = ref.GetSource();
+            if (!player || !IsRealPlayer(player) || !player->IsAlive())
+                continue;
+            if (player->GetGuildId() || player->GetGuildIdInvited())
+                continue;
+            if (!sWorld->getBoolConfig(CONFIG_ALLOW_TWO_SIDE_INTERACTION_GUILD)
+                && bot->GetTeamId() != player->GetTeamId())
+                continue;
+            if (!bot->IsWithinDistInMap(player, distance))
+                continue;
+            if (!closest || bot->GetDistance(player) < bot->GetDistance(closest))
+                closest = player;
+        }
+        return closest;
     }
 }

@@ -105,6 +105,16 @@ namespace ModLlm::BotSelector
     // Same for the city-bound Trade channel, which playerbots keeps a bot
     // joined to exactly while it is in a city. World thread only.
     bool BindTradeChannel(Player* bot, TriggerContext& trigger);
+
+    // Same for the GuildRecruitment channel. The client auto-joins only
+    // unguilded players to it in cities, so the human-in-channel gate here
+    // means "someone recruitable is listening". World thread only.
+    bool BindGuildRecruitmentChannel(Player* bot, TriggerContext& trigger);
+
+    // The closest human within `distance` of `bot` that a guild cold pitch
+    // could land on: alive, guildless, no pending invite, invitable faction.
+    // Selection heuristic only - guild_invite re-validates at execution.
+    Player* FindRecruitTarget(Player* bot, float distance);
 }
 
 #endif

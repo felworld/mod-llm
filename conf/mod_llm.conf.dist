@@ -578,6 +578,40 @@ LLM.TradeAd.Chance = 30
 LLM.TradeAd.GeneralPercent = 10
 LLM.TradeAd.SayPercent = 5
 
+#
+#    LLM.GuildAd.Chance
+#        Description: Percent of initiative opportunities that become a guild
+#                     recruitment ad instead of an idle remark, when the bot's
+#                     guild rank can invite and it is standing in a friendly
+#                     capital with a real player on the GuildRecruitment
+#                     channel (the client auto-joins only unguilded players to
+#                     it in cities, so that is exactly a recruitable
+#                     audience). The prompt is seeded with real guild facts -
+#                     name, member count, online count, MOTD - so ads are
+#                     grounded: the model only phrases them.
+#        Default:     4
+#
+#    LLM.GuildRecruit.Chance
+#        Description: Percent of initiative opportunities where a bot whose
+#                     guild rank can invite notices the closest passing
+#                     unguilded player (within say range), says a short
+#                     friendly pitch, and may follow it with a real guild
+#                     invite via the guild_invite tool. Firing the pitch puts
+#                     that player on a cooldown shared by every bot, so
+#                     declining or ignoring one invite never summons a parade
+#                     of follow-up recruiters. Players who ask to join a
+#                     bot's guild themselves are unaffected by any of this.
+#        Default:     2
+#
+#    LLM.GuildRecruit.CooldownSeconds
+#        Description: The shared per-player cooldown after one cold pitch.
+#        Default:     1800
+#
+
+LLM.GuildAd.Chance = 4
+LLM.GuildRecruit.Chance = 2
+LLM.GuildRecruit.CooldownSeconds = 1800
+
 ########################################
 # Memory scratchpad
 ########################################
@@ -667,6 +701,9 @@ LLM.History.RetentionDays = 2
 #               spare stock and wants with its own price quotes; literal
 #               {item:ID} examples in a template must be written with
 #               doubled braces, {{item:ID}}, to survive formatting
+#               {guild_block} (guild-ad and guild-recruit prompts only) is
+#               the bot's real guild facts: name, member count, online
+#               count, MOTD
 #      router:  {channel_label} {actor_name} {message} {roster} {bg_note}
 #               {max_picks}
 #               ({bg_note} tells the router that battleground play callouts
@@ -697,6 +734,8 @@ LLM.Prompt.StyleExamples = "\n\nHow you type - examples of situation => message 
 # LLM.Prompt.Event = ""
 # LLM.Prompt.Initiative = ""
 # LLM.Prompt.TradeAd = ""
+# LLM.Prompt.GuildAd = ""
+# LLM.Prompt.GuildRecruit = ""
 # LLM.Prompt.HistoryLine = ""
 # LLM.Prompt.Router = ""
 # LLM.Prompt.SayRouter = ""

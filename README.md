@@ -18,6 +18,7 @@ to do:
 | `get_gear` / `get_inventory` | Read tools: hand the bot's equipped gear or bag contents back to the model (each item with an `{item:ID}` link tag) in a follow-up round |
 | `invite_to_party` | Invite the player, via a synthetic client packet so all core validation runs |
 | `challenge_duel` | Challenge the player to a duel |
+| `guild_invite` | Invite the player to the bot's guild — offered only when the bot's rank can invite and the player is guildless, validated by the core like any invite ([details](FEATURES.md#guild-recruiting)) |
 | `bg_strategy` | Relay a Warsong Gulch play call ("inc!!", "fc mid") to the whole team — fans out playerbots' `bg strategy` orders, every bot rolling its own compliance ([details](FEATURES.md#battleground-play-calls)) |
 | `conjure_refreshments` / `open_portal` | Mage class services: conjure food or water and walk it over to the asker, or open a portal to a capital city — free for the bot's circle, sold to strangers for a tip collected through a real trade window ([details](FEATURES.md#class-services)) |
 | `summon_player` | Warlock class service: summon the asker with a real Ritual of Summoning — inviting them to the bot's group first if needed, and recruiting nearby bots to help channel; strangers are quoted a tip, payable when they land ([details](FEATURES.md#class-services)) |
@@ -59,6 +60,10 @@ in [FEATURES.md](FEATURES.md).
   route to the mages and warlocks selling those — and deals agreed with a player actually
   happen through real trade windows, with the bot traveling over from another city when
   it has to.
+- **[Guild recruiting](FEATURES.md#guild-recruiting)** — a slice of city initiative becomes
+  grounded recruitment ads in the GuildRecruitment channel, and occasionally a bot chats up
+  a passing unguilded player and follows the line with a real guild invite — one shared
+  per-player cooldown keeps a decline from drawing a parade of recruiters.
 
 ## Architecture
 

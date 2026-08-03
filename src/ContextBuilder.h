@@ -43,6 +43,7 @@ namespace ModLlm
         std::string replyGuidance;    // audience reminder (group heard it / zone channel)
         std::string environment;   // initiative triggers only
         std::string marketBlock;   // trade-ad triggers only: real sellables/wants with quotes
+        std::string guildBlock;    // guild ad / cold recruit only: real guild facts
     };
 
     namespace ContextBuilder

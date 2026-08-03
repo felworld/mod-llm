@@ -135,6 +135,13 @@ namespace ModLlm
         uint32 tradeAdGeneralPercent = 10;
         uint32 tradeAdSayPercent = 5;
 
+        // Guild chatter: recruitment ads into the city GuildRecruitment
+        // channel, and the rarer cold pitch at a passing unguilded player.
+        // One pitch puts that player on a cooldown shared by every bot.
+        uint32 guildAdChance = 4;
+        uint32 guildRecruitChance = 2;
+        uint32 guildRecruitCooldownSeconds = 1800;
+
         // Memory scratchpad (remember/forget tools)
         bool memoryEnabled = true;
         uint32 memoryMaxNotesPerBot = 40;
@@ -160,6 +167,8 @@ namespace ModLlm
         std::string promptEvent;
         std::string promptInitiative;
         std::string promptTradeAd;
+        std::string promptGuildAd;
+        std::string promptGuildRecruit;
         std::string promptHistoryLine;
         std::string promptRouter;
         std::string promptSayRouter;
