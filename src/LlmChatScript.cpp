@@ -173,6 +173,13 @@ namespace ModLlm
             // Whispers: only the addressed bot may react, and always does.
             if (receiver)
             {
+                // A bot's whisper lands here too (Player::Whisper runs this
+                // hook), but recording and dispatch for it are OnBotWhisper's
+                // job, which carries the chain depth that bounds bot-to-bot
+                // exchanges - handling it here as well asked the receiver
+                // twice per line.
+                if (!BotSelector::IsRealPlayer(sender))
+                    return;
                 if (!sLlmConfig->whispersEnabled || BotSelector::IsRealPlayer(receiver))
                     return;
                 // Cross-faction whispers cannot happen for real players (GMs
@@ -230,10 +237,21 @@ namespace ModLlm
             if (!roomKey.empty())
                 sLlmHistoryStore->AddRoomLine(roomKey, sender->GetGUID(), sender->GetName(), text);
 
+            // A bot's say/yell lands here too (Player::Say runs this hook),
+            // but only for the recording above: who may reply to bot speech
+            // is decided in Overhear, which carries the chain depth that
+            // bounds bot-to-bot exchanges. Falling through to the dice picks
+            // below as well dispatched every bot line a second time with a
+            // fresh depth-0 trigger, so acknowledgement chains ("thx" ->
+            // "np" -> ...) never hit the depth cap and ping-ponged forever
+            // wherever many bots stand in earshot.
+            if (!BotSelector::IsRealPlayer(sender))
+                return;
+
             // Raid and battleground messages from a real player go through
             // the router: one cheap LLM call picks which bots the message is
             // for (name, class, and role considered) instead of random dice.
-            if (group && sLlmConfig->groupRouterEnabled && BotSelector::IsRealPlayer(sender)
+            if (group && sLlmConfig->groupRouterEnabled
                 && (group->isRaidGroup() || group->isBGGroup() || group->isBFGroup()))
             {
                 std::vector<Player*> candidates = BotSelector::CollectGroupBots(sender, group);
@@ -256,7 +274,7 @@ namespace ModLlm
             // call picks whoever the message is actually meant for (or
             // nobody) - so an undirected reply reaches the bot the player is
             // talking to instead of rolling dice across bystanders.
-            if (kind == TRIGGER_CHAT_SAY && sLlmConfig->sayRouterEnabled && BotSelector::IsRealPlayer(sender))
+            if (kind == TRIGGER_CHAT_SAY && sLlmConfig->sayRouterEnabled)
             {
                 std::vector<Player*> candidates = BotSelector::CollectSayCandidates(sender, maxDistance);
                 if (candidates.empty())
@@ -277,7 +295,7 @@ namespace ModLlm
             // feel comes from the router judging that most alarms are
             // answered by nobody, which per-candidate dice cannot do on a
             // faction-wide channel.
-            if (sLlmConfig->roomRouterEnabled && BotSelector::IsRealPlayer(sender)
+            if (sLlmConfig->roomRouterEnabled
                 && (kind == TRIGGER_CHAT_GUILD || kind == TRIGGER_CHAT_CHANNEL))
             {
                 std::vector<Player*> candidates = kind == TRIGGER_CHAT_GUILD

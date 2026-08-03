@@ -60,7 +60,9 @@ namespace ModLlm::Overhear
     void OnBotSpeech(Player* bot, TriggerContext const& sourceTrigger,
         std::string const& message, bool yell)
     {
-        RecordSpeech(bot, message, yell);
+        // The say itself already passed through LlmChatScript's chat hook
+        // (Player::Say fires it for bots too), which ran RecordSpeech for
+        // everyone in earshot - this function only decides who may reply.
 
         if (!ChainAllowed(sourceTrigger))
             return;
