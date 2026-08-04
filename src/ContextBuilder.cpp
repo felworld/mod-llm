@@ -5,8 +5,7 @@
 
 #include "ContextBuilder.h"
 
-#include "Battleground.h"
-#include "BattlegroundWS.h"
+#include "BattlegroundContext.h"
 #include "BotSelector.h"
 #include "CellImpl.h"
 #include "ChatHelper.h"
@@ -124,86 +123,25 @@ namespace ModLlm::ContextBuilder
                 bg ? "battleground" : "raid");
         }
 
-        // What the Warsong Gulch scoreboard shows a player - score and both
-        // flags' status with carrier names - plus how teammates' play
-        // callouts read. The model needs the facts to interpret a callout
-        // ("inc" and "fc mid" mean different plays depending on whose flag is
-        // where) before deciding on the bg_strategy tool. Empty outside an
-        // active WSG match.
-        std::string WsgGuidance(Player* bot)
+        // Chat whose audience is the bot's own battleground team: team chat
+        // itself, and the raid/party the match puts everyone in. A whisper or
+        // a /say in the tunnel is a private conversation that happens to
+        // occur in a battleground, so it does not pull in the scoreboard.
+        bool TeamAudience(uint32 chatType)
         {
-            Battleground* bg = bot->GetBattleground();
-            if (!bg || bg->GetStatus() != STATUS_IN_PROGRESS)
-                return "";
-
-            BattlegroundTypeId bgType = bg->GetBgTypeID();
-            if (bgType == BATTLEGROUND_RB)
-                bgType = bg->GetBgTypeID(true);
-            if (bgType != BATTLEGROUND_WS)
-                return "";
-
-            BattlegroundWS* ws = static_cast<BattlegroundWS*>(bg);
-            TeamId myTeam = bot->GetTeamId();
-            TeamId enemyTeam = myTeam == TEAM_ALLIANCE ? TEAM_HORDE : TEAM_ALLIANCE;
-
-            auto carrierName = [](ObjectGuid guid) -> std::string
+            switch (chatType)
             {
-                Player* carrier = ObjectAccessor::FindPlayer(guid);
-                return carrier ? carrier->GetName() : "someone";
-            };
-
-            // Flag state and picker are indexed by the flag's owning team;
-            // the picker is always on the other team.
-            std::string myFlag;
-            switch (ws->GetFlagState(myTeam))
-            {
-                case BG_WS_FLAG_STATE_ON_PLAYER:
-                    myFlag = Acore::StringFormat("your flag was taken by enemy {}",
-                        carrierName(ws->GetFlagPickerGUID(myTeam)));
-                    break;
-                case BG_WS_FLAG_STATE_ON_GROUND:
-                    myFlag = "your flag is loose on the ground";
-                    break;
+                case CHAT_MSG_BATTLEGROUND:
+                case CHAT_MSG_BATTLEGROUND_LEADER:
+                case CHAT_MSG_RAID:
+                case CHAT_MSG_RAID_LEADER:
+                case CHAT_MSG_RAID_WARNING:
+                case CHAT_MSG_PARTY:
+                case CHAT_MSG_PARTY_LEADER:
+                    return true;
                 default:
-                    myFlag = "your flag is safe in your base";
-                    break;
+                    return false;
             }
-
-            std::string enemyFlag;
-            switch (ws->GetFlagState(enemyTeam))
-            {
-                case BG_WS_FLAG_STATE_ON_PLAYER:
-                    enemyFlag = Acore::StringFormat("your teammate {} is carrying the enemy flag",
-                        carrierName(ws->GetFlagPickerGUID(enemyTeam)));
-                    break;
-                case BG_WS_FLAG_STATE_ON_GROUND:
-                    enemyFlag = "the enemy flag is loose on the ground";
-                    break;
-                default:
-                    enemyFlag = "the enemy flag sits in their base";
-                    break;
-            }
-
-            std::string guidance = Acore::StringFormat(" You are mid-match in Warsong Gulch, first to 3"
-                " flag captures wins. Score {}-{} in captures (you-them); {}; {}.",
-                bg->GetTeamScore(myTeam), bg->GetTeamScore(enemyTeam), myFlag, enemyFlag);
-
-            // A flag carrier's play is already decided - it never gets the
-            // bg_strategy tool, so it gets marching orders instead of the
-            // callout key.
-            if (bot->HasAura(BG_WS_SPELL_WARSONG_FLAG) || bot->HasAura(BG_WS_SPELL_SILVERWING_FLAG))
-                return guidance + " You are the one carrying the enemy flag: whatever gets called,"
-                    " your job is getting it home alive.";
-
-            return guidance
-                + " Teammates call plays here in shorthand: inc means enemies incoming, at your flag room"
-                " unless another spot is named, and fc points at a flag carrier, like fc mid or fc tunnel"
-                " for where one is. When a callout deserves the team's attention, relay it with the"
-                " bg_strategy tool - defend_base for inc at your base, attack_fc to hunt the enemy"
-                " carrying your flag, defend_fc to stick with your carrier, attack_base to push their"
-                " flag room. Whoever takes up the play announces it in this chat, so the tool call alone"
-                " is a full response and staying otherwise silent is normal. You read the game yourself:"
-                " relay the calls that make sense to you.";
         }
     }
 
@@ -305,10 +243,11 @@ namespace ModLlm::ContextBuilder
         snapshot.channelLabel = ChannelLabel(trigger);
         snapshot.replyGuidance = ReplyGuidance(trigger);
 
-        // Battleground chat brings the scoreboard facts a player sees on
-        // screen plus the key to reading play callouts (WSG only for now).
-        if (trigger.chatType == CHAT_MSG_BATTLEGROUND || trigger.chatType == CHAT_MSG_BATTLEGROUND_LEADER)
-            snapshot.replyGuidance += WsgGuidance(bot);
+        // Anything said to the bot's own team in a battleground brings the
+        // scoreboard a player reads off their HUD, plus the key to the
+        // shorthand teammates call plays in.
+        if (TeamAudience(trigger.chatType))
+            snapshot.replyGuidance += BattlegroundContext::Describe(bot);
 
         // No shared language across the faction line: steer the bot toward
         // the emote tool's built-in emotes - the only thing that carries

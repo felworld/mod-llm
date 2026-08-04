@@ -46,6 +46,10 @@ in [FEATURES.md](FEATURES.md).
   call picks which bots, if any, a message was meant for — so "any mages got water?" reaches the
   mage and idle muttering reaches nobody. Replies are staggered and delivered at human typing
   speed; bots hear each other, so bot conversations happen in front of players.
+- **[Battleground scoreboards](FEATURES.md#battleground-scoreboards)** — anything said to a
+  bot's own team inside a battleground carries that match's HUD into its prompt: score,
+  objectives and who holds them, the clock, and the callout shorthand players type on that
+  map. All six battlegrounds, held to what the client is actually sent.
 - **[Emotes](FEATURES.md#emotes)** — emotes aimed at a bot or performed nearby, including
   cross-faction ones.
 - **[Game events](FEATURES.md#game-events)** — kills, deaths, level-ups, quest completions,

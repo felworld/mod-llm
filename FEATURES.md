@@ -38,7 +38,8 @@ said in /say or /yell within earshot lately — bots overhear like players do,
 whether or not they were picked to answer (`LLM.Chat.Overhear.Enable`) — and
 notable game events seen nearby (duels, deaths, level-ups, ...), which land in
 the same overheard transcript as narration lines, so a bow right after a duel
-still means something. Chat links reach prompts as the bracketed text a player
+still means something. Inside a battleground it also includes that match's
+[scoreboard](#battleground-scoreboards). Chat links reach prompts as the bracketed text a player
 sees (`[Some Quest]`), never raw client markup. Hearing ranges default to the
 server's player listen ranges (`ListenRange.Say`/`.Yell`/`.TextEmote`); set
 the `LLM.*Distance` options to diverge.
@@ -135,16 +136,55 @@ hitting the area's NPCs, or an already-reported ganker merely prowling — so
 the raised alarm matches the events instead of framing every sighting as
 "attacking" whatever spot the witness happens to stand in.
 
+### Battleground scoreboards
+
+Anything said to a bot's own team inside a battleground — team chat, and the
+raid or party the match puts everyone in — brings the match's scoreboard into
+its prompt. Whispers and /say don't: those are private conversations that
+happen to take place in a battleground.
+
+The cut is the same one the prompt uses everywhere: a bot gets what the
+player holding that screen gets, and nothing more. In practice that means the
+**world states the client is sent** — which is exactly what the battleground
+HUD draws — plus what the match announces in chat:
+
+| Map | What the bot knows |
+| --- | --- |
+| Warsong Gulch | Capture score, minutes left, both flags' state with carrier names |
+| Arathi Basin | Resources against the win target, who holds each of the five bases, which one is being capped right now |
+| Eye of the Storm | Points against the win target, who holds each tower, whether the flag is in the middle, loose, or on a named carrier |
+| Alterac Valley | Reinforcements counting down, graveyards held on each side, towers burned on each side, anything under attack, captain deaths |
+| Isle of Conquest | Reinforcements counting down, who holds each objective and each keep graveyard, which keep gates are down |
+| Strand of the Ancients | Round and which side you're on, the clock (in round two, the time to beat), gates down or taking damage, beach graveyards held |
+
+Win thresholds are read from the server's own config
+(`Battleground.Warsong.Flags`, `Battleground.Arathi.CapturePoints`,
+`Battleground.Alterac.Reinforcements`,
+`Battleground.EyeOfTheStorm.CapturePoints`), so a bot quotes the target this
+realm actually plays to. Capture timers stay out: the HUD shows a base as
+contested, not a countdown, so the bot says "they're capping the farm", never
+"forty seconds". The one fact with no world state behind it is a coarse "you
+are roughly N minutes in" for the four maps with no clock on screen — the
+sense of elapsed time a player has anyway, and the only pace signal those maps
+give beyond the score gap.
+
+Every map also carries its callout key: the shorthand teammates actually type
+there — `bs`/`lm`/`gm` and "inc bs" in Arathi, `fr`/`be`/`dr`/`mt` in the Eye,
+"rush" and "back cap" in Alterac, gate colours and "demo" in Strand — so a bot
+can read its team's chat instead of guessing at it. Before the gates open the
+bot gets the map, how it's won and the callout key, but no scoreboard: the
+match hasn't happened yet, and a row of zeroes only invites comment on
+nothing. Arenas get nothing at all.
+
 ### Battleground play calls
 
 In Warsong Gulch, a callout in battleground chat — "inc!!", "fc mid", "get
 their flag carrier" — can actually change what bots do. The group router's
 prompt carries a battleground note (play callouts concern the whole team,
-so route them to teammates who would act, not to nobody), and a routed
-bot's prompt carries what the scoreboard would show a player: the capture
-score and both flags' status with carrier names, because a callout is
-situational — "inc" usually means enemies closing on your flag room, while
-"fc mid" points at whichever flag carrier the flag states make relevant.
+so route them to teammates who would act, not to nobody), and the routed
+bot's prompt carries the scoreboard above, because a callout is situational
+— "inc" usually means enemies closing on your flag room, while "fc mid"
+points at whichever flag carrier the flag states make relevant.
 Alongside the facts comes the key to the shorthand and the `bg_strategy`
 tool with four plays: `attack_fc` (hunt the enemy carrying your flag),
 `attack_base` (push their flag room), `defend_fc` (escort your carrier),
