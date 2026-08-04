@@ -7,9 +7,11 @@
 #define MOD_LLM_CONFIG_H
 
 #include "Define.h"
+#include "GuildFlavor.h"
 
 #include <atomic>
 #include <string>
+#include <vector>
 
 namespace ModLlm
 {
@@ -141,6 +143,12 @@ namespace ModLlm
         uint32 guildAdChance = 4;
         uint32 guildRecruitChance = 2;
         uint32 guildRecruitCooldownSeconds = 1800;
+
+        // Guild flavors: the identity a bot-led guild talks in. The weighted
+        // profile list is parsed at load time, so a malformed entry is
+        // reported once instead of at every roll.
+        bool guildFlavorEnabled = true;
+        std::vector<WeightedProfile> guildFlavorProfiles;
 
         // Memory scratchpad (remember/forget tools)
         bool memoryEnabled = true;

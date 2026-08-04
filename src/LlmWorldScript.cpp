@@ -6,6 +6,7 @@
 #include "BotSelector.h"
 #include "GameTime.h"
 #include "Guild.h"
+#include "GuildFlavor.h"
 #include "HistoryStore.h"
 #include "LlmClient.h"
 #include "LlmConfig.h"
@@ -30,6 +31,20 @@ namespace ModLlm
         {
             Guild* guild = bot->GetGuild();
             return guild && guild->HasRankRight(bot, GR_RIGHT_INVITE);
+        }
+
+        // A cold pitch only makes sense when the guild has something the
+        // passerby can actually take up. A guild without the leveling tag is
+        // selling endgame - battlegrounds, world PvP, raids - so it waits for
+        // someone within reach of it instead of chatting up every lowbie.
+        bool WorthPitchingTo(Player* bot, Player* target)
+        {
+            FlavorProfile profile;
+            if (!sLlmConfig->guildFlavorEnabled || !sLlmGuildFlavors->Get(bot->GetGuildId(), profile))
+                return true;
+
+            return GuildFlavors::WouldColdPitch(profile, target->GetLevel(),
+                uint8(sWorld->getIntConfig(CONFIG_MAX_PLAYER_LEVEL)));
         }
     }
 
@@ -59,6 +74,7 @@ namespace ModLlm
             LlmTools::RegisterDefaultTools();
             sLlmMemoryStore->Load();
             sLlmHistoryStore->Load();
+            sLlmGuildFlavors->Load();
             sLlmClient->Start();
         }
 
@@ -77,6 +93,16 @@ namespace ModLlm
             {
                 _initiativeTimer = 0;
                 UpdateInitiative();
+            }
+
+            // Lazy flavor assignment: a bot-led guild gets its profile (and,
+            // once its leader is around, its message of the day) the first
+            // time anybody in it is online with the module running.
+            _guildFlavorTimer += diff;
+            if (_guildFlavorTimer >= 10000)
+            {
+                _guildFlavorTimer = 0;
+                sLlmGuildFlavors->UpdateOnline();
             }
 
             _travelTimer += diff;
@@ -212,6 +238,8 @@ namespace ModLlm
                         && urand(0, 99) < sLlmConfig->guildRecruitChance)
                     {
                         recruit = BotSelector::FindRecruitTarget(player, sLlmConfig->sayDistance);
+                        if (recruit && !WorthPitchingTo(player, recruit))
+                            recruit = nullptr;
                         if (recruit && !_recruitCooldown.contains(recruit->GetGUID().GetRawValue()))
                         {
                             _recruitCooldown[recruit->GetGUID().GetRawValue()] =
@@ -249,15 +277,31 @@ namespace ModLlm
         }
 
         uint32 _initiativeTimer = 0;
+        uint32 _guildFlavorTimer = 0;
         uint32 _travelTimer = 0;
         uint32 _memorySaveTimer = 0;
         uint32 _historySaveTimer = 0;
         std::unordered_map<uint64, time_t> _nextInitiative;
         std::unordered_map<uint64, time_t> _recruitCooldown; // player guid -> pitchable again at
     };
+
+    // Guild ids are handed out again after a disband, so a disbanded guild's
+    // flavor has to go with it - otherwise the next guild to take that id
+    // inherits an identity it never rolled.
+    class LlmGuildScript : public GuildScript
+    {
+    public:
+        LlmGuildScript() : GuildScript("LlmGuildScript", { GUILDHOOK_ON_DISBAND }) { }
+
+        void OnDisband(Guild* guild) override
+        {
+            sLlmGuildFlavors->Forget(guild->GetId());
+        }
+    };
 }
 
 void AddSC_llm_world()
 {
     new ModLlm::LlmWorldScript();
+    new ModLlm::LlmGuildScript();
 }

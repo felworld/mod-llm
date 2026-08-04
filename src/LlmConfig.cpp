@@ -134,6 +134,13 @@ namespace ModLlm
 
         constexpr char DEFAULT_PROMPT_HISTORY_LINE[] = "{speaker}: {message}";
 
+        // Weighted identities for bot-led guilds: mostly the levelling crowd
+        // a low-population realm actually has, with the endgame and roleplay
+        // profiles as the minority they are.
+        constexpr char DEFAULT_GUILD_FLAVOR_PROFILES[] =
+            "social+leveling:25, leveling:20, rp+leveling:10, pvp+leveling:10, wpvp+leveling:8, "
+            "rp+wpvp:8, raiding+pvp:7, raiding:12";
+
         // <= 0 means "hear as far as players do": resolve to the server's
         // matching ListenRange.* value (loaded before this module's config).
         float ResolveListenDistance(char const* option, ServerConfigs listenRange)
@@ -254,6 +261,10 @@ namespace ModLlm
         guildAdChance = sConfigMgr->GetOption<uint32>("LLM.GuildAd.Chance", 4);
         guildRecruitChance = sConfigMgr->GetOption<uint32>("LLM.GuildRecruit.Chance", 2);
         guildRecruitCooldownSeconds = sConfigMgr->GetOption<uint32>("LLM.GuildRecruit.CooldownSeconds", 1800);
+
+        guildFlavorEnabled = sConfigMgr->GetOption<bool>("LLM.GuildFlavor.Enable", true);
+        guildFlavorProfiles = GuildFlavors::ParseProfiles(
+            sConfigMgr->GetOption<std::string>("LLM.GuildFlavor.Profiles", DEFAULT_GUILD_FLAVOR_PROFILES));
 
         memoryEnabled = sConfigMgr->GetOption<bool>("LLM.Memory.Enable", true);
         memoryMaxNotesPerBot = sConfigMgr->GetOption<uint32>("LLM.Memory.MaxNotesPerBot", 40);

@@ -13,6 +13,7 @@
 #include "GridNotifiersImpl.h"
 #include "Group.h"
 #include "Guild.h"
+#include "GuildFlavor.h"
 #include "GuildMgr.h"
 #include "HistoryStore.h"
 #include "LlmConfig.h"
@@ -187,8 +188,21 @@ namespace ModLlm::ContextBuilder
                 snapshot.botGroup = Acore::StringFormat("You are in a {} with {}. ", kind, members);
         }
 
+        // A player knows what kind of guild they joined, so a member of a
+        // flavored (bot-led) guild carries its identity into every prompt -
+        // that clause is what makes one guild's chatter sound unlike the
+        // next one's.
+        FlavorProfile guildFlavor;
+        bool flavored = false;
         if (Guild* guild = sGuildMgr->GetGuildById(bot->GetGuildId()))
-            snapshot.botGuild = Acore::StringFormat("You are a member of the guild <{}>. ", guild->GetName());
+        {
+            flavored = sLlmConfig->guildFlavorEnabled && sLlmGuildFlavors->Get(guild->GetId(), guildFlavor);
+            if (flavored)
+                snapshot.botGuild = Acore::StringFormat("You are a member of <{}>, {}. ",
+                    guild->GetName(), GuildFlavors::IdentityClause(guildFlavor));
+            else
+                snapshot.botGuild = Acore::StringFormat("You are a member of the guild <{}>. ", guild->GetName());
+        }
 
         // A player always knows what is in their quest log, so the bot does
         // too - otherwise it invents quests it does not have.
@@ -242,6 +256,11 @@ namespace ModLlm::ContextBuilder
 
         snapshot.channelLabel = ChannelLabel(trigger);
         snapshot.replyGuidance = ReplyGuidance(trigger);
+
+        // Guild chat is the one room a guild's own identity sets the register
+        // in: what gets talked about there, and in whose voice.
+        if (flavored && trigger.kind == TRIGGER_CHAT_GUILD)
+            snapshot.replyGuidance += GuildFlavors::ChatGuidance(guildFlavor);
 
         // Anything said to the bot's own team in a battleground brings the
         // scoreboard a player reads off their HUD, plus the key to the
@@ -336,6 +355,15 @@ namespace ModLlm::ContextBuilder
                 if (!guild->GetMOTD().empty())
                     snapshot.guildBlock += Acore::StringFormat("\nmessage of the day: \"{}\"",
                         guild->GetMOTD());
+
+                // What the guild is counts as a guild fact: the ad may claim
+                // it, and the per-tag pitch guidance is what keeps one
+                // guild's ads from reading like every other guild's.
+                if (flavored)
+                {
+                    snapshot.guildBlock += "\n" + GuildFlavors::FlavorLine(guildFlavor);
+                    snapshot.replyGuidance += GuildFlavors::RecruitGuidance(guildFlavor);
+                }
             }
         }
 
@@ -367,6 +395,17 @@ namespace ModLlm::ContextBuilder
                     " free), pulling a customer to wherever you are standing right now. Taking such a"
                     " job means calling the summon_player tool - it sets up your price quote, the group"
                     " invite, and the ritual, and your chat reply then confirms what it reports back.";
+        }
+
+        // An unguilded player talking to a bot whose rank can invite: the
+        // reactive side of recruiting. A player knows what their own guild is
+        // and pitches it honestly - no gatekeeping, anyone may ask.
+        if (flavored && (trigger.kind & chatKinds) && actor && BotSelector::IsRealPlayer(actor)
+            && !actor->GetGuildId())
+        {
+            Guild* guild = sGuildMgr->GetGuildById(bot->GetGuildId());
+            if (guild && guild->HasRankRight(bot, GR_RIGHT_INVITE))
+                snapshot.replyGuidance += GuildFlavors::InviteGuidance(guildFlavor);
         }
 
         if (hasDeal)

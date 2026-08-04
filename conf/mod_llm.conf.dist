@@ -612,6 +612,43 @@ LLM.GuildAd.Chance = 4
 LLM.GuildRecruit.Chance = 2
 LLM.GuildRecruit.CooldownSeconds = 1800
 
+#
+#    LLM.GuildFlavor.Enable
+#        Description: Give bot-led guilds a persistent identity - a set of
+#                     flavor tags that shapes how their members talk about the
+#                     guild: the identity clause in every member's prompt, the
+#                     register of its guild chat, and what its recruitment ads
+#                     and cold pitches sell. Speech only; what the bots go and
+#                     do is unchanged. The first time a bot-led guild (its
+#                     leader is a random bot) is seen with somebody online, a
+#                     profile is rolled from the weights below and persisted
+#                     to the characters DB, and if the guild has no message of
+#                     the day one is stamped from that profile - never
+#                     overwriting a message the guild already has.
+#                     Player-founded guilds never get a flavor.
+#                     Administered with `.llm guildflavor`.
+#        Default:     1
+#
+#    LLM.GuildFlavor.Profiles
+#        Description: Weighted list of profiles to roll from, written as
+#                     <tags>:<weight> entries separated by commas. Tags are
+#                     joined with + and the order matters: the first tag is
+#                     the guild's lead identity, the rest colour it. The
+#                     curated tags are leveling, raiding, pvp (battlegrounds),
+#                     wpvp (world PvP), rp (in character), and social. An
+#                     entry with an unknown or repeated tag, or without a
+#                     positive weight, is reported in the log and skipped.
+#                     Profiles without the leveling tag are pitching endgame,
+#                     so their bots skip cold-pitching passersby well below
+#                     the level cap. Rolled profiles are persisted, so
+#                     changing these weights only affects guilds flavored
+#                     from then on.
+#        Default:     "social+leveling:25, leveling:20, rp+leveling:10, pvp+leveling:10, wpvp+leveling:8, rp+wpvp:8, raiding+pvp:7, raiding:12"
+#
+
+LLM.GuildFlavor.Enable = 1
+LLM.GuildFlavor.Profiles = "social+leveling:25, leveling:20, rp+leveling:10, pvp+leveling:10, wpvp+leveling:8, rp+wpvp:8, raiding+pvp:7, raiding:12"
+
 ########################################
 # Memory scratchpad
 ########################################

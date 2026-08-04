@@ -12,6 +12,12 @@ CREATE TABLE IF NOT EXISTS `mod_llm_history_pair` (
     INDEX `idx_pair` (`bot_guid`, `player_guid`, `id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS `mod_llm_guild_flavor` (
+    `guildid` INT UNSIGNED NOT NULL,
+    `flavors` VARCHAR(64) NOT NULL,
+    PRIMARY KEY (`guildid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS `mod_llm_history_room` (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     `room_key` VARCHAR(96) NOT NULL,

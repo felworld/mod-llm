@@ -68,6 +68,10 @@ in [FEATURES.md](FEATURES.md).
   grounded recruitment ads in the GuildRecruitment channel, and occasionally a bot chats up
   a passing unguilded player and follows the line with a real guild invite — one shared
   per-player cooldown keeps a decline from drawing a parade of recruiters.
+- **[Guild flavors](FEATURES.md#guild-flavors)** — each bot-led guild rolls a persistent
+  identity (roleplay, world PvP, levelling, raiding, …) that colours how its members talk
+  about it, what its guild chat sounds like, and what its ads sell — plus a message of the
+  day stamped from that identity. Player-founded guilds never get one.
 
 ## Architecture
 
@@ -91,9 +95,10 @@ Adding a tool = one `ToolSpec` (name, JSON schema, trigger mask, executor lambda
 
 ## Persistence
 
-Two features persist to the characters DB (schema auto-applied at worldserver startup):
+Three features persist to the characters DB (schema auto-applied at worldserver startup):
 `mod_llm_memory`, the per-bot scratchpad of notes the model writes itself (long-term
-continuity), and `mod_llm_history_pair` / `mod_llm_history_room`, recency-aware conversation
+continuity); `mod_llm_guild_flavor`, each bot-led guild's rolled identity; and
+`mod_llm_history_pair` / `mod_llm_history_room`, recency-aware conversation
 transcripts fed into prompts (short-term coherence). Details in
 [FEATURES.md](FEATURES.md#persistence).
 
@@ -105,7 +110,7 @@ history caps, and prompt templates (including the style-exemplar block that sets
 MMO-player register — positive examples only, since negative examples can raise the very
 phrasings they forbid on small models).
 
-In-game administration: `.llm status | enable | disable | reload`.
+In-game administration: `.llm status | enable | disable | reload | guildflavor`.
 
 ## Tests
 

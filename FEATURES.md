@@ -441,15 +441,75 @@ that player on a cooldown shared by *every* bot
 ignoring one invite never summons a parade of follow-up recruiters. Asking
 to join a bot's guild yourself is reactive and unaffected by the cooldown.
 
+## Guild flavors
+
+Every guild reading the same makes a world of bot guilds feel like one guild
+copied a hundred times. So each **bot-led** guild carries a persistent
+identity — an ordered set of flavor tags — that shapes how its members talk
+about it. Speech level only: what the playerbots underneath actually go and
+do is unchanged.
+
+The curated tags are `leveling`, `raiding`, `pvp` (battlegrounds), `wpvp`
+(world PvP), `rp` (in character), and `social`. Order carries meaning: the
+first tag is the guild's lead identity, the rest colour it — `rp+wpvp` is a
+roleplay guild that also fights in world PvP, `wpvp+rp` the other way round.
+
+**Assignment.** The first time a guild is seen with somebody online, its
+leader decides: a guild led by a random bot rolls a profile from the weighted
+`LLM.GuildFlavor.Profiles` list; a player-founded guild never gets one. The
+roll is persisted to the characters DB, so retuning the weights only affects
+guilds flavored from then on, and a config entry with an unknown tag or a bad
+weight is logged and skipped rather than taking the option down. The default
+weights lean the way a levelling realm actually looks — social/levelling
+guilds common, raiding and roleplay the minority.
+
+**Message of the day.** A freshly flavored guild with no MOTD of its own gets
+one stamped from fixed per-flavor copy (a couple of classic pairings, like
+`rp+wpvp`, have bespoke lines rather than composed ones). One-time and never
+an overwrite: whatever a guild already says for itself wins. The stamp needs
+the guild leader online — only their session may set it — so it lands on the
+first pass after they log in.
+
+**What it changes in the prompts.** All of it is composed from the tags, so
+there is no per-combination copy matrix:
+
+- **Identity, everywhere.** The member line becomes "You are a member of
+  \<X\>, a roleplay guild that also fights in world PvP." — in every member's
+  prompt, on every trigger.
+- **Guild chat register.** Guild chat is the one room the guild's own
+  identity sets the register in: `raiding` trends toward progression, gear,
+  and lockouts; `wpvp` toward sightings and who is riding out; `rp` puts guild
+  chat in character wherever it sits in the profile.
+- **Recruiting.** The grounded guild-facts block gains a `flavor:` line the
+  ads may claim, plus per-tag pitch guidance so one guild's ads stop reading
+  like every other guild's. Grounding holds: copy sells what bots observably
+  do, and raiding sells *ambition* rather than raid nights nobody keeps.
+- **Reactive invites.** An unguilded player talking to a bot whose rank can
+  invite gets the same identity, honestly described. No gatekeeping — anyone
+  may ask, and the invite still runs through the core's validation.
+- **Cold-pitch level gate.** A profile without `leveling` is pitching endgame,
+  which a lowbie cannot take up, so those bots skip passersby below roughly
+  the last quarter of the climb (56 of 80; the threshold follows the realm's
+  level cap).
+
+Administration: `.llm guildflavor ["Guild Name"|id]` shows a profile (with no
+argument, the selected player's guild), `.llm guildflavor set "Guild Name"
+rp+wpvp` overrides it, `clear` drops it, and `reroll` rolls a new one from the
+configured weights. Options: `LLM.GuildFlavor.Enable`,
+`LLM.GuildFlavor.Profiles`.
+
 ## Persistence
 
-Two features persist to the characters DB (schema auto-applied at worldserver
+Three features persist to the characters DB (schema auto-applied at worldserver
 startup):
 
 - `mod_llm_memory` — the per-bot scratchpad: short notes the model writes
   itself (`remember` / `forget`), keyed by slug, optionally scoped to one
   player. Long-term continuity lives here — "ninja'd my loot in deadmines"
   carries more than the 0..1 sentiment float it replaced.
+- `mod_llm_guild_flavor` — one row per flavored guild: the canonical tag
+  string (`rp+wpvp`) its members talk in. Persisted so a guild keeps the
+  identity it was founded with even after the profile weights are retuned.
 - `mod_llm_history_pair` / `mod_llm_history_room` — conversation transcripts
   fed into prompts. Short-retention working memory for coherence; anything
   worth keeping belongs in a note. Transcripts are recency-aware: room and
