@@ -176,6 +176,30 @@ bot gets the map, how it's won and the callout key, but no scoreboard: the
 match hasn't happened yet, and a row of zeroes only invites comment on
 nothing. Arenas get nothing at all.
 
+### Battleground positions
+
+The scoreboard says what is happening; the place is the half of a callout
+only the one standing there can supply — "inc" with no place is noise.
+Mid-match, the same team-audience prompt also names where the bot itself is
+standing, phrased the way players name spots: "in the tunnel", "at the
+Blacksmith", "out on the Field of Strife" — plus a nudge to name the spot
+when calling what's happening around it. A bot that just watched the enemy
+carrier run past can now originate "fc tunnel" instead of only relaying it.
+
+Places come from hand-curated per-map tables — flag rooms, tunnels, ramps,
+bases, towers, graveyards and chokepoints as named points with radii — and
+the nearest one close enough wins, with sides named from the bot's
+perspective ("your flag room", "their base"). Between places — on a road,
+out in open ground — the bot gets nothing and keeps only the area name it
+already had: a wrong specific is worse than none.
+
+The screen test still rules. A bot's own position is the player's own
+position; and in Warsong Gulch and Eye of the Storm the client has drawn
+both flag carriers on the battleground map since patch 3.2, so there the
+scoreboard's carrier lines also say where the carrier's dot is ("your flag
+was taken by enemy Kixxle, whose dot on your map is in your tunnel").
+Enemy positions otherwise stay unknown: nothing the screen doesn't show.
+
 ### Battleground play calls
 
 In Warsong Gulch, a callout in battleground chat — "inc!!", "fc mid", "get

@@ -50,6 +50,10 @@ in [FEATURES.md](FEATURES.md).
   bot's own team inside a battleground carries that match's HUD into its prompt: score,
   objectives and who holds them, the clock, and the callout shorthand players type on that
   map. All six battlegrounds, held to what the client is actually sent.
+- **[Battleground positions](FEATURES.md#battleground-positions)** — mid-match the bot also
+  knows where it's standing, as players name the spot ("in the tunnel", "at the Blacksmith"),
+  and in the flag maps where the carrier dots on the map are — so it can originate "inc bs"
+  or "fc tunnel", not just relay one.
 - **[Emotes](FEATURES.md#emotes)** — emotes aimed at a bot or performed nearby, including
   cross-faction ones.
 - **[Game events](FEATURES.md#game-events)** — kills, deaths, level-ups, quest completions,

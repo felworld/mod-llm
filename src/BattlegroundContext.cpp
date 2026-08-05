@@ -5,6 +5,8 @@
 
 #include "BattlegroundContext.h"
 
+#include "BattlegroundPlaces.h"
+
 #include "Battleground.h"
 #include "BattlegroundAB.h"
 #include "BattlegroundAV.h"
@@ -85,10 +87,19 @@ namespace ModLlm::BattlegroundContext
             return Acore::StringFormat("roughly {} minutes in", minutes);
         }
 
-        std::string PlayerName(ObjectGuid guid)
+        // Since 3.2 the client draws both flag carriers on the battleground
+        // map, so where a carrier is right now is on-screen knowledge - both
+        // the teammate hauling the enemy flag and the enemy hauling yours.
+        // Named from `perspective`'s side of the map.
+        std::string CarrierPlace(Player* carrier, BattlegroundTypeId bgType, TeamId perspective)
         {
-            Player* player = ObjectAccessor::FindPlayer(guid);
-            return player ? player->GetName() : "someone";
+            if (!carrier)
+                return "";
+            std::string place = BattlegroundPlaces::Locate(bgType, perspective,
+                carrier->GetPositionX(), carrier->GetPositionY(), carrier->GetPositionZ());
+            if (place.empty())
+                return "";
+            return Acore::StringFormat(", whose dot on your map is {}", place);
         }
 
         MatchFacts WarsongGulch(Player* bot, Battleground* bg, bool inProgress)
@@ -111,9 +122,13 @@ namespace ModLlm::BattlegroundContext
                 switch (ws->GetFlagState(myTeam))
                 {
                     case BG_WS_FLAG_STATE_ON_PLAYER:
-                        myFlag = Acore::StringFormat("your flag was taken by enemy {}",
-                            PlayerName(ws->GetFlagPickerGUID(myTeam)));
+                    {
+                        Player* carrier = ObjectAccessor::FindPlayer(ws->GetFlagPickerGUID(myTeam));
+                        myFlag = Acore::StringFormat("your flag was taken by enemy {}{}",
+                            carrier ? carrier->GetName() : "someone",
+                            CarrierPlace(carrier, BATTLEGROUND_WS, myTeam));
                         break;
+                    }
                     case BG_WS_FLAG_STATE_ON_GROUND:
                         myFlag = "your flag is loose on the ground";
                         break;
@@ -126,9 +141,13 @@ namespace ModLlm::BattlegroundContext
                 switch (ws->GetFlagState(enemyTeam))
                 {
                     case BG_WS_FLAG_STATE_ON_PLAYER:
-                        enemyFlag = Acore::StringFormat("your teammate {} is carrying the enemy flag",
-                            PlayerName(ws->GetFlagPickerGUID(enemyTeam)));
+                    {
+                        Player* carrier = ObjectAccessor::FindPlayer(ws->GetFlagPickerGUID(enemyTeam));
+                        enemyFlag = Acore::StringFormat("your teammate {} is carrying the enemy flag{}",
+                            carrier ? carrier->GetName() : "someone",
+                            CarrierPlace(carrier, BATTLEGROUND_WS, myTeam));
                         break;
+                    }
                     case BG_WS_FLAG_STATE_ON_GROUND:
                         enemyFlag = "the enemy flag is loose on the ground";
                         break;
@@ -269,11 +288,13 @@ namespace ModLlm::BattlegroundContext
                     case BG_EY_FLAG_STATE_ON_PLAYER:
                     {
                         Player* carrier = ObjectAccessor::FindPlayer(ey->GetFlagPickerGUID());
+                        std::string place = CarrierPlace(carrier, BATTLEGROUND_EY, myTeam);
                         if (carrier && carrier->GetTeamId() == myTeam)
-                            clauses.push_back(Acore::StringFormat("your teammate {} has the flag", carrier->GetName()));
+                            clauses.push_back(Acore::StringFormat("your teammate {} has the flag{}",
+                                carrier->GetName(), place));
                         else
-                            clauses.push_back(Acore::StringFormat("enemy {} has the flag",
-                                carrier ? carrier->GetName() : "someone"));
+                            clauses.push_back(Acore::StringFormat("enemy {} has the flag{}",
+                                carrier ? carrier->GetName() : "someone", place));
                         break;
                     }
                     case BG_EY_FLAG_STATE_ON_GROUND:
@@ -600,7 +621,16 @@ namespace ModLlm::BattlegroundContext
                 " {}. Nothing has happened yet. {}",
                 facts.name, facts.rules, facts.shorthand);
 
-        return Acore::StringFormat(" You are mid-match in {}: {}. {} {}",
-            facts.name, facts.rules, facts.state, facts.shorthand);
+        // The one spatial fact only this bot can supply: where it itself is
+        // standing, named the way a player would call the spot. "inc" with no
+        // place is noise - this is the place.
+        std::string here = BattlegroundPlaces::Locate(bgType, bot->GetTeamId(),
+            bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ());
+        std::string position = here.empty() ? ""
+            : Acore::StringFormat(" You yourself are {} right now - name the spot when you call"
+                " something happening around you.", here);
+
+        return Acore::StringFormat(" You are mid-match in {}: {}. {}{} {}",
+            facts.name, facts.rules, facts.state, position, facts.shorthand);
     }
 }

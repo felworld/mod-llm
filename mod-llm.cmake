@@ -35,6 +35,7 @@ if(TARGET modules)
         "${CMAKE_CURRENT_LIST_DIR}/test/ToolRegistryTest.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/test/MemoryStoreTest.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/test/PromptAssemblerTest.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/test/BattlegroundPlacesTest.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/test/BotSelectorTest.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/test/GuildFlavorTest.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/test/LlmRouterTest.cpp"
