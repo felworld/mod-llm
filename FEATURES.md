@@ -398,7 +398,11 @@ sub-silver items or leveling leftovers never make the list — see
 strangers ([portals and summons](#class-services), priced by the configured
 tips) — so the model phrases a grounded one-liner like
 `WTS [Light Leather] x14 40s` or `wts portals 50s a head`, or posts
-nothing. Most ads go to Trade; a small share lands in zone General or
+nothing. Only `LLM.TradeAd.MaxItems` of those tradables (3 by default)
+reach the prompt, drawn at random for each ad: a model shown a full bag
+hawks the whole bag, and a wall of item links is a message nobody reads,
+while a fresh draw every time still works through the bag over several
+ads. Most ads go to Trade; a small share lands in zone General or
 plain /say (`LLM.TradeAd.GeneralPercent`/`SayPercent`), the way players
 occasionally hawk outside the channel.
 

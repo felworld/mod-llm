@@ -76,8 +76,9 @@ namespace ModLlm
             "If something there is worth it, post one short WTS or WTB line the way players write them - "
             "the {{item:ID}} tag copied verbatim so it lands as a clickable link, plus your price, like "
             "\"WTS {{item:2318}} x14 40s\", \"wtb {{item:3355}} paying 2s each\", or \"wts portals, 50s "
-            "a head\". Only advertise items, services, and prices from the list above. One line at "
-            "most; if nothing is worth posting, do nothing.{reply_guidance}";
+            "a head\". Only advertise items, services, and prices from the list above, and pick the "
+            "one or two of them worth pushing right now - a line someone will actually read. One "
+            "line at most; if nothing is worth posting, do nothing.{reply_guidance}";
 
         constexpr char DEFAULT_PROMPT_GUILD_AD[] =
             "{memory_block}{history_block}You are in town and could put out a word for your guild in "
@@ -257,6 +258,7 @@ namespace ModLlm
         tradeAdChance = sConfigMgr->GetOption<uint32>("LLM.TradeAd.Chance", 30);
         tradeAdGeneralPercent = sConfigMgr->GetOption<uint32>("LLM.TradeAd.GeneralPercent", 10);
         tradeAdSayPercent = sConfigMgr->GetOption<uint32>("LLM.TradeAd.SayPercent", 5);
+        tradeAdMaxItems = sConfigMgr->GetOption<uint32>("LLM.TradeAd.MaxItems", 3);
 
         guildAdChance = sConfigMgr->GetOption<uint32>("LLM.GuildAd.Chance", 4);
         guildRecruitChance = sConfigMgr->GetOption<uint32>("LLM.GuildRecruit.Chance", 2);

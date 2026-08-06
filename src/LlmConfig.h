@@ -133,9 +133,12 @@ namespace ModLlm
         // Market ads (WTS/WTB chatter grounded in the bot's real inventory).
         // Of the ads, a small share goes to zone General or plain /say
         // instead of the Trade channel; the rest is Trade.
+        // Only a handful of the bot's tradables reach the prompt, drawn
+        // fresh each ad, so one post stays a readable line.
         uint32 tradeAdChance = 30;
         uint32 tradeAdGeneralPercent = 10;
         uint32 tradeAdSayPercent = 5;
+        uint32 tradeAdMaxItems = 3;
 
         // Guild chatter: recruitment ads into the city GuildRecruitment
         // channel, and the rarer cold pitch at a passing unguilded player.

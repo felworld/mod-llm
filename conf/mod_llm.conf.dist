@@ -573,10 +573,20 @@ LLM.Initiative.MaxBotsPerTick = 2
 #                     kept rare. The remainder goes to Trade.
 #        Default:     10 / 5
 #
+#    LLM.TradeAd.MaxItems
+#        Description: How many of the bot's tradables (stock, wants and
+#                     services together) the ad prompt lists. They are drawn
+#                     at random each time, so a full bag still gets worked
+#                     through over several ads while any one ad stays a
+#                     short, readable line - a model shown ten of them hawks
+#                     all ten. 0 lists everything.
+#        Default:     3
+#
 
 LLM.TradeAd.Chance = 30
 LLM.TradeAd.GeneralPercent = 10
 LLM.TradeAd.SayPercent = 5
+LLM.TradeAd.MaxItems = 3
 
 #
 #    LLM.GuildAd.Chance

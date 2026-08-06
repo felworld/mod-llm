@@ -9,6 +9,7 @@
 #include "BotSelector.h"
 #include "CellImpl.h"
 #include "ChatHelper.h"
+#include "Containers.h"
 #include "GridNotifiers.h"
 #include "GridNotifiersImpl.h"
 #include "Group.h"
@@ -297,25 +298,15 @@ namespace ModLlm::ContextBuilder
         {
             if (PlayerbotAI* botAI = sPlayerbotsMgr.GetPlayerbotAI(bot))
             {
-                std::string lines;
-                uint32 listed = 0;
+                std::vector<std::string> entries;
                 for (MarketQuote::Sellable const& sellable : MarketQuote::CollectSellables(botAI))
-                {
-                    if (++listed > 8)
-                        break;
-                    lines += Acore::StringFormat("selling: {} x{} {{item:{}}} - about {} each\n",
+                    entries.push_back(Acore::StringFormat("selling: {} x{} {{item:{}}} - about {} each",
                         sellable.proto->Name1, sellable.count, sellable.proto->ItemId,
-                        ChatHelper::formatMoney(sellable.askEach));
-                }
+                        ChatHelper::formatMoney(sellable.askEach)));
 
-                listed = 0;
                 for (MarketQuote::Want const& want : MarketQuote::CollectWants(botAI))
-                {
-                    if (++listed > 6)
-                        break;
-                    lines += Acore::StringFormat("buying: {} {{item:{}}} - up to {} each\n",
-                        want.proto->Name1, want.proto->ItemId, ChatHelper::formatMoney(want.bidEach));
-                }
+                    entries.push_back(Acore::StringFormat("buying: {} {{item:{}}} - up to {} each",
+                        want.proto->Name1, want.proto->ItemId, ChatHelper::formatMoney(want.bidEach)));
 
                 // Class services the bot sells to strangers advertise
                 // alongside the goods (the quote is jittered at deal time,
@@ -325,14 +316,27 @@ namespace ModLlm::ContextBuilder
                     std::string cities;
                     for (auto const& [spellId, city] : ClassServices::KnownPortals(bot))
                         cities += (cities.empty() ? "" : ", ") + city;
-                    lines += Acore::StringFormat("offering: portals to {} - about {} a head\n",
-                        cities, ChatHelper::formatMoney(sPlayerbotAIConfig.classServicePortalTip));
+                    entries.push_back(Acore::StringFormat("offering: portals to {} - about {} a head",
+                        cities, ChatHelper::formatMoney(sPlayerbotAIConfig.classServicePortalTip)));
                 }
                 if (ClassServices::SellsSummons(bot))
-                    lines += Acore::StringFormat(
-                        "offering: summons to your spot here in {} - about {}\n",
+                    entries.push_back(Acore::StringFormat(
+                        "offering: summons to your spot here in {} - about {}",
                         PlayerbotAI::GetLocalizedAreaName(botAI->GetCurrentZone()),
-                        ChatHelper::formatMoney(sPlayerbotAIConfig.classServiceSummonTip));
+                        ChatHelper::formatMoney(sPlayerbotAIConfig.classServiceSummonTip)));
+
+                // A bagful of tradables listed at once turns into a wall of
+                // item links nobody reads, and a model shown ten lines will
+                // hawk all ten. Draw a few at random instead: the ad stays
+                // one readable line, and a fresh draw every time still works
+                // through the whole bag over a session's worth of ads.
+                Acore::Containers::RandomShuffle(entries);
+                if (sLlmConfig->tradeAdMaxItems && entries.size() > sLlmConfig->tradeAdMaxItems)
+                    entries.resize(sLlmConfig->tradeAdMaxItems);
+
+                std::string lines;
+                for (std::string const& entry : entries)
+                    lines += entry + "\n";
 
                 snapshot.marketBlock = lines.empty() ? "nothing worth advertising right now" : lines;
             }
