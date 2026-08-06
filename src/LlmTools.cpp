@@ -716,14 +716,37 @@ namespace ModLlm::LlmTools
                 text.erase(pos);
         }
 
-        // Trim whitespace and one layer of wrapping quotes.
-        auto isTrimmable = [](unsigned char c) { return std::isspace(c) != 0; };
-        while (!text.empty() && isTrimmable(text.front()))
-            text.erase(text.begin());
-        while (!text.empty() && isTrimmable(text.back()))
-            text.pop_back();
+        // Chat lines are single-line: fold every run of whitespace into one
+        // space (dropping leading and trailing runs) so a reply the model
+        // wrote as several paragraphs still goes out as one message instead
+        // of carrying raw newlines into the chat frame.
+        auto foldWhitespace = [](std::string const& in)
+        {
+            std::string out;
+            out.reserve(in.size());
+
+            bool pendingSpace = false;
+            for (unsigned char c : in)
+            {
+                if (std::isspace(c) != 0)
+                {
+                    pendingSpace = !out.empty();
+                    continue;
+                }
+                if (pendingSpace)
+                    out += ' ';
+                pendingSpace = false;
+                out += char(c);
+            }
+
+            return out;
+        };
+
+        // Strip one layer of wrapping quotes, then fold again: the quotes may
+        // have been padded from the inside.
+        text = foldWhitespace(text);
         if (text.size() >= 2 && text.front() == '"' && text.back() == '"')
-            text = text.substr(1, text.size() - 2);
+            text = foldWhitespace(text.substr(1, text.size() - 2));
 
         return text;
     }

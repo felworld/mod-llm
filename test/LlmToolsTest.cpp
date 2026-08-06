@@ -78,4 +78,14 @@ TEST(LlmToolsTest, SanitizeChatTextTrimsQuotesAndToolSyntax)
     EXPECT_EQ(LlmTools::SanitizeChatText("\"hello there\""), "hello there");
     EXPECT_EQ(LlmTools::SanitizeChatText("  spaced out  "), "spaced out");
     EXPECT_EQ(LlmTools::SanitizeChatText("fine so far<tool_call>{\"name\":\"say\"}"), "fine so far");
+    EXPECT_EQ(LlmTools::SanitizeChatText("\" padded inside \""), "padded inside");
+}
+
+TEST(LlmToolsTest, SanitizeChatTextFoldsNewlinesIntoOneLine)
+{
+    EXPECT_EQ(LlmTools::SanitizeChatText("first line\nsecond line"), "first line second line");
+    EXPECT_EQ(LlmTools::SanitizeChatText("windows\r\nstyle"), "windows style");
+    EXPECT_EQ(LlmTools::SanitizeChatText("a paragraph\n\n\tand another"), "a paragraph and another");
+    EXPECT_EQ(LlmTools::SanitizeChatText("\n\nleading and trailing\n\n"), "leading and trailing");
+    EXPECT_EQ(LlmTools::SanitizeChatText("\n"), "");
 }
