@@ -6,10 +6,12 @@
 #include "LlmToolOperation.h"
 
 #include "ContextBuilder.h"
+#include "FelworldEvents.h"
 #include "LlmClient.h"
 #include "LlmConfig.h"
 #include "LlmTools.h"
 #include "Log.h"
+#include "Metric.h"
 #include "ObjectAccessor.h"
 #include "Player.h"
 #include "PlayerbotAI.h"
@@ -71,6 +73,12 @@ namespace ModLlm
                 LOG_INFO("module.llm", "Bot {} tool '{}' {}: {}", bot->GetName(), call.name, call.arguments, outcome);
             else
                 LOG_DEBUG("module.llm", "Bot {} tool '{}' {}: {}", bot->GetName(), call.name, call.arguments, outcome);
+
+            METRIC_VALUE("llm_tool_calls", 1, METRIC_TAG("tool", call.name), METRIC_TAG("outcome", ok ? "ok" : "error"));
+            Felworld::LogEvent(bot->GetGUID(), "llm_tool",
+                nlohmann::json({ { "tool", call.name }, { "args", call.arguments },
+                                 { "outcome", outcome }, { "ok", ok } }).dump());
+
             outcomes[index] = { ok, std::move(outcome), std::move(result) };
         };
 

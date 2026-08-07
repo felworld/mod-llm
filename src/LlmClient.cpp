@@ -10,6 +10,7 @@
 #include "LlmDispatch.h"
 #include "LlmToolOperation.h"
 #include "Log.h"
+#include "Metric.h"
 #include "PlayerbotWorldThreadProcessor.h"
 #include "PromptAssembler.h"
 #include "Random.h"
@@ -174,6 +175,7 @@ namespace ModLlm
             {
                 LOG_WARN("module.llm", "Request queue full ({}), dropping request for bot {}",
                     _queue.size(), request.snapshot.botName);
+                METRIC_VALUE("llm_dropped", 1);
                 return false;
             }
             _queue.push_back(std::move(request));
@@ -248,6 +250,15 @@ namespace ModLlm
                         "loading); probing every {}s", sLlmConfig->endpoint, PROBE_INTERVAL_SECONDS);
 
                 everProbed = true;
+
+                // Periodic gauges on the probe cadence. The request totals are
+                // cumulative since start — use increase()/rate() downstream.
+                METRIC_VALUE("llm_available", up ? 1 : 0);
+                METRIC_VALUE("llm_queue_size", GetQueueSize());
+                METRIC_VALUE("llm_requests_total", _completed.load(std::memory_order_relaxed),
+                             METRIC_TAG("result", "completed"));
+                METRIC_VALUE("llm_requests_total", _failed.load(std::memory_order_relaxed),
+                             METRIC_TAG("result", "failed"));
             }
 
             std::unique_lock<std::mutex> lock(_monitorMutex);
@@ -356,12 +367,16 @@ namespace ModLlm
         if (!sLlmConfig->apiKey.empty())
             headers.emplace("Authorization", "Bearer " + sLlmConfig->apiKey);
 
+        auto requestStart = std::chrono::steady_clock::now();
         httplib::Result result = client.Post(path, headers, body.dump(), "application/json");
+        auto requestMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - requestStart).count();
         if (!result || result->status != 200)
         {
             LOG_WARN("module.llm", "LLM request failed for bot {}: {}",
                 request.snapshot.botName,
                 result ? Acore::StringFormat("HTTP {}", result->status) : httplib::to_string(result.error()));
+            METRIC_VALUE("llm_request_time", requestMs, METRIC_TAG("status", "http_error"));
             _failed.fetch_add(1, std::memory_order_relaxed);
             return;
         }
@@ -371,8 +386,24 @@ namespace ModLlm
         {
             LOG_WARN("module.llm", "Failed to parse LLM response for bot {}: {}",
                 request.snapshot.botName, response.error);
+            METRIC_VALUE("llm_request_time", requestMs, METRIC_TAG("status", "parse_error"));
             _failed.fetch_add(1, std::memory_order_relaxed);
             return;
+        }
+
+        METRIC_VALUE("llm_request_time", requestMs, METRIC_TAG("status", "ok"));
+        // How deep in a bot-to-bot exchange this request sat (0 = triggered
+        // by a game event or a real player) — the conversation-depth
+        // distribution in the LLM dashboard.
+        METRIC_VALUE("llm_requests_by_depth", 1,
+                     METRIC_TAG("depth", std::to_string(request.trigger.chainDepth)));
+
+        nlohmann::json parsedBody = nlohmann::json::parse(result->body, nullptr, false);
+        if (parsedBody.is_object() && parsedBody.contains("usage"))
+        {
+            nlohmann::json const& usage = parsedBody["usage"];
+            METRIC_VALUE("llm_tokens", usage.value("prompt_tokens", 0), METRIC_TAG("kind", "prompt"));
+            METRIC_VALUE("llm_tokens", usage.value("completion_tokens", 0), METRIC_TAG("kind", "completion"));
         }
 
         _completed.fetch_add(1, std::memory_order_relaxed);
