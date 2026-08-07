@@ -547,6 +547,27 @@ startup):
   ("(10 min ago)"), so a bot greets an old acquaintance instead of resuming a
   dead conversation mid-sentence.
 
+## Observability metrics
+
+When the core's `Metric.Enable` is on (the Felworld obs stack — see the
+[hub FEATURES.md](https://github.com/felworld/azerothcore/blob/main/FEATURES.md#observability)),
+the module feeds the Grafana LLM dashboard; with metrics off, every emission
+is a no-op:
+
+- **Requests** — per-request latency tagged `ok` / `http_error` /
+  `parse_error`, prompt and completion token counts from the endpoint's
+  `usage` block, dropped requests (queue cap hit), and periodic gauges for
+  endpoint availability, queue depth, and cumulative completed/failed
+  totals.
+- **Conversations** — each completed request counts against its
+  bot-to-bot chain depth (0 = triggered by a game event or a real player),
+  giving the conversation-depth histogram.
+- **Tools** — every tool invocation counts `llm_tool_calls` (tool name +
+  ok/error) and writes an `llm_tool` row (arguments + outcome) to the
+  characters DB `felworld_events` table, which the Character Inspector
+  dashboard replays per character alongside the memory scratchpad and
+  conversation history above.
+
 ---
 
 Felworld is a non-commercial research project. It contains no game client,

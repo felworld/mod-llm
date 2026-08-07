@@ -76,6 +76,9 @@ in [FEATURES.md](FEATURES.md).
   identity (roleplay, world PvP, levelling, raiding, …) that colours how its members talk
   about it, what its guild chat sounds like, and what its ads sell — plus a message of the
   day stamped from that identity. Player-founded guilds never get one.
+- **[Observability metrics](FEATURES.md#observability-metrics)** — request latency, token
+  usage, conversation depth, and per-tool outcomes feed the Felworld Grafana dashboards
+  when the core's metrics are enabled.
 
 ## Architecture
 
