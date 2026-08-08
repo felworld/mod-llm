@@ -88,7 +88,9 @@ namespace ModLlm
         {
             nlohmann::json args;
             args["message"] = _bareContent;
-            calls.push_back({ "say", args.dump(), "" }); // synthetic call: no model-assigned id
+            // Synthetic call: the fabricated id lets a failure feed back
+            // like any genuine call's would.
+            calls.push_back({ "say", args.dump(), "call_say" });
         }
 
         // Tool outcomes surface at INFO under LLM.Debug.Enable; the default
@@ -208,7 +210,7 @@ namespace ModLlm
             }
         }
 
-        SubmitToolFeedback(bot, actor, outcomes);
+        SubmitToolFeedback(bot, actor, calls, outcomes);
 
         return anySucceeded || calls.empty();
     }
@@ -216,13 +218,16 @@ namespace ModLlm
     // Follow-up requests carry failed calls' errors and read tools' data back
     // as tool-result messages, so the model can pick an alternative action or
     // talk about what it just looked up. Rounds are capped so a model that
-    // keeps reading or failing cannot loop. Only genuine tool calls qualify -
-    // the rescued bare-content say has no real tool_call id to reference.
+    // keeps reading or failing cannot loop. The rescued bare-content say
+    // qualifies too, under its fabricated call id: a prose-answering model
+    // otherwise never hears why its words went nowhere - the cross-faction
+    // "use the emote tool" redirect in particular was thrown away for
+    // exactly the models that needed it (felworld/mod-llm#36).
     void LlmToolOperation::SubmitToolFeedback(Player* bot, Player* actor,
-        std::vector<Outcome> const& outcomes) const
+        std::vector<ToolCall> const& calls, std::vector<Outcome> const& outcomes) const
     {
         constexpr uint32 MAX_FOLLOW_UP_ROUNDS = 2;
-        if (_round >= MAX_FOLLOW_UP_ROUNDS || _toolCalls.empty())
+        if (_round >= MAX_FOLLOW_UP_ROUNDS || calls.empty())
             return;
 
         bool anyFailed = false;
@@ -236,22 +241,24 @@ namespace ModLlm
             return;
 
         nlohmann::json toolCallsJson = nlohmann::json::array();
-        for (ToolCall const& call : _toolCalls)
+        for (ToolCall const& call : calls)
             toolCallsJson.push_back({
                 { "id", call.id },
                 { "type", "function" },
                 { "function", { { "name", call.name }, { "arguments", call.arguments } } }
             });
 
+        // On the rescue path the prose already sits in the synthetic say's
+        // arguments - repeating it as content would read as a second copy.
         nlohmann::json extra = nlohmann::json::array();
         extra.push_back({
             { "role", "assistant" },
-            { "content", _bareContent },
+            { "content", _toolCalls.empty() ? "" : _bareContent },
             { "tool_calls", std::move(toolCallsJson) }
         });
         // Failed attempts are invisible to everyone in the world; saying so
         // keeps the model from working the failure into its chat.
-        for (size_t i = 0; i < _toolCalls.size(); ++i)
+        for (size_t i = 0; i < calls.size(); ++i)
         {
             Outcome const& outcome = outcomes[i];
             std::string content;
@@ -264,7 +271,7 @@ namespace ModLlm
                 content = "ok";
             extra.push_back({
                 { "role", "tool" },
-                { "tool_call_id", _toolCalls[i].id },
+                { "tool_call_id", calls[i].id },
                 { "content", std::move(content) }
             });
         }

@@ -47,7 +47,8 @@ namespace ModLlm
             std::string result;  // read-tool payload for the follow-up round
         };
 
-        void SubmitToolFeedback(Player* bot, Player* actor, std::vector<Outcome> const& outcomes) const;
+        void SubmitToolFeedback(Player* bot, Player* actor, std::vector<ToolCall> const& calls,
+            std::vector<Outcome> const& outcomes) const;
 
         TriggerContext _trigger;
         std::vector<ToolCall> _toolCalls;

@@ -17,7 +17,11 @@ messages with context and tool list rebuilt against the new game state, capped
 at two per trigger — carry two things back to the model: execution errors, so
 it can pick an alternative action (`LLM.ErrorFeedback.Enable`), and read-tool
 results (`get_gear`, `get_inventory`), so it can answer questions about its
-own gear, bags, and money with the facts in hand.
+own gear, bags, and money with the facts in hand. A prose reply rescued as an
+implicit `say` (`LLM.TreatBareContentAsSay`) feeds back the same way when
+it fails: that rescue is how small models answer most of the time, and without
+the round they never heard redirects like the cross-faction "use the emote
+tool" — which is why bots almost never emoted at the enemy faction.
 
 Chat links close the loop: the bot's quest log annotates every title with a
 `{quest:ID}` tag and read-tool results tag every item with `{item:ID}`; when
