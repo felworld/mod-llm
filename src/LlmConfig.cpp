@@ -31,6 +31,11 @@ namespace ModLlm
             "people you meet and plans you make; whatever is relevant is shown back to you. You may call "
             "several tools in one reply.{style_examples}";
 
+        // Stock acknowledgements ("np", "gg") are deliberately absent from
+        // the exemplars: tokens present in context get a probability boost
+        // regardless of the paired situation, and seeding them had bots
+        // dropping "gg"/"np" into moments that made no sense
+        // (felworld/mod-llm#34).
         constexpr char DEFAULT_PROMPT_STYLE_EXAMPLES[] =
             "\n\nHow you type - examples of situation => message you might send:\n"
             "stranger begs for gold => lol no\n"
@@ -43,8 +48,6 @@ namespace ModLlm
             "you finally finish a rough quest => that quest was awful lol\n"
             "invited to group mid-quest => maybe after this quest\n"
             "guildie asks who is up for deadmines => id come, need the vc sword\n"
-            "someone says thanks => np\n"
-            "someone says gg => gg\n"
             "you die to something dumb => wow im bad\n"
             "someone keeps pestering you => dude stop\n"
             "you agree to meet someone => omw\n"
