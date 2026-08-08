@@ -69,10 +69,20 @@ namespace ModLlm::BotSelector
     // roll or cap - callers decide how to narrow the list. World thread only.
     std::vector<Player*> CollectGuildBots(Player* sender, Guild* guild);
 
+    // Who is on a channel, before eligibility narrows it: lets a routing
+    // decision explain itself ("0 eligible of 0 bot members" is a membership
+    // problem, "0 eligible of 40" an eligibility one) - felworld/mod-llm#37.
+    struct ChannelAudience
+    {
+        uint32 bots = 0;   // bot members of the channel
+        uint32 humans = 0; // real-player members
+    };
+
     // Every eligible bot on the channel. The human-witness requirement is
     // channel membership rather than proximity. No chance roll or cap -
     // callers decide how to narrow the list. World thread only.
-    std::vector<Player*> CollectChannelBots(Player* sender, Channel* channel);
+    std::vector<Player*> CollectChannelBots(Player* sender, Channel* channel,
+        ChannelAudience* audience = nullptr);
 
     // Picks the bots that should react to a chat message. Handles eligibility
     // (audience of the message + a real player involved), chance rolls, the

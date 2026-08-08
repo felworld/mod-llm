@@ -283,7 +283,8 @@ namespace ModLlm::BotSelector
         return {};
     }
 
-    std::vector<Player*> CollectChannelBots(Player* sender, Channel* channel)
+    std::vector<Player*> CollectChannelBots(Player* sender, Channel* channel,
+        ChannelAudience* audience)
     {
         // The audience for a channel message is the whole channel, so the
         // human-witness requirement is channel membership rather than
@@ -295,9 +296,18 @@ namespace ModLlm::BotSelector
             if (!player->IsInWorld() || !player->IsInChannel(channel))
                 continue;
             if (IsRealPlayer(player))
+            {
                 channelHasHuman = true;
-            else if (IsEligibleBot(player, sender))
-                channelBots.push_back(player);
+                if (audience)
+                    ++audience->humans;
+            }
+            else
+            {
+                if (audience && GetBotAI(player))
+                    ++audience->bots;
+                if (IsEligibleBot(player, sender))
+                    channelBots.push_back(player);
+            }
         }
         if (channelHasHuman || IsRealPlayer(sender))
             return channelBots;

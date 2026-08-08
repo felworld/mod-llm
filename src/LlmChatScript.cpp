@@ -12,6 +12,8 @@
 #include "LlmConfig.h"
 #include "LlmDispatch.h"
 #include "LlmRouter.h"
+#include "Log.h"
+#include "Metric.h"
 #include "ObjectAccessor.h"
 #include "Overhear.h"
 #include "Player.h"
@@ -145,6 +147,27 @@ namespace ModLlm
             trigger.crossFactionChatOk = urand(0, 99) < sLlmConfig->crossFactionChatChance;
         }
 
+        // Every real-player message leaves a routing footprint, whatever the
+        // outcome - without one, "bots never reacted" is indistinguishable
+        // from "the message never reached the module" (felworld/mod-llm#37).
+        // One metric point (value = bots involved) and one log line per
+        // decision; INFO under LLM.Debug.Enable so the debug log alone
+        // reconstructs the pipeline.
+        static void NoteRoute(Player* sender, uint32 kind, bool defenseChannel,
+            std::string const& text, char const* outcome, size_t botCount,
+            std::string const& detail = "")
+        {
+            char const* trigger = RouteKindName(kind, defenseChannel);
+            METRIC_VALUE("llm_route", uint64(botCount),
+                METRIC_TAG("trigger", trigger), METRIC_TAG("outcome", outcome));
+            if (sLlmConfig->debugEnabled)
+                LOG_INFO("module.llm", "Route {} from {} '{}': {}{}",
+                    trigger, sender->GetName(), text, outcome, detail);
+            else
+                LOG_DEBUG("module.llm", "Route {} from {} '{}': {}{}",
+                    trigger, sender->GetName(), text, outcome, detail);
+        }
+
         void HandleChat(Player* sender, uint32 type, uint32 lang, std::string const& msg,
             Player* receiver, Group* group, Guild* guild, Channel* channel)
         {
@@ -256,7 +279,12 @@ namespace ModLlm
             {
                 std::vector<Player*> candidates = BotSelector::CollectGroupBots(sender, group);
                 if (candidates.empty())
+                {
+                    NoteRoute(sender, kind, false, text, "no_candidates", 0);
                     return;
+                }
+                NoteRoute(sender, kind, false, text, "to_router", candidates.size(),
+                    Acore::StringFormat(" ({} candidates)", candidates.size()));
 
                 TriggerContext trigger;
                 trigger.kind = kind;
@@ -278,7 +306,12 @@ namespace ModLlm
             {
                 std::vector<Player*> candidates = BotSelector::CollectSayCandidates(sender, maxDistance);
                 if (candidates.empty())
+                {
+                    NoteRoute(sender, kind, false, text, "no_candidates", 0);
                     return;
+                }
+                NoteRoute(sender, kind, false, text, "to_router", candidates.size(),
+                    Acore::StringFormat(" ({} candidates)", candidates.size()));
 
                 TriggerContext trigger;
                 trigger.kind = kind;
@@ -298,11 +331,21 @@ namespace ModLlm
             if (sLlmConfig->roomRouterEnabled
                 && (kind == TRIGGER_CHAT_GUILD || kind == TRIGGER_CHAT_CHANNEL))
             {
+                BotSelector::ChannelAudience audience;
                 std::vector<Player*> candidates = kind == TRIGGER_CHAT_GUILD
                     ? BotSelector::CollectGuildBots(sender, guild)
-                    : BotSelector::CollectChannelBots(sender, channel);
+                    : BotSelector::CollectChannelBots(sender, channel, &audience);
+                bool defense = channel && BotSelector::IsDefenseChannel(channel);
+                std::string detail = channel
+                    ? Acore::StringFormat(" ({} eligible of {} bot members on '{}', {} humans on it)",
+                        candidates.size(), audience.bots, channel->GetName(), audience.humans)
+                    : Acore::StringFormat(" ({} candidates)", candidates.size());
                 if (candidates.empty())
+                {
+                    NoteRoute(sender, kind, defense, text, "no_candidates", 0, detail);
                     return;
+                }
+                NoteRoute(sender, kind, defense, text, "to_router", candidates.size(), detail);
 
                 TriggerContext trigger;
                 trigger.kind = kind;
@@ -323,6 +366,9 @@ namespace ModLlm
 
             std::vector<Player*> bots = BotSelector::SelectForChat(sender, kind, text, group, guild,
                 channel, maxDistance);
+            NoteRoute(sender, kind, channel && BotSelector::IsDefenseChannel(channel), text,
+                bots.empty() ? "dice_silent" : "dice_picked", bots.size(),
+                Acore::StringFormat(" ({} picked)", bots.size()));
 
             // Successive responders are staggered so each one's context is
             // rebuilt after the previous replies (likely) landed - concurrent

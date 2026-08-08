@@ -567,6 +567,16 @@ is a no-op:
   characters DB `felworld_events` table, which the Character Inspector
   dashboard replays per character alongside the memory scratchpad and
   conversation history above.
+- **Chat routing** — every real-player message leaves an `llm_route` point
+  tagged with the trigger (`say` / `party` / `guild` / `channel` /
+  `defense`) and the outcome: `no_candidates` (nobody eligible to hear it),
+  `to_router` / `dice_picked` / `dice_silent` at the selection stage, then
+  `router_picked` / `router_silent` / `router_error` when the router's
+  verdict lands (value = bots involved). Each point is paired with a log
+  line on `module.llm` (INFO under `LLM.Debug.Enable`, else DEBUG) that
+  names the sender, message, and — for channels — how many bots are members
+  versus eligible, so a single grep reconstructs why a message did or
+  didn't reach a bot (felworld/mod-llm#37).
 
 ### Exchange trace
 

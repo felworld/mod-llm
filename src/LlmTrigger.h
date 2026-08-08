@@ -46,6 +46,13 @@ namespace ModLlm
         }
     }
 
+    // Tag for routing metrics/logs: defense channels are the special case of
+    // TRIGGER_CHAT_CHANNEL worth telling apart (felworld/mod-llm#37).
+    constexpr char const* RouteKindName(uint32 kind, bool defenseChannel)
+    {
+        return defenseChannel ? "defense" : TriggerKindName(kind);
+    }
+
     // Snapshot of a trigger, safe to carry across threads: GUIDs and strings
     // only, never game object pointers.
     struct TriggerContext

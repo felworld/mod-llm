@@ -16,6 +16,7 @@
 #include "LlmDispatch.h"
 #include "LlmTools.h"
 #include "Log.h"
+#include "Metric.h"
 #include "ObjectMgr.h"
 #include "Player.h"
 #include "PlayerbotAI.h"
@@ -277,6 +278,7 @@ namespace ModLlm::Router
                     }
                 }
 
+                bool parseable = true;
                 if (std::optional<std::vector<std::string>> names = ParseRouterReply(response.content))
                 {
                     for (std::string const& name : *names)
@@ -290,21 +292,33 @@ namespace ModLlm::Router
                     // excepted). No quiet degradation to dice - a router
                     // model producing garbage should be loud in the logs, not
                     // masked by fallback chatter.
+                    parseable = false;
                     LOG_ERROR("module.llm", "{} reply not parseable, routing to nobody: '{}'",
                         route.label, response.content);
                 }
 
-                if (sLlmConfig->debugEnabled)
+                // The verdict half of the routing footprint (the selection
+                // half logs at dispatch time): who of the roster the router
+                // chose, always on record - felworld/mod-llm#37.
+                char const* outcome = !parseable ? "router_error"
+                    : picks.empty() ? "router_silent" : "router_picked";
+                METRIC_VALUE("llm_route", uint64(picks.size()),
+                    METRIC_TAG("trigger", RouteKindName(trigger.kind, trigger.defenseChannel)),
+                    METRIC_TAG("outcome", outcome));
+
+                std::string picked;
+                for (size_t i : picks)
                 {
-                    std::string picked;
-                    for (size_t i : picks)
-                    {
-                        if (!picked.empty())
-                            picked += ", ";
-                        picked += route.roster[i].name;
-                    }
-                    LOG_INFO("module.llm", "{} for '{}' picked [{}]", route.label, trigger.message, picked);
+                    if (!picked.empty())
+                        picked += ", ";
+                    picked += route.roster[i].name;
                 }
+                if (sLlmConfig->debugEnabled)
+                    LOG_INFO("module.llm", "{} for {} '{}': picked [{}] of {} roster",
+                        route.label, trigger.actorName, trigger.message, picked, route.roster.size());
+                else
+                    LOG_DEBUG("module.llm", "{} for {} '{}': picked [{}] of {} roster",
+                        route.label, trigger.actorName, trigger.message, picked, route.roster.size());
 
                 uint32 index = 0;
                 for (size_t i : picks)
