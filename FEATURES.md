@@ -413,7 +413,8 @@ busy-capitals dwell) with a real player somewhere in the Trade channel. The prom
 consumables it is low on), each priced by the deterministic layer
 (mod-ah-bot-plus's jittered valuation when that module is enabled, a
 vendor-price heuristic otherwise; quotes come in whole silver, and
-sub-silver items or leveling leftovers never make the list — see
+sub-silver items, leveling leftovers, or anything an NPC vendor sells
+outright never make the list — see
 [mod-playerbots' FEATURES](https://github.com/felworld/mod-playerbots/blob/main/FEATURES.md#city-market-trading))
 — plus the class services it sells to
 strangers ([portals and summons](#class-services), priced by the configured
