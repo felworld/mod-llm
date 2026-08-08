@@ -484,20 +484,16 @@ namespace ModLlm::Router
         trigger.actorName = sender->GetName();
 
         // Label and note derive from the trigger, so every call site
-        // describes the same room the same way. Defense channels carry an
-        // extra note: per-candidate dice could never hold a faction-wide
-        // alarm channel quiet, but a router told that nearly every alarm is
-        // read in silence can.
+        // describes the same room the same way. Defense channels swap in the
+        // mustering prompt below instead of carrying a note: a call for help
+        // is meant for everyone reading, so the generic "who is being
+        // addressed" framing would route it to nobody (felworld/mod-llm#37).
         std::string roomLabel;
         std::string roomNote;
         if (trigger.kind == TRIGGER_CHAT_GUILD)
             roomLabel = "guild chat";
         else if (trigger.defenseChannel)
-        {
             roomLabel = Acore::StringFormat("the \"{}\" defense channel", trigger.channelName);
-            roomNote = "It is an alarm channel where enemy attacks are reported: pick a character only "
-                "if they are named or would genuinely drop what they are doing and go help.\n";
-        }
         else
             roomLabel = Acore::StringFormat("the \"{}\" channel", trigger.channelName);
 
@@ -522,7 +518,14 @@ namespace ModLlm::Router
             historyBlock = "Recently said there:\n" + history;
 
         RouteRequest route;
-        route.maxPick = MaxPickFor(sender);
+        // A player's call for help in a defense channel musters its own,
+        // larger wave: whoever the router picks actually goes (go_defend),
+        // and the speaker cap in LlmToolOperation keeps most of the wave off
+        // the channel. Bot-seeded defense messages keep the ordinary cap -
+        // the board machinery does their real mustering.
+        route.maxPick = trigger.defenseChannel && BotSelector::IsRealPlayer(sender)
+            ? sLlmConfig->defenseMaxResponders
+            : MaxPickFor(sender);
         std::string rosterText;
         bool anyMarketInterest = false;
         bool anyServiceSeller = false;
@@ -576,18 +579,21 @@ namespace ModLlm::Router
         args.push_back(fmt::arg("room_note", roomNote));
         args.push_back(fmt::arg("max_picks", route.maxPick));
 
+        std::string const& promptTemplate = trigger.defenseChannel
+            ? sLlmConfig->promptDefenseRouter
+            : sLlmConfig->promptRoomRouter;
         try
         {
-            route.prompt = fmt::vformat(sLlmConfig->promptRoomRouter, args);
+            route.prompt = fmt::vformat(promptTemplate, args);
         }
         catch (std::exception const& e)
         {
             LOG_ERROR("module.llm", "Bad room-router prompt template '{}': {}",
-                sLlmConfig->promptRoomRouter, e.what());
+                promptTemplate, e.what());
             return false;
         }
 
-        route.label = "Room router";
+        route.label = trigger.defenseChannel ? "Defense router" : "Room router";
         route.trigger = std::move(trigger);
         // Room lines were already recorded via AddRoomLine.
         route.recordPairLines = false;

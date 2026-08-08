@@ -74,18 +74,18 @@ namespace ModLlm::ContextBuilder
         // audience, the harder the push toward silence.
         std::string ReplyGuidance(TriggerContext const& trigger)
         {
-            // Defense channels: the reply rule is binary - a speaker is
-            // coming (go_defend plus a short omw) or silent. First-hand
-            // sightings arrive through the callout event path, not as
-            // replies, and LlmToolOperation enforces this contract in code:
-            // a channel-bound say without a successful go_defend beside it
-            // is swallowed, so a model that types a decline anyway still
-            // stays silent.
+            // Defense channels: the router already picked this bot as one who
+            // answers the call, so the guidance points forward - go, and say
+            // so briefly - instead of re-litigating silence. The reply rule
+            // stays binary and LlmToolOperation enforces it in code: a
+            // channel-bound say without a successful go_defend beside it is
+            // swallowed, so a model that types a decline anyway still stays
+            // silent.
             if (trigger.kind == TRIGGER_CHAT_CHANNEL && trigger.defenseChannel)
-                return Acore::StringFormat(" This is the \"{}\" defense channel, where people report enemy"
-                    " attacks and call for help. The only message that belongs from you is a short"
-                    " on-my-way sent together with the go_defend tool, when you actually go. Readers who"
-                    " keep doing what they were doing say nothing at all, and that is almost always you.",
+                return Acore::StringFormat(" This reached you through the \"{}\" defense channel, where"
+                    " enemy attacks are reported and help is called for, and it moved you to act: call"
+                    " the go_defend tool and send a short on-my-way with it, the way a player types"
+                    " \"omw\". If you truly cannot go, you say nothing at all.",
                     trigger.channelName);
 
             // An initiative remark or event comment pointed at the zone

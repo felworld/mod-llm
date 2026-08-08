@@ -1418,8 +1418,9 @@ namespace ModLlm::LlmTools
             {
                 { "type", "object" },
                 { "properties", { { "zone", { { "type", "string" },
-                    { "description", "Zone under attack, like Redridge Mountains. Omit when the call "
-                        "is about this channel's own zone." } } } } }
+                    { "description", "Zone or place under attack as the message names it, like "
+                        "Redridge Mountains or Tarren Mill. Omit when the call is about this "
+                        "channel's own zone." } } } } }
             },
             TRIGGER_CHAT_CHANNEL,
             false,

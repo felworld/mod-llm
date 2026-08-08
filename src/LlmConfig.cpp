@@ -133,6 +133,23 @@ namespace ModLlm
             "[]. Reply with only a JSON array of at most {max_picks} names from the list, most relevant "
             "first - for example [\"Name\"] - or [] if nobody would answer.";
 
+        // Defense channels invert the room router's silence bias: a call for
+        // help is meant for everyone reading, so the question is not "who is
+        // being addressed" but "who answers the call". Positive rules only.
+        constexpr char DEFAULT_PROMPT_DEFENSE_ROUTER[] =
+            "You are routing a message between player characters in World of Warcraft. In "
+            "{room_label}, where enemy attacks are reported and help is called for, {actor_name} "
+            "writes: \"{message}\"\n"
+            "Characters reading it include:\n{roster}\n{history_block}"
+            "A report of an enemy player attacking, or a call for help against one, musters "
+            "defenders: pick the characters who drop what they are doing and ride out to fight. "
+            "Prefer characters whose level measures up to the reported enemy, and a character the "
+            "message asks for by name is always picked. Most calls muster one or two; a large or "
+            "desperate attack can muster up to {max_picks}. A message that reports no attack and "
+            "asks for no help - banter, a question, an all-clear - musters nobody: the answer is "
+            "[]. Reply with only a JSON array of at most {max_picks} names from the list, most "
+            "fitting first - for example [\"Name\"] - or [].";
+
         constexpr char DEFAULT_PROMPT_HISTORY_LINE[] = "{speaker}: {message}";
 
         // Weighted identities for bot-led guilds: mostly the levelling crowd
@@ -217,6 +234,8 @@ namespace ModLlm
         sayRouterEnabled = sConfigMgr->GetOption<bool>("LLM.Chat.SayRouter.Enable", true);
         roomRouterEnabled = sConfigMgr->GetOption<bool>("LLM.Chat.RoomRouter.Enable", true);
         routerMaxRoster = sConfigMgr->GetOption<uint32>("LLM.Chat.Router.MaxRoster", 12);
+        defenseMaxResponders = sConfigMgr->GetOption<uint32>("LLM.Chat.Defense.MaxResponders", 4);
+        defenseMaxSpeakers = sConfigMgr->GetOption<uint32>("LLM.Chat.Defense.MaxSpeakers", 2);
         overhearEnabled = sConfigMgr->GetOption<bool>("LLM.Chat.Overhear.Enable", true);
         botTriggerEnabled = sConfigMgr->GetOption<bool>("LLM.Chat.BotTrigger.Enable", true);
         botTriggerMaxChainDepth = sConfigMgr->GetOption<uint32>("LLM.Chat.BotTrigger.MaxChainDepth", 3);
@@ -296,6 +315,7 @@ namespace ModLlm
         promptRouter = LoadPrompt("LLM.Prompt.Router", DEFAULT_PROMPT_ROUTER);
         promptSayRouter = LoadPrompt("LLM.Prompt.SayRouter", DEFAULT_PROMPT_SAY_ROUTER);
         promptRoomRouter = LoadPrompt("LLM.Prompt.RoomRouter", DEFAULT_PROMPT_ROOM_ROUTER);
+        promptDefenseRouter = LoadPrompt("LLM.Prompt.DefenseRouter", DEFAULT_PROMPT_DEFENSE_ROUTER);
 
         LOG_INFO("module.llm", "mod-llm config loaded: enabled={}, endpoint={}, model={}",
             IsEnabled(), endpoint, model);

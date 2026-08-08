@@ -364,15 +364,17 @@ LLM.Chat.SayRouter.Enable = 1
 #                     is read in silence, so the router usually answers
 #                     "nobody" unless a bot is named, asked something it
 #                     would know, or already mid-conversation.
-#                     LocalDefense/WorldDefense route too, with an
-#                     alarm-channel note in the routing prompt: nearly
-#                     every alarm is answered by nobody, and a picked bot
-#                     gets the go-or-stay-silent defense reply guidance
-#                     (a short "omw" beside the go_defend tool when
-#                     actually going, silence otherwise). The contract is
-#                     enforced in code: a defense-channel reply only lands
-#                     beside a successful go_defend, so declines never
-#                     reach the channel even when the model types one.
+#                     LocalDefense/WorldDefense route too, through their
+#                     own mustering prompt (LLM.Prompt.DefenseRouter): an
+#                     attack report or call for help picks the defenders
+#                     who ride out (see LLM.Chat.Defense.*), anything else
+#                     musters nobody. A picked bot gets the defense reply
+#                     guidance - answer with the go_defend tool and a
+#                     short "omw" beside it, silence if it cannot go. The
+#                     contract is enforced in code: a defense-channel
+#                     reply only lands beside a successful go_defend, so
+#                     declines never reach the channel even when the model
+#                     types one.
 #                     When disabled, guild/channel chat falls back to the
 #                     ReplyChance.Guild/.Channel dice (.Defense in defense
 #                     channels).
@@ -392,6 +394,26 @@ LLM.Chat.RoomRouter.Enable = 1
 #
 
 LLM.Chat.Router.MaxRoster = 12
+
+#
+#    LLM.Chat.Defense.MaxResponders
+#        Description: Cap on bots mustered by one real player's call for
+#                     help in a defense channel - each picked bot answers
+#                     with go_defend and actually travels there. Most calls
+#                     muster one or two; the router may go up to this cap
+#                     for a large attack.
+#        Default:     4
+#
+#    LLM.Chat.Defense.MaxSpeakers
+#        Description: Of the mustered bots, at most this many post an "omw"
+#                     in the channel (per call, one-minute window) - the
+#                     rest ride out without a word, so a mustering never
+#                     floods the alarm channel.
+#        Default:     2
+#
+
+LLM.Chat.Defense.MaxResponders = 4
+LLM.Chat.Defense.MaxSpeakers = 2
 
 #
 #    LLM.Chat.EnableCustomChannels
@@ -777,8 +799,13 @@ LLM.History.RetentionDays = 2
 #               {history_block} {room_note} {max_picks}
 #               ({room_label} names the room - guild chat or a channel;
 #               {history_block} is the room transcript, ending with the
-#               message being routed; {room_note} adds alarm-channel
-#               guidance in defense channels, else empty)
+#               message being routed; {room_note} carries quest/market/
+#               service hints when the message links such things)
+#      defense router: {room_label} {actor_name} {message} {roster}
+#               {history_block} {max_picks}
+#               (used instead of the room router in LocalDefense and
+#               WorldDefense: musters defenders for an attack report or
+#               call for help rather than asking who is being addressed)
 #    LLM.Prompt.System and LLM.Prompt.StyleExamples are written out below
 #    (identical to the built-in defaults) so they can be tuned without
 #    rebuilding. Style guidance uses positive exemplars only - phrasing a rule
@@ -802,3 +829,4 @@ LLM.Prompt.StyleExamples = "\n\nHow you type - examples of situation => message 
 # LLM.Prompt.Router = ""
 # LLM.Prompt.SayRouter = ""
 # LLM.Prompt.RoomRouter = ""
+# LLM.Prompt.DefenseRouter = ""

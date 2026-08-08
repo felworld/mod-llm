@@ -5,6 +5,7 @@
 
 #include "LlmToolOperation.h"
 
+#include "Common.h"
 #include "ContextBuilder.h"
 #include "FelworldEvents.h"
 #include "LlmClient.h"
@@ -23,10 +24,39 @@
 
 #include <algorithm>
 #include <numeric>
+#include <unordered_map>
 #include <utility>
 
 namespace ModLlm
 {
+    namespace
+    {
+        // A mustered wave answers one call for help with at most
+        // Defense.MaxSpeakers "omw" messages: later responders still go,
+        // they just post nothing. Keyed by room (channel + team) with a
+        // window generous enough to cover one wave of picked bots replying
+        // at their own LLM pace. Operations all run on the world thread, so
+        // plain statics suffice.
+        bool ClaimDefenseSpeakSlot(TriggerContext const& trigger)
+        {
+            constexpr uint32 windowMs = 60 * IN_MILLISECONDS;
+            static std::unordered_map<std::string, std::pair<uint32, uint32>> windows; // start, count
+
+            std::string const& key = trigger.roomKey.empty() ? trigger.channelName : trigger.roomKey;
+            uint32 now = getMSTime();
+            auto& [startMs, count] = windows[key];
+            if (!startMs || now - startMs > windowMs)
+            {
+                startMs = now;
+                count = 0;
+            }
+            if (count >= sLlmConfig->defenseMaxSpeakers)
+                return false;
+            ++count;
+            return true;
+        }
+    }
+
     bool LlmToolOperation::IsValid() const
     {
         return sLlmConfig->IsEnabled();
@@ -116,10 +146,18 @@ namespace ModLlm
             // Swallowed, not failed: an error would invite the model to try
             // the message again in the feedback round, and silence is exactly
             // the outcome the channel wants.
-            if (defenseReply && !goDefendSucceeded && channelBoundSay(call))
+            if (defenseReply && channelBoundSay(call))
             {
-                finish(index, true, "swallowed: defense-channel reply without go_defend");
-                continue;
+                if (!goDefendSucceeded)
+                {
+                    finish(index, true, "swallowed: defense-channel reply without go_defend");
+                    continue;
+                }
+                if (!ClaimDefenseSpeakSlot(_trigger))
+                {
+                    finish(index, true, "swallowed: the channel heard enough on-my-ways already");
+                    continue;
+                }
             }
 
             ToolSpec const* spec = sLlmToolRegistry->Find(call.name);

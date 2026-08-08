@@ -86,6 +86,12 @@ namespace ModLlm
         bool sayRouterEnabled = true;
         bool roomRouterEnabled = true;
         uint32 routerMaxRoster = 12;
+        // Defense-channel mustering: a real player's call for help picks up
+        // to MaxResponders bots who actually go (go_defend), but at most
+        // MaxSpeakers of them post an "omw" - the rest ride out silently, so
+        // a mustering never floods the alarm channel.
+        uint32 defenseMaxResponders = 4;
+        uint32 defenseMaxSpeakers = 2;
         bool overhearEnabled = true;
 
         // Bot speech triggering other bots (kept separate from the reply
@@ -184,6 +190,7 @@ namespace ModLlm
         std::string promptRouter;
         std::string promptSayRouter;
         std::string promptRoomRouter;
+        std::string promptDefenseRouter;
     };
 }
 

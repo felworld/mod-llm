@@ -120,12 +120,19 @@ branching trees. Only a real player's message fans out to several responders
 
 ### Defense channels
 
-LocalDefense/WorldDefense route like everything else, with an alarm-channel
-note in the routing prompt: nearly every alarm is read in silence, and a bot
-is only picked to answer when it is named or would genuinely go. The picked
-bot gets go-or-stay-silent reply guidance with the `go_defend` tool, and the
-contract is enforced in code, not just prompted: a channel-bound reply only
-lands when a `go_defend` in the same response succeeded, so a model that
+LocalDefense/WorldDefense route through their own mustering prompt
+(`LLM.Prompt.DefenseRouter`) instead of the generic room router: a call for
+help is meant for everyone reading it, so the router's question is not "who
+is being addressed" but "who answers the call". An attack report or plea for
+help from a real player musters up to `LLM.Chat.Defense.MaxResponders`
+defenders (default 4, most calls mustering one or two, preferring roster
+characters whose level measures up); anything else — banter, questions,
+all-clears — musters nobody. Every picked bot answers with the `go_defend`
+tool and actually travels, but at most `LLM.Chat.Defense.MaxSpeakers`
+(default 2) post an "omw" in the channel — the rest ride out without a word,
+so a mustering never floods the alarm channel. The contract is enforced in
+code, not just prompted: a channel-bound reply only lands when a `go_defend`
+in the same response succeeded and a speaker slot is free, so a model that
 types a decline anyway still stays silent. First-hand sightings reach the
 channel through the defense-callout event path instead. (Per-candidate dice
 could never keep a faction-wide channel quiet — a low chance across hundreds
