@@ -568,6 +568,20 @@ is a no-op:
   dashboard replays per character alongside the memory scratchpad and
   conversation history above.
 
+### Exchange trace
+
+Independently of the metrics toggle, every LLM exchange is recorded in full
+to `mod_llm_trace` in the characters DB: the exact request body sent (system
+prompt, context, history, sampling parameters), the raw response, and the
+say-text extracted from it — for main requests and router calls alike, tagged
+with trigger kind, chain depth, follow-up round, status, and latency. The
+point is diagnosing voice problems from playtesting with hard data: when a
+bot says something odd, the prompt that produced it is already captured. The
+Character Inspector dashboard lists a bot's recent exchanges, and the LLM
+dashboard's *find utterance* search pulls up every exchange whose output
+contains a phrase, prompt attached. Rows are purged after
+`LLM.Trace.RetentionDays` (default 14; 0 keeps everything).
+
 ---
 
 Felworld is a non-commercial research project. It contains no game client,

@@ -17,6 +17,7 @@
 #include "Player.h"
 #include "Random.h"
 #include "ScriptMgr.h"
+#include "TraceStore.h"
 #include "TravelMgr.h"
 
 #include <unordered_map>
@@ -74,6 +75,7 @@ namespace ModLlm
             LlmTools::RegisterDefaultTools();
             sLlmMemoryStore->Load();
             sLlmHistoryStore->Load();
+            sLlmTraceStore->Load();
             sLlmGuildFlavors->Load();
             sLlmClient->Start();
         }
@@ -124,6 +126,7 @@ namespace ModLlm
             {
                 _historySaveTimer = 0;
                 sLlmHistoryStore->SaveDirty();
+                sLlmTraceStore->SaveDirty();
             }
         }
 
@@ -132,6 +135,7 @@ namespace ModLlm
             sLlmClient->Stop();
             sLlmMemoryStore->SaveDirty();
             sLlmHistoryStore->SaveDirty();
+            sLlmTraceStore->SaveDirty();
         }
 
     private:

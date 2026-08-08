@@ -17,6 +17,7 @@
 #include "SharedDefines.h"
 #include "StringFormat.h"
 #include "ToolCallParser.h"
+#include "TraceStore.h"
 #include "WorldPacket.h"
 #include "WorldSessionMgr.h"
 
@@ -33,6 +34,33 @@ namespace ModLlm
     {
         // How often the availability monitor probes the endpoint.
         constexpr uint32 PROBE_INTERVAL_SECONDS = 10;
+
+        // The say-text of a response - every say-tool message plus any bare
+        // content - denormalized into its own trace column, so a phrase seen
+        // in playtesting can be searched straight to the exchange that
+        // produced it.
+        std::string ExtractSaid(LlmResponse const& response)
+        {
+            std::string said;
+            auto append = [&said](std::string_view text)
+            {
+                if (!said.empty())
+                    said += '\n';
+                said += text;
+            };
+
+            for (ToolCall const& call : response.toolCalls)
+            {
+                if (call.name != "say")
+                    continue;
+                nlohmann::json args = nlohmann::json::parse(call.arguments, nullptr, false);
+                if (args.is_object() && args["message"].is_string())
+                    append(args["message"].get<std::string>());
+            }
+            if (!response.content.empty())
+                append(response.content);
+            return said;
+        }
 
         // Broadcasts a system-chat line to every online player. Queued from
         // the monitor thread, executed on the world thread.
@@ -343,8 +371,7 @@ namespace ModLlm
             body["tool_choice"] = "auto";
         }
 
-        if (sLlmConfig->debugLogPrompts)
-            LOG_INFO("module.llm", "Prompt for bot {}: {}", request.snapshot.botName, body.dump());
+        std::string requestBody = body.dump();
 
         std::string base;
         std::string path;
@@ -368,15 +395,20 @@ namespace ModLlm
             headers.emplace("Authorization", "Bearer " + sLlmConfig->apiKey);
 
         auto requestStart = std::chrono::steady_clock::now();
-        httplib::Result result = client.Post(path, headers, body.dump(), "application/json");
+        httplib::Result result = client.Post(path, headers, requestBody, "application/json");
         auto requestMs = std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::steady_clock::now() - requestStart).count();
         if (!result || result->status != 200)
         {
+            std::string error = result
+                ? Acore::StringFormat("HTTP {}", result->status)
+                : httplib::to_string(result.error());
             LOG_WARN("module.llm", "LLM request failed for bot {}: {}",
-                request.snapshot.botName,
-                result ? Acore::StringFormat("HTTP {}", result->status) : httplib::to_string(result.error()));
+                request.snapshot.botName, error);
             METRIC_VALUE("llm_request_time", requestMs, METRIC_TAG("status", "http_error"));
+            sLlmTraceStore->Record(request.trigger.botGuid, control, request.trigger.kind,
+                request.trigger.chainDepth, request.round, "http_error", uint32(requestMs),
+                std::move(requestBody), result ? result->body : std::move(error), "");
             _failed.fetch_add(1, std::memory_order_relaxed);
             return;
         }
@@ -387,11 +419,17 @@ namespace ModLlm
             LOG_WARN("module.llm", "Failed to parse LLM response for bot {}: {}",
                 request.snapshot.botName, response.error);
             METRIC_VALUE("llm_request_time", requestMs, METRIC_TAG("status", "parse_error"));
+            sLlmTraceStore->Record(request.trigger.botGuid, control, request.trigger.kind,
+                request.trigger.chainDepth, request.round, "parse_error", uint32(requestMs),
+                std::move(requestBody), result->body, "");
             _failed.fetch_add(1, std::memory_order_relaxed);
             return;
         }
 
         METRIC_VALUE("llm_request_time", requestMs, METRIC_TAG("status", "ok"));
+        sLlmTraceStore->Record(request.trigger.botGuid, control, request.trigger.kind,
+            request.trigger.chainDepth, request.round, "ok", uint32(requestMs),
+            std::move(requestBody), result->body, ExtractSaid(response));
         // How deep in a bot-to-bot exchange this request sat (0 = triggered
         // by a game event or a real player) — the conversation-depth
         // distribution in the LLM dashboard.

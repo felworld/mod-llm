@@ -149,14 +149,26 @@ LLM.ErrorFeedback.Enable = 1
 LLM.Announce.Enable = 1
 
 #
-#    LLM.Debug.Enable / LLM.Debug.LogPrompts
-#        Description: Verbose trigger/response/tool-outcome logging / full
-#                     prompt logging.
-#        Default:     0 / 0
+#    LLM.Debug.Enable
+#        Description: Verbose trigger/response/tool-outcome logging.
+#        Default:     0
 #
 
 LLM.Debug.Enable = 0
-LLM.Debug.LogPrompts = 0
+
+#
+#    LLM.Trace.RetentionDays
+#        Description: Every LLM exchange - the exact request body sent, the
+#                     raw response, and the say-text extracted from it - is
+#                     recorded to mod_llm_trace in the characters DB, so a
+#                     line a bot said in playtesting can be traced back to
+#                     the prompt that produced it (surfaced in the Grafana
+#                     dashboards). Rows older than this many days are purged
+#                     at startup; 0 keeps everything.
+#        Default:     14
+#
+
+LLM.Trace.RetentionDays = 14
 
 ########################################
 # Reactive chat

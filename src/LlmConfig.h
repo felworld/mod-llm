@@ -50,7 +50,7 @@ namespace ModLlm
         bool errorFeedbackEnabled = true;
         bool announceEnabled = true;
         bool debugEnabled = false;
-        bool debugLogPrompts = false;
+        uint32 traceRetentionDays = 14;
 
         // Reactive chat
         bool chatEnabled = true;

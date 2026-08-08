@@ -190,7 +190,7 @@ namespace ModLlm
         errorFeedbackEnabled = sConfigMgr->GetOption<bool>("LLM.ErrorFeedback.Enable", true);
         announceEnabled = sConfigMgr->GetOption<bool>("LLM.Announce.Enable", true);
         debugEnabled = sConfigMgr->GetOption<bool>("LLM.Debug.Enable", false);
-        debugLogPrompts = sConfigMgr->GetOption<bool>("LLM.Debug.LogPrompts", false);
+        traceRetentionDays = sConfigMgr->GetOption<uint32>("LLM.Trace.RetentionDays", 14);
 
         chatEnabled = sConfigMgr->GetOption<bool>("LLM.Chat.Enable", true);
         whispersEnabled = sConfigMgr->GetOption<bool>("LLM.Chat.EnableWhispers", true);

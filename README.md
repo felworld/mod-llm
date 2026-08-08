@@ -78,7 +78,10 @@ in [FEATURES.md](FEATURES.md).
   day stamped from that identity. Player-founded guilds never get one.
 - **[Observability metrics](FEATURES.md#observability-metrics)** — request latency, token
   usage, conversation depth, and per-tool outcomes feed the Felworld Grafana dashboards
-  when the core's metrics are enabled.
+  when the core's metrics are enabled; every exchange is also
+  [traced in full](FEATURES.md#exchange-trace) (exact prompt, raw response) to the
+  characters DB, so an odd bot line seen in playtesting can be traced back to the
+  prompt that produced it.
 
 ## Architecture
 
