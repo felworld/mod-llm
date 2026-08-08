@@ -31,7 +31,10 @@ namespace ModLlm
         std::string botQuests;  // "" or "Your quest log: \"A\" (ready to turn in), \"B\". "
 
         std::string actorName;
-        uint32 actorLevel = 0;
+        // The actor's level as the bot could read it off their frame, worded
+        // for prose: "level 28", or "??-level" when they are hostile and far
+        // enough above the bot to wear a skull.
+        std::string actorLevel = "??-level";
         std::string actorClass;
         std::string actorRace;
 

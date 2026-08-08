@@ -742,6 +742,9 @@ LLM.History.RetentionDays = 2
 #               ready-to-turn-in/failed marker, so quest talk stays honest
 #      user:    {memory_block} {history_block} {channel_label} {actor_name}
 #               {actor_level} {actor_class} {actor_race} {message} {environment}
+#               {actor_level} is a phrase, not a bare number - "level 28", or
+#               "??-level" when the actor wears a skull for this bot - so
+#               write it without a "level " of your own
 #               {reply_guidance} (party/raid/bg chat: reminds the bot the
 #               whole group heard the message and silence is a fine answer;
 #               battleground chat additionally carries the live Warsong

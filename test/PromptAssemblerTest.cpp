@@ -22,7 +22,7 @@ namespace
         snapshot.botArea = "Crossroads";
         snapshot.botZone = "The Barrens";
         snapshot.actorName = "Mera";
-        snapshot.actorLevel = 28;
+        snapshot.actorLevel = "level 28";
         snapshot.actorClass = "mage";
         snapshot.actorRace = "human";
         snapshot.channelLabel = "say";

@@ -34,7 +34,9 @@ so the model never authors raw client link markup.
 
 The guiding rule for prompt context: anything a player would see on their screen belongs in
 it — zone, group roster, guild, the bot's own quest log and memory notes, recent conversation,
-speech overheard in earshot, and notable game events seen nearby.
+speech overheard in earshot, and notable game events seen nearby. And nothing a player
+*wouldn't* see: a hostile too far above the bot to read reaches the model as `??`, the same
+skull the client shows ([level perception](FEATURES.md#prompt-context)).
 
 The full behavior reference — routing, pacing, faction rules, and the options behind them — is
 in [FEATURES.md](FEATURES.md).

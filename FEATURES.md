@@ -44,6 +44,14 @@ sees (`[Some Quest]`), never raw client markup. Hearing ranges default to the
 server's player listen ranges (`ListenRange.Say`/`.Yell`/`.TextEmote`); set
 the `LLM.*Distance` options to diverge.
 
+Levels in the prompt are the ones the bot could read off its target frame.
+A hostile far enough above the bot to wear a skull reaches the model as `??`
+— "a ??-level undead rogue" — the same shorthand a player would use, so bots
+can't quote a number the client never showed them. Friendly levels are always
+exact. See mod-playerbots'
+[level perception](https://github.com/felworld/mod-playerbots/blob/main/FEATURES.md#level-perception)
+for the rule itself.
+
 ## Reactive chat
 
 Say/yell, whispers, party/raid/battleground, guild, and channel messages.
@@ -134,7 +142,9 @@ that outclasses the intruder is sent to fight, never to shout. The callout
 prompt states what was actually seen — an enemy attacking a named friendly,
 hitting the area's NPCs, or an already-reported ganker merely prowling — so
 the raised alarm matches the events instead of framing every sighting as
-"attacking" whatever spot the witness happens to stand in.
+"attacking" whatever spot the witness happens to stand in. The intruder's
+level is the shouter's own reading of it, so an outmatched witness calls out
+a `??`-level attacker rather than an exact number.
 
 ### Battleground scoreboards
 

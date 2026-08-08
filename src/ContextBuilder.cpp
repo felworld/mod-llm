@@ -17,6 +17,7 @@
 #include "GuildFlavor.h"
 #include "GuildMgr.h"
 #include "HistoryStore.h"
+#include "LevelPerception.h"
 #include "LlmConfig.h"
 #include "LlmTools.h"
 #include "MemoryStore.h"
@@ -233,7 +234,7 @@ namespace ModLlm::ContextBuilder
         snapshot.actorName = actor ? actor->GetName() : trigger.actorName;
         if (actor)
         {
-            snapshot.actorLevel = actor->GetLevel();
+            snapshot.actorLevel = PerceivedLevelPhrase(bot, actor);
             snapshot.actorClass = ChatHelper::FormatClass(actor->getClass());
             snapshot.actorRace = ChatHelper::FormatRace(actor->getRace());
         }

@@ -52,13 +52,13 @@ namespace ModLlm
             "you spot an enemy player attacking a town => redridge under attack, lvl 60 rogue at the bridge";
 
         constexpr char DEFAULT_PROMPT_CHAT[] =
-            "{memory_block}{history_block}[{channel_label}] {actor_name} (level {actor_level} {actor_race} "
+            "{memory_block}{history_block}[{channel_label}] {actor_name} ({actor_level} {actor_race} "
             "{actor_class}) says: \"{message}\"{reply_guidance}";
 
         // {message} is a full client emote line ("makes a rude gesture at
         // you.") and brings its own punctuation.
         constexpr char DEFAULT_PROMPT_EMOTE[] =
-            "{memory_block}{history_block}{actor_name} (level {actor_level} {actor_race} {actor_class}) "
+            "{memory_block}{history_block}{actor_name} ({actor_level} {actor_race} {actor_class}) "
             "{message}{reply_guidance}";
 
         constexpr char DEFAULT_PROMPT_EVENT[] =
@@ -91,7 +91,7 @@ namespace ModLlm
             "posting, do nothing.{reply_guidance}";
 
         constexpr char DEFAULT_PROMPT_GUILD_RECRUIT[] =
-            "{memory_block}{history_block}You notice {actor_name}, a level {actor_level} {actor_race} "
+            "{memory_block}{history_block}You notice {actor_name}, a {actor_level} {actor_race} "
             "{actor_class}, passing by - not in any guild. Yours:\n"
             "{guild_block}\n"
             "You are in a recruiting mood: if they seem worth having, say one short friendly line to "

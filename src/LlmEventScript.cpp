@@ -10,6 +10,7 @@
 #include "HistoryStore.h"
 #include "Item.h"
 #include "ItemTemplate.h"
+#include "LevelPerception.h"
 #include "LlmConfig.h"
 #include "LlmDispatch.h"
 #include "Map.h"
@@ -628,6 +629,9 @@ namespace ModLlm
 
         std::string race = ChatHelper::FormatRace(notification.attackerRace);
         std::string cls = ChatHelper::FormatClass(notification.attackerClass);
+        // The speaker describes the level the way their screen shows it: a
+        // number, or the skull every player calls "??".
+        std::string level = LevelPhrase(notification.attackerLevelText);
 
         TriggerContext trigger;
         trigger.kind = TRIGGER_GAME_EVENT;
@@ -638,18 +642,18 @@ namespace ModLlm
         trigger.channelName = escalation ? "WorldDefense" : "LocalDefense";
         trigger.defenseChannel = true;
         if (escalation)
-            trigger.message = Acore::StringFormat("the enemy {}, a level {} {} {}, has killed {} of your side in {}"
+            trigger.message = Acore::StringFormat("the enemy {}, a {} {} {}, has killed {} of your side in {}"
                 " and nobody has stopped them yet. Raise the alarm in the faction-wide WorldDefense channel so help"
                 " comes",
-                notification.attackerName, notification.attackerLevel, race, cls, notification.killCount,
+                notification.attackerName, level, race, cls, notification.killCount,
                 notification.areaName);
         else
         {
             // Tell the model what was actually seen - "attacking <area>" for
             // someone genuinely present hostile, "prowling" for a known
             // ganker merely sighted - so the alarm matches the events.
-            std::string enemyDesc = Acore::StringFormat("{}, a level {} {} {}",
-                notification.attackerName, notification.attackerLevel, race, cls);
+            std::string enemyDesc = Acore::StringFormat("{}, a {} {} {}",
+                notification.attackerName, level, race, cls);
             std::string spotted;
             switch (notification.activity)
             {
