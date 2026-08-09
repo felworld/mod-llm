@@ -81,6 +81,7 @@ namespace ModLlm::PromptAssembler
             args.push_back(fmt::arg("actor_level", snapshot.actorLevel));
             args.push_back(fmt::arg("actor_class", snapshot.actorClass));
             args.push_back(fmt::arg("actor_race", snapshot.actorRace));
+            args.push_back(fmt::arg("actor_guild", snapshot.actorGuild));
             args.push_back(fmt::arg("message", trigger.message));
             args.push_back(fmt::arg("reply_guidance", snapshot.replyGuidance));
             args.push_back(fmt::arg("environment", snapshot.environment));

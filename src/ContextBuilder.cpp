@@ -204,7 +204,14 @@ namespace ModLlm::ContextBuilder
                     guild->GetName(), GuildFlavors::IdentityClause(guildFlavor));
             else
                 snapshot.botGuild = Acore::StringFormat("You are a member of the guild <{}>. ", guild->GetName());
+
+            // A player knows their own rank's privileges - without this fact
+            // the model promises invites it cannot send (felworld/mod-llm#35).
+            if (!guild->HasRankRight(bot, GR_RIGHT_INVITE))
+                snapshot.botGuild += "Your guild rank cannot invite new members. ";
         }
+        else
+            snapshot.botGuild = "You are not in a guild. ";
 
         // A player always knows what is in their quest log, so the bot does
         // too - otherwise it invents quests it does not have.
@@ -237,6 +244,14 @@ namespace ModLlm::ContextBuilder
             snapshot.actorLevel = PerceivedLevelPhrase(bot, actor);
             snapshot.actorClass = ChatHelper::FormatClass(actor->getClass());
             snapshot.actorRace = ChatHelper::FormatRace(actor->getRace());
+
+            // The guild tag under their nameplate - an on-screen fact, and
+            // what keeps the bot from pitching its guild to someone already
+            // wearing another one's colors (felworld/mod-llm#35).
+            if (Guild* actorGuild = sGuildMgr->GetGuildById(actor->GetGuildId()))
+                snapshot.actorGuild = Acore::StringFormat(" of <{}>", actorGuild->GetName());
+            else
+                snapshot.actorGuild = ", unguilded";
         }
 
         if (sLlmConfig->memoryEnabled)

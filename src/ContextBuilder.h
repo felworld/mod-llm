@@ -37,6 +37,9 @@ namespace ModLlm
         std::string actorLevel = "??-level";
         std::string actorClass;
         std::string actorRace;
+        // The actor's guild tag as read off their frame, phrased to follow
+        // the race/class parenthetical: " of <X>", or ", unguilded".
+        std::string actorGuild;
 
         std::string memoryBlock;      // preformatted "- [slug] content" note lines, may be empty
         std::string pairHistory;      // preformatted transcript lines, may be empty

@@ -141,6 +141,18 @@ TEST(PromptAssemblerTest, OverheardReachesInitiativeTemplate)
     EXPECT_NE(user.find("a kodo nearby"), std::string::npos);
 }
 
+TEST(PromptAssemblerTest, ActorGuildRendered)
+{
+    ResetTemplates();
+    sLlmConfig->promptChat = "{actor_name} ({actor_level} {actor_race} {actor_class}{actor_guild}): \"{message}\"";
+
+    ContextSnapshot snapshot = TestSnapshot();
+    snapshot.actorGuild = " of <Dawnbreakers>";
+
+    std::string user = PromptAssembler::BuildMessages(snapshot, TestTrigger())[1]["content"].get<std::string>();
+    EXPECT_NE(user.find("Mera (level 28 human mage of <Dawnbreakers>): \"hello there\""), std::string::npos);
+}
+
 TEST(PromptAssemblerTest, ReplyGuidanceRendered)
 {
     ResetTemplates();

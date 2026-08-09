@@ -1321,7 +1321,11 @@ namespace ModLlm::LlmTools
 
         // guild_invite - core's HandleInviteMember runs the full validation
         // and delivers the invite dialog; GuildInviteBlocked pre-checks so
-        // the model gets a usable error instead of a silent no-op.
+        // the model gets a usable error instead of a silent no-op. Always
+        // offered, like the real invite command: withholding the tool made
+        // the model promise invites in chat and deliver nothing
+        // (felworld/mod-llm#35) - a failed call plus the error round is what
+        // lets it answer "my rank cannot invite" honestly.
         sLlmToolRegistry->Register({
             "guild_invite",
             "Invite the player you are interacting with to join your guild. Use when they asked to "
@@ -1342,11 +1346,7 @@ namespace ModLlm::LlmTools
                     context.actor->GetName());
                 return true;
             },
-            [](Player* bot, Player* actor)
-            {
-                std::string ignored;
-                return !GuildInviteBlocked(bot, actor, ignored);
-            },
+            nullptr,
             [](TriggerContext const& trigger)
             {
                 // Unprompted invites only on the dedicated cold-recruit

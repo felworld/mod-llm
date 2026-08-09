@@ -470,9 +470,14 @@ double-respond next to LLM-driven buyers.
 Bots whose guild rank carries invite rights recruit the way players do. The
 `guild_invite` tool covers the reactive case — someone asks to join or
 clearly wants in — and goes through the core's `HandleInviteMember`, so rank
-rights, faction, and existing membership are all enforced (and pre-checked,
-so the model gets a usable error instead of a silent no-op). Two initiative
-slices add the unprompted side:
+rights, faction, and existing membership are all enforced. The tool is
+offered the way the real invite command exists — always — and pre-checked on
+execution, so a blocked invite comes back as a usable error ("your guild
+rank cannot invite", "they are already in a guild") the bot can relay
+honestly instead of promising an invite that never arrives. The same facts
+sit in its context up front: the actor's guild tag as read off their frame,
+and the bot's own guild line says so when it is unguilded or its rank cannot
+invite. Two initiative slices add the unprompted side:
 
 **Recruitment ads.** A slice of initiative opportunities
 (`LLM.GuildAd.Chance`) becomes a recruitment line into the city's
