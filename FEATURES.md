@@ -268,9 +268,12 @@ from the client's emote DBCs by `tools/gen_text_emote_phrases.py`. An
 animation- or sound-only emote (`/train`) draws no reaction — nothing was
 "said". Bystander bots see the emote's target by name ("hugs Fluffy").
 A cross-faction emote normally draws an emote back (the prompt explains the
-language barrier); a small dice roll (`LLM.Chat.CrossFactionChatChance`)
-occasionally lets the bot type at the enemy anyway, which lands as the
-classic untranslated-gibberish taunt. Outgoing, the `emote` tool's schema
+language barrier and names the actor an enemy of the bot's faction — the
+red nameplate a player would see); when the two are actively fighting each
+other, the prompt says so outright, so a `/wave` from a pursuer reads as
+battle banter rather than a stranger's greeting. A small dice roll
+(`LLM.Chat.CrossFactionChatChance`) occasionally lets the bot type at the
+enemy anyway, which lands as the classic untranslated-gibberish taunt. Outgoing, the `emote` tool's schema
 offers a curated slate of ~40 social and player-culture staples (`/wave`
 through `/golfclap`), though any real emote name the model picks resolves.
 

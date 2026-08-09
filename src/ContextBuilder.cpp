@@ -289,20 +289,31 @@ namespace ModLlm::ContextBuilder
         // the emote tool's built-in emotes - the only thing that carries
         // across factions. Free-typed action text does not exist as an emote
         // and typed chat arrives as gibberish (which the dice occasionally
-        // make worth sending anyway).
+        // make worth sending anyway). The clause also names the actor an
+        // enemy - the red nameplate a player would see - and, mid-fight, says
+        // so outright: without that fact a /wave from a pursuer reads as a
+        // stranger's greeting (felworld/mod-llm#39).
         if (trigger.crossFaction)
         {
             char const* enemyFaction = bot->GetTeamId() == TEAM_ALLIANCE ? "Horde" : "Alliance";
             if (trigger.crossFactionChatOk)
-                snapshot.replyGuidance += Acore::StringFormat(" {} is {} - you share no language."
-                    " Only the emote tool's built-in emotes carry meaning across factions; anything"
-                    " you type reaches them as gibberish, pure taunt value.",
+                snapshot.replyGuidance += Acore::StringFormat(" {} is {} - an enemy of your faction,"
+                    " and you share no language. Only the emote tool's built-in emotes carry meaning"
+                    " across factions; anything you type reaches them as gibberish, pure taunt value.",
                     snapshot.actorName, enemyFaction);
             else
-                snapshot.replyGuidance += Acore::StringFormat(" {} is {} - you share no language,"
-                    " and anything you type reaches them as unreadable gibberish. The emote tool's"
-                    " built-in emotes are how you communicate: pick the one that fits.",
+                snapshot.replyGuidance += Acore::StringFormat(" {} is {} - an enemy of your faction,"
+                    " and you share no language: anything you type reaches them as unreadable"
+                    " gibberish. The emote tool's built-in emotes are how you communicate: pick the"
+                    " one that fits.",
                     snapshot.actorName, enemyFaction);
+
+            if (actor && (bot->GetVictim() == actor || actor->GetVictim() == bot
+                || bot->IsInCombatWith(actor)))
+                snapshot.replyGuidance += Acore::StringFormat(" You and {} are fighting each other"
+                    " right now: this comes from the enemy you are locked in combat with, and rivalry"
+                    " sets the tone of whatever you do back.",
+                    snapshot.actorName);
         }
 
         if (trigger.kind == TRIGGER_INITIATIVE)
