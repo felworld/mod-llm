@@ -341,7 +341,12 @@ their own market ads. Only world (random) bots sell — never someone's alt
 
 Kills, deaths, level-ups, quest completions, duels, achievements, notable
 loot. A comment about a groupmate's deed goes to party/raid chat; enemy-faction
-deeds draw comment only on the same cross-faction dice. Whether or not a bot
+deeds draw comment only on the same cross-faction dice. Mob kills draw comment
+only from the killer's own group — strangers don't narrate someone's grinding,
+and a passerby's "gg" at a player still mid-fight read as nonsense — unless
+the kill would turn a head: a rare, an elite, a world boss, or a mob 4+
+levels above the killer, with the feat named in the event ("…, an elite") so
+the reaction matches its weight. Whether or not a bot
 is picked to react, the event is narrated into every nearby bot's overheard
 transcript (mob kills exempt — grinding would flood it), because seeing and
 reacting are different things. Duels are the duelists' story: bystanders see

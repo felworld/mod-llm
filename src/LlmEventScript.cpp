@@ -56,10 +56,62 @@ namespace ModLlm
 
         void OnPlayerCreatureKill(Player* killer, Creature* killed) override
         {
+            // Routine grind kills are the group's business only: players
+            // don't narrate a stranger's mob kill, and a passerby's "gg"
+            // mid-pull - the killer often still swarmed and hurt - reads as
+            // nonsense to someone fighting for their life. Strangers only
+            // remark on a kill that would turn a head: a rare, an elite, or
+            // a mob well above the killer's level. The killer's own group
+            // (the killer included) keeps the usual dice - kill banter is
+            // party chat's bread and butter.
+            char const* rankPhrase = nullptr;
+            switch (killed->GetCreatureTemplate()->rank)
+            {
+                case CREATURE_ELITE_RARE:
+                    rankPhrase = "a rare";
+                    break;
+                case CREATURE_ELITE_ELITE:
+                    rankPhrase = "an elite";
+                    break;
+                case CREATURE_ELITE_RAREELITE:
+                    rankPhrase = "a rare elite";
+                    break;
+                case CREATURE_ELITE_WORLDBOSS:
+                    rankPhrase = "a world boss";
+                    break;
+                default:
+                    break;
+            }
+
+            // +4 and up is the orange-to-red con a player would see on the
+            // mob - the gap where a kill starts looking like a feat.
+            int32 levelGap = int32(killed->GetLevel()) - int32(killer->GetLevel());
+            bool notable = rankPhrase || levelGap >= 4;
+
+            ObjectGuid killerGuid = killer->GetGUID();
+            Group* killerGroup = killer->GetGroup();
+            std::string killerName = killer->GetName();
+            std::string killedName = killed->GetName();
+
             DispatchEvent(killer, "creature_kill", sLlmConfig->eventChanceKill,
-                ActorAware(killer->GetGUID(),
-                    Acore::StringFormat("you killed {}", killed->GetName()),
-                    Acore::StringFormat("{} killed {}", killer->GetName(), killed->GetName())),
+                [killerGuid, killerGroup, killerName, killedName, rankPhrase, levelGap, notable](Player* bot)
+                {
+                    if (!notable && (!killerGroup || bot->GetGroup() != killerGroup))
+                        return std::string();
+
+                    bool self = bot->GetGUID() == killerGuid;
+
+                    // Name what made the kill notable, so the model's
+                    // register matches - an elite down is not a boar down.
+                    std::string what = killedName;
+                    if (rankPhrase)
+                        what += Acore::StringFormat(", {}", rankPhrase);
+                    else if (notable)
+                        what += Acore::StringFormat(", {} levels above {}", levelGap, self ? "you" : "them");
+
+                    return self ? Acore::StringFormat("you killed {}", what)
+                                : Acore::StringFormat("{} killed {}", killerName, what);
+                },
                 nullptr, /*narrate*/ false);
         }
 
