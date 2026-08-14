@@ -385,7 +385,7 @@ winner and losers ("you lost the need roll on [X] to Y"). Rolled items skip
 the generic "obtained notable loot" comment so the two paths don't talk over
 each other. Also group joins: a bot that joins a party or raid
 greets it in party/raid chat (this replaces playerbots' canned "Hello"
-whisper, which we keep disabled via `AiPlayerbot.EnableGreet = 0`). And heals:
+whisper, which we keep disabled via `AiPlayerbot.EnableGreet`). And heals:
 a bot healed by a player outside its group thanks them aloud
 (`LLM.Event.Chance.Healed`; groupmate heals are routine and never draw thanks;
 mod-playerbots adds the /thank emote, and buff-capable bots buff back whoever
