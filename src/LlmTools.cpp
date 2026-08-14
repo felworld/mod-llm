@@ -95,9 +95,19 @@ namespace ModLlm::LlmTools
         // Speaking aloud (/say, /yell) is only worth doing when a human is
         // close enough to hear it, and only lands as words when the trigger's
         // actor shares a language (unless the cross-faction dice said the bot
-        // may shout gibberish anyway).
+        // may shout gibberish anyway). Dead bots cannot speak aloud at all:
+        // the server drops say/emote/yell from dead real players
+        // (HandleMessagechatOpcode), but PlayerbotAI::Say bypasses that
+        // handler, and the async LLM round-trip means a bot alive at trigger
+        // time may be dead by the time its tool call runs.
         bool SpeakAloudBlocked(ToolExecContext& context, bool yelled, std::string& error)
         {
+            if (!context.bot->IsAlive())
+            {
+                error = "you are dead; the living cannot hear you";
+                return true;
+            }
+
             TriggerContext const& trigger = *context.trigger;
             if (trigger.crossFaction && !trigger.crossFactionChatOk)
             {
@@ -895,6 +905,13 @@ namespace ModLlm::LlmTools
                 false,
                 [](ToolExecContext& context, nlohmann::json const& args, std::string& error)
                 {
+                    // Same rule the server enforces on real players
+                    // (HandleTextEmoteOpcode): the dead do not emote.
+                    if (!context.bot->IsAlive())
+                    {
+                        error = "you are dead and cannot emote";
+                        return false;
+                    }
                     uint32 emoteId = TextEmoteCatalog::FindId(args["emote"].get<std::string>());
                     if (!emoteId)
                     {
