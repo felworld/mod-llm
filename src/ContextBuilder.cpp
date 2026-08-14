@@ -179,6 +179,11 @@ namespace ModLlm::ContextBuilder
                 members += slot.name;
                 if (slot.guid == group->GetLeaderGUID())
                     members += " (leader)";
+                // The frames also show who is dead - the fact that stops the
+                // bot from asking a dead healer for heals.
+                Player* member = ObjectAccessor::FindPlayer(slot.guid);
+                if (member && !member->IsAlive())
+                    members += " (dead)";
             }
 
             char const* kind = group->isRaidGroup() ? "raid" : "party";
@@ -273,6 +278,25 @@ namespace ModLlm::ContextBuilder
 
         snapshot.channelLabel = ChannelLabel(trigger);
         snapshot.replyGuidance = ReplyGuidance(trigger);
+
+        // "You are dead" fills a dead player's screen, and their chat comes
+        // from that reality - without the fact, a dead bot answers party
+        // chat as if it were still standing. The say/emote tools hard-block
+        // aloud speech from the dead (felworld/mod-llm#42); this clause
+        // keeps the channels that stay legal while dead coherent.
+        if (!bot->IsAlive())
+        {
+            if (bot->HasPlayerFlag(PLAYER_FLAGS_GHOST))
+                snapshot.replyGuidance += " You are dead - a ghost released at the graveyard, running"
+                    " back to your corpse. The living cannot see or hear you; only party, raid, guild,"
+                    " whisper and channel chat still reach anyone, the way a dead player types"
+                    " \"releasing, running back\".";
+            else
+                snapshot.replyGuidance += " You are dead - your corpse lies where you fell and you"
+                    " have not released your spirit yet. You cannot speak aloud or emote; only party,"
+                    " raid, guild, whisper and channel chat still reach anyone, the way a dead player"
+                    " asks for a resurrection or says they are about to release.";
+        }
 
         // Guild chat is the one room a guild's own identity sets the register
         // in: what gets talked about there, and in whose voice.
@@ -506,6 +530,11 @@ namespace ModLlm::ContextBuilder
         for (Unit* unit : units)
         {
             if (!unit->IsCreature() || unit->IsPet() || unit->ToCreature()->IsTrigger())
+                continue;
+
+            // Only mention what the bot's screen would render (ghosts don't see the
+            // alive world, invisible/GM units stay hidden).
+            if (!bot->CanSeeOrDetect(unit))
                 continue;
 
             if (!description.empty())

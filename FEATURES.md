@@ -33,8 +33,8 @@ model never writes raw `|H...` client markup itself.
 ## Prompt context
 
 The guiding rule: anything a player would see on their screen belongs in it.
-Today that's the bot's zone, its full party/raid roster (names and leader),
-guild, its own quest log (titles with `{quest:ID}` link tags plus
+Today that's the bot's zone, its full party/raid roster (names, leader, and
+who is dead — so nobody asks a dead healer for heals), guild, its own quest log (titles with `{quest:ID}` link tags plus
 ready-to-turn-in/failed markers, so quest talk stays honest and linkable),
 its own memory notes (those about the player it's
 talking to, plus recent general ones), recent conversation history, everything
@@ -47,6 +47,14 @@ still means something. Inside a battleground it also includes that match's
 sees (`[Some Quest]`), never raw client markup. Hearing ranges default to the
 server's player listen ranges (`ListenRange.Say`/`.Yell`/`.TextEmote`); set
 the `LLM.*Distance` options to diverge.
+
+Death is an on-screen fact too. A dead bot's prompt says so — whether it
+still lies at its corpse or is a released ghost running back — so its group
+chat comes from that reality (rez requests, release calls) instead of a
+fiction where it's still standing. And the say/yell/emote tools refuse while
+dead: the server silently drops those from dead real players, so bots obey
+the same rule, while party/raid/guild/whisper/channel chat stays open to the
+dead as it is for everyone.
 
 Levels in the prompt are the ones the bot could read off its target frame.
 A hostile far enough above the bot to wear a skull reaches the model as `??`
