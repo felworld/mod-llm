@@ -572,7 +572,12 @@ startup):
 - `mod_llm_memory` — the per-bot scratchpad: short notes the model writes
   itself (`remember` / `forget`), keyed by slug, optionally scoped to one
   player. Long-term continuity lives here — "ninja'd my loot in deadmines"
-  carries more than the 0..1 sentiment float it replaced.
+  carries more than the 0..1 sentiment float it replaced. The prompts push
+  the habit: the system prompt frames notes as keeping mental score (favors,
+  grudges, deals, plans), the style exemplars include situation => note
+  pairs, and the game-event prompt nudges a note when an event changes how
+  the bot sees someone — so grudges and friendships actually accumulate
+  instead of depending on the model's unprompted initiative.
 - `mod_llm_guild_flavor` — one row per flavored guild: the canonical tag
   string (`rp+wpvp`) its members talk in. Persisted so a guild keeps the
   identity it was founded with even after the profile weights are retuned.
