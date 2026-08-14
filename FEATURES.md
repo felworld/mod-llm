@@ -346,7 +346,10 @@ only from the killer's own group — strangers don't narrate someone's grinding,
 and a passerby's "gg" at a player still mid-fight read as nonsense — unless
 the kill would turn a head: a rare, an elite, a world boss, or a mob 4+
 levels above the killer, with the feat named in the event ("…, an elite") so
-the reaction matches its weight. Whether or not a bot
+the reaction matches its weight. Quest turn-ins are likewise the quester's
+and their group's business only: nothing marks a turn-in on a bystander's
+screen, so strangers neither comment on it nor see it in their transcripts.
+Whether or not a bot
 is picked to react, the event is narrated into every nearby bot's overheard
 transcript (mob kills exempt — grinding would flood it), because seeing and
 reacting are different things. Duels are the duelists' story: bystanders see

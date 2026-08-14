@@ -148,12 +148,29 @@ namespace ModLlm
                     Acore::StringFormat("{} just died", player->GetName())));
         }
 
+        // Fires on turn-in (Player::RewardQuest). A turn-in shows nothing on
+        // a bystander's screen - no flash, no announcement - so a stranger's
+        // "grats on finishing that" reads as mind-reading. Only the quester
+        // and their group, who share the quest and the grind, see the event
+        // at all; strangers get neither the comment nor the narration.
         void OnPlayerCompleteQuest(Player* player, Quest const* quest) override
         {
+            ObjectGuid questerGuid = player->GetGUID();
+            Group* questerGroup = player->GetGroup();
+            std::string selfDescription = Acore::StringFormat("you completed the quest \"{}\"", quest->GetTitle());
+            std::string otherDescription = Acore::StringFormat("{} completed the quest \"{}\"",
+                player->GetName(), quest->GetTitle());
+
             DispatchEvent(player, "quest_complete", sLlmConfig->eventChanceQuestComplete,
-                ActorAware(player->GetGUID(),
-                    Acore::StringFormat("you completed the quest \"{}\"", quest->GetTitle()),
-                    Acore::StringFormat("{} completed the quest \"{}\"", player->GetName(), quest->GetTitle())));
+                [questerGuid, questerGroup, selfDescription = std::move(selfDescription),
+                    otherDescription = std::move(otherDescription)](Player* bot)
+                {
+                    if (bot->GetGUID() == questerGuid)
+                        return selfDescription;
+                    if (questerGroup && bot->GetGroup() == questerGroup)
+                        return otherDescription;
+                    return std::string();
+                });
         }
 
         void OnPlayerLevelChanged(Player* player, uint8 oldLevel) override
