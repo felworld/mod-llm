@@ -88,11 +88,6 @@ namespace ModLlm::BotSelector
         }
     }
 
-    bool IsRealPlayer(Player* player)
-    {
-        return player && !GetBotAI(player);
-    }
-
     bool HasRealPlayerNearby(Player* bot, float distance)
     {
         Map* map = bot->FindMap();

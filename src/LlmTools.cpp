@@ -605,7 +605,7 @@ namespace ModLlm::LlmTools
                 return true;
             }
 
-            if (!InServiceCircle(bot, actor) && !(sells && BotSelector::IsRealPlayer(actor)))
+            if (!InServiceCircle(bot, actor) && !(sells && IsRealPlayer(actor)))
             {
                 error = "you only do that for groupmates and guildmates";
                 return true;
