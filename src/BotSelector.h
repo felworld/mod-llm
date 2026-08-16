@@ -23,9 +23,6 @@ namespace ModLlm
 
 namespace ModLlm::BotSelector
 {
-    // True for a human-controlled player (no bot AI attached).
-    bool IsRealPlayer(Player* player);
-
     // True if any human player is within `distance` of `bot` on its map.
     bool HasRealPlayerNearby(Player* bot, float distance);
 

@@ -86,7 +86,7 @@ namespace ModLlm
             // A bot that was emoted at directly reacts with high probability;
             // otherwise one random nearby bot may react.
             Player* target = guid.IsPlayer() ? ObjectAccessor::FindPlayer(guid) : nullptr;
-            if (target && target != player && !BotSelector::IsRealPlayer(target))
+            if (target && target != player && !IsRealPlayer(target))
             {
                 // The bot reads exactly the line the client would show it.
                 // No line (a sound/animation-only emote like /train) means
@@ -201,9 +201,9 @@ namespace ModLlm
                 // job, which carries the chain depth that bounds bot-to-bot
                 // exchanges - handling it here as well asked the receiver
                 // twice per line.
-                if (!BotSelector::IsRealPlayer(sender))
+                if (!IsRealPlayer(sender))
                     return;
-                if (!sLlmConfig->whispersEnabled || BotSelector::IsRealPlayer(receiver))
+                if (!sLlmConfig->whispersEnabled || IsRealPlayer(receiver))
                     return;
                 // Cross-faction whispers cannot happen for real players (GMs
                 // excepted); drop the ones bots produce by writing to the
@@ -268,7 +268,7 @@ namespace ModLlm
             // fresh depth-0 trigger, so acknowledgement chains ("thx" ->
             // "np" -> ...) never hit the depth cap and ping-ponged forever
             // wherever many bots stand in earshot.
-            if (!BotSelector::IsRealPlayer(sender))
+            if (!IsRealPlayer(sender))
                 return;
 
             // Raid and battleground messages from a real player go through

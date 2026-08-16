@@ -15,6 +15,7 @@
 #include "MemoryStore.h"
 #include "ObjectAccessor.h"
 #include "Player.h"
+#include "PlayerbotAI.h"
 #include "Random.h"
 #include "ScriptMgr.h"
 #include "TraceStore.h"
@@ -156,7 +157,7 @@ namespace ModLlm
             {
                 if (submitted >= sLlmConfig->initiativeMaxBotsPerTick)
                     break;
-                if (!player->IsInWorld() || BotSelector::IsRealPlayer(player))
+                if (!player->IsInWorld() || IsRealPlayer(player))
                     continue;
 
                 auto [it, inserted] = _nextInitiative.try_emplace(guid.GetRawValue(), 0);

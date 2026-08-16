@@ -51,7 +51,7 @@ namespace ModLlm::BotSelector
         // one, or one is close enough to the bot to witness the reaction.
         bool HasHumanAudience(Player* bot, Player* sender, float distance)
         {
-            if (BotSelector::IsRealPlayer(sender))
+            if (IsRealPlayer(sender))
                 return true;
             return HasRealPlayerNearby(bot, distance);
         }
@@ -59,7 +59,7 @@ namespace ModLlm::BotSelector
         std::vector<Player*> PickByChanceAndMention(std::vector<Player*>& candidates, Player* sender,
             uint32 triggerKind, std::string const& message, size_t maxPick, bool defenseChannel = false)
         {
-            bool senderIsBot = !BotSelector::IsRealPlayer(sender);
+            bool senderIsBot = !IsRealPlayer(sender);
             uint32 chance = ReplyChance(triggerKind, senderIsBot, defenseChannel);
 
             std::vector<Player*> picked;
@@ -88,11 +88,6 @@ namespace ModLlm::BotSelector
         }
     }
 
-    bool IsRealPlayer(Player* player)
-    {
-        return player && !GetBotAI(player);
-    }
-
     bool HasRealPlayerNearby(Player* bot, float distance)
     {
         Map* map = bot->FindMap();
@@ -102,7 +97,7 @@ namespace ModLlm::BotSelector
         for (MapReference const& ref : map->GetPlayers())
         {
             Player* player = ref.GetSource();
-            if (player && BotSelector::IsRealPlayer(player) && bot->IsWithinDistInMap(player, distance))
+            if (player && IsRealPlayer(player) && bot->IsWithinDistInMap(player, distance))
                 return true;
         }
         return false;
@@ -111,7 +106,7 @@ namespace ModLlm::BotSelector
     bool HasRealPlayerInChannel(Channel* channel)
     {
         for (auto const& [guid, player] : ObjectAccessor::GetPlayers())
-            if (player->IsInWorld() && BotSelector::IsRealPlayer(player) && player->IsInChannel(channel))
+            if (player->IsInWorld() && IsRealPlayer(player) && player->IsInChannel(channel))
                 return true;
         return false;
     }
@@ -119,7 +114,7 @@ namespace ModLlm::BotSelector
     bool GroupHasRealPlayer(Group* group)
     {
         for (Group::MemberSlot const& slot : group->GetMemberSlots())
-            if (BotSelector::IsRealPlayer(ObjectAccessor::FindPlayer(slot.guid)))
+            if (IsRealPlayer(ObjectAccessor::FindPlayer(slot.guid)))
                 return true;
         return false;
     }
@@ -273,12 +268,12 @@ namespace ModLlm::BotSelector
         {
             if (!player->IsInWorld() || player->GetGuildId() != guild->GetId())
                 continue;
-            if (BotSelector::IsRealPlayer(player))
+            if (IsRealPlayer(player))
                 guildHasHuman = true;
             else if (IsEligibleBot(player, sender))
                 guildBots.push_back(player);
         }
-        if (guildHasHuman || BotSelector::IsRealPlayer(sender))
+        if (guildHasHuman || IsRealPlayer(sender))
             return guildBots;
         return {};
     }
@@ -295,7 +290,7 @@ namespace ModLlm::BotSelector
         {
             if (!player->IsInWorld() || !player->IsInChannel(channel))
                 continue;
-            if (BotSelector::IsRealPlayer(player))
+            if (IsRealPlayer(player))
             {
                 channelHasHuman = true;
                 if (audience)
@@ -309,7 +304,7 @@ namespace ModLlm::BotSelector
                     channelBots.push_back(player);
             }
         }
-        if (channelHasHuman || BotSelector::IsRealPlayer(sender))
+        if (channelHasHuman || IsRealPlayer(sender))
             return channelBots;
         return {};
     }
@@ -389,14 +384,14 @@ namespace ModLlm::BotSelector
         // message would swamp the request queue - and their prompt biases
         // hard toward silence instead.
         size_t maxPick = sLlmConfig->maxBotsToPick;
-        if (triggerKind == TRIGGER_CHAT_PARTY && BotSelector::IsRealPlayer(sender)
+        if (triggerKind == TRIGGER_CHAT_PARTY && IsRealPlayer(sender)
             && !group->isRaidGroup() && !group->isBGGroup() && !group->isBFGroup())
             maxPick = candidates.size();
 
         // A bot's message branches by its picks on every chain hop, so the
         // BotTrigger cap applies here too: bot-seeded exchanges stay linear
         // even on this dice fallback path.
-        if (!BotSelector::IsRealPlayer(sender))
+        if (!IsRealPlayer(sender))
             maxPick = std::min<size_t>(maxPick, sLlmConfig->botTriggerMaxBotsToPick);
 
         return PickByChanceAndMention(candidates, sender, triggerKind, message, maxPick,
@@ -553,7 +548,7 @@ namespace ModLlm::BotSelector
         for (MapReference const& ref : map->GetPlayers())
         {
             Player* player = ref.GetSource();
-            if (!player || !BotSelector::IsRealPlayer(player) || !player->IsAlive())
+            if (!player || !IsRealPlayer(player) || !player->IsAlive())
                 continue;
             if (player->GetGuildId() || player->GetGuildIdInvited())
                 continue;

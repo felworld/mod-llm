@@ -165,7 +165,7 @@ namespace ModLlm::Router
         // flurries are the point, bot-seeded trees are noise.
         size_t MaxPickFor(Player* sender)
         {
-            return BotSelector::IsRealPlayer(sender)
+            return IsRealPlayer(sender)
                 ? sLlmConfig->maxBotsToPick
                 : std::min<size_t>(sLlmConfig->maxBotsToPick, sLlmConfig->botTriggerMaxBotsToPick);
         }
@@ -523,7 +523,7 @@ namespace ModLlm::Router
         // and the speaker cap in LlmToolOperation keeps most of the wave off
         // the channel. Bot-seeded defense messages keep the ordinary cap -
         // the board machinery does their real mustering.
-        route.maxPick = trigger.defenseChannel && BotSelector::IsRealPlayer(sender)
+        route.maxPick = trigger.defenseChannel && IsRealPlayer(sender)
             ? sLlmConfig->defenseMaxResponders
             : MaxPickFor(sender);
         std::string rosterText;

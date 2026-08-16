@@ -15,6 +15,7 @@
 #include "LlmRouter.h"
 #include "LlmTrigger.h"
 #include "Player.h"
+#include "PlayerbotAI.h"
 #include "SharedDefines.h"
 #include "StringFormat.h"
 
@@ -53,7 +54,7 @@ namespace ModLlm::Overhear
         for (Player* bot : BotSelector::CollectListeners(speaker, distance))
             sLlmHistoryStore->AddOverheardLine(bot->GetGUID(), speaker->GetName(), message);
 
-        if (!BotSelector::IsRealPlayer(speaker))
+        if (!IsRealPlayer(speaker))
             sLlmHistoryStore->AddOverheardLine(speaker->GetGUID(), speaker->GetName(), message);
     }
 
@@ -152,7 +153,7 @@ namespace ModLlm::Overhear
     void OnBotWhisper(Player* bot, TriggerContext const& sourceTrigger,
         Player* receiver, std::string const& message)
     {
-        if (BotSelector::IsRealPlayer(receiver))
+        if (IsRealPlayer(receiver))
             return;
 
         // The receiving bot remembers the whisper whether or not it replies.

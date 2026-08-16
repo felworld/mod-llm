@@ -16,6 +16,7 @@
 #include "Map.h"
 #include "ObjectAccessor.h"
 #include "Player.h"
+#include "PlayerbotAI.h"
 #include "QuestDef.h"
 #include "Random.h"
 #include "ScriptMgr.h"
@@ -288,7 +289,7 @@ namespace ModLlm
             for (auto const& [voterGuid, vote] : roll->playerVote)
             {
                 Player* bot = ObjectAccessor::FindPlayer(voterGuid);
-                if (!bot || BotSelector::IsRealPlayer(bot))
+                if (!bot || IsRealPlayer(bot))
                     continue;
 
                 bool won = voterGuid == winnerGuid;
@@ -382,7 +383,7 @@ namespace ModLlm
         {
             if (!sLlmConfig->IsEnabled() || !sLlmConfig->eventEnabled)
                 return;
-            if (BotSelector::IsRealPlayer(bot))
+            if (IsRealPlayer(bot))
                 return;
 
             // The duelist remembers its own duel whether or not it speaks.
@@ -541,7 +542,7 @@ namespace ModLlm
 
             Player* healer = healerUnit->ToPlayer();
             Player* bot = receiverUnit->ToPlayer();
-            if (!healer || !bot || BotSelector::IsRealPlayer(bot))
+            if (!healer || !bot || IsRealPlayer(bot))
                 return;
 
             if (urand(0, 99) >= sLlmConfig->eventChanceHealed)
@@ -618,7 +619,7 @@ namespace ModLlm
                 return;
 
             Player* bot = ObjectAccessor::FindPlayer(guid);
-            if (!bot || BotSelector::IsRealPlayer(bot))
+            if (!bot || IsRealPlayer(bot))
                 return;
             if (urand(0, 99) >= sLlmConfig->eventChanceGroupJoin)
                 return;
@@ -669,7 +670,7 @@ namespace ModLlm
             return;
 
         Player* bot = notification.speaker;
-        if (!bot || BotSelector::IsRealPlayer(bot))
+        if (!bot || IsRealPlayer(bot))
             return;
 
         // LocalDefense only reaches its own zone: without a human there, the
@@ -686,7 +687,7 @@ namespace ModLlm
             for (MapReference const& ref : map->GetPlayers())
             {
                 Player* player = ref.GetSource();
-                if (player && BotSelector::IsRealPlayer(player) && player->GetZoneId() == notification.zoneId)
+                if (player && IsRealPlayer(player) && player->GetZoneId() == notification.zoneId)
                 {
                     humanInZone = true;
                     break;

@@ -438,7 +438,7 @@ namespace ModLlm::ContextBuilder
         // guidance below already says to see it through.
         constexpr uint32 chatKinds = TRIGGER_CHAT_SAY | TRIGGER_CHAT_WHISPER | TRIGGER_CHAT_PARTY
             | TRIGGER_CHAT_GUILD | TRIGGER_CHAT_CHANNEL;
-        if (!hasDeal && (trigger.kind & chatKinds) && actor && BotSelector::IsRealPlayer(actor))
+        if (!hasDeal && (trigger.kind & chatKinds) && actor && IsRealPlayer(actor))
         {
             if (ClassServices::SellsPortals(bot))
                 snapshot.replyGuidance += " You sell portals to the capitals for coin (groupmates and"
@@ -455,7 +455,7 @@ namespace ModLlm::ContextBuilder
         // An unguilded player talking to a bot whose rank can invite: the
         // reactive side of recruiting. A player knows what their own guild is
         // and pitches it honestly - no gatekeeping, anyone may ask.
-        if (flavored && (trigger.kind & chatKinds) && actor && BotSelector::IsRealPlayer(actor)
+        if (flavored && (trigger.kind & chatKinds) && actor && IsRealPlayer(actor)
             && !actor->GetGuildId())
         {
             Guild* guild = sGuildMgr->GetGuildById(bot->GetGuildId());
