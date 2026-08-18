@@ -895,6 +895,7 @@ namespace ModLlm::LlmTools
             sLlmToolRegistry->Register({
                 "emote",
                 "Perform a visible emote animation, like a real player using /wave or /laugh."
+                " It plays aimed at whoever you are responding to."
                 " Only the listed built-in emotes exist.",
                 {
                     { "type", "object" },
@@ -918,7 +919,11 @@ namespace ModLlm::LlmTools
                         error = "unknown emote";
                         return false;
                     }
-                    if (!context.ai->PlayEmote(emoteId))
+                    // Aim at whoever the bot is responding to, like a real
+                    // player targeting the initiator before typing /wave; the
+                    // server drops the target if they are out of sight.
+                    if (!context.ai->PlayEmote(emoteId,
+                        context.actor ? context.actor->GetGUID() : ObjectGuid::Empty))
                     {
                         error = "emote could not be performed";
                         return false;
