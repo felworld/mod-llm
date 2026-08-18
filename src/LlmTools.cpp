@@ -139,7 +139,18 @@ namespace ModLlm::LlmTools
             float range = yelled ? sLlmConfig->yellDistance : sLlmConfig->sayDistance;
             if (!BotSelector::HasRealPlayerNearby(context.bot, range))
             {
-                error = "nobody is close enough to hear you";
+                // The bare fact reads as a world event the model builds
+                // fiction on ("guess she already left"), so name the
+                // productive alternatives instead. A human beyond say range
+                // but inside yell range is visible on screen, so suggesting
+                // the shout is a fact the bot could read off it.
+                if (!yelled && BotSelector::HasRealPlayerNearby(context.bot, sLlmConfig->yellDistance))
+                    error = "nobody is close enough to hear a normal voice - someone is in sight"
+                        " further off, so say it again with destination \"yell\" if it is worth"
+                        " shouting; otherwise do nothing";
+                else
+                    error = "nobody is close enough to hear you - if they can still see you, the"
+                        " emote tool carries; otherwise do nothing";
                 return true;
             }
             return false;
