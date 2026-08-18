@@ -30,6 +30,13 @@ clickable hyperlink (via playerbots' `ChatHelper`), and a tag whose ID doesn't
 resolve is dropped rather than sent broken. `{spell:ID}` expands too. The
 model never writes raw `|H...` client markup itself.
 
+Chat output gets the hygiene a real client enforces. Leaked reasoning
+(`</think>` blocks) and tool syntax are stripped before anything reaches chat,
+and a message over the client's 255-byte typing cap is rejected back to the
+model rather than sent. An `{emote:wave}` tag written into chat text — small
+models generalize the link convention to emotes — is played as the real emote
+it names, aimed like the `emote` tool, and whatever text remains is spoken.
+
 ## Prompt context
 
 The guiding rule: anything a player would see on their screen belongs in it.

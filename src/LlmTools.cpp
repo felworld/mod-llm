@@ -717,8 +717,15 @@ namespace ModLlm::LlmTools
 
     std::string SanitizeChatText(std::string text)
     {
-        // Cut anything that looks like leaked tool syntax.
-        for (char const* marker : { "<tool_call>", "</tool_call>", "<|", "{\"name\":" })
+        // Leaked chain of thought: some models close their reasoning with a
+        // </think> tag - sometimes without ever opening one - and only what
+        // follows the last close tag was meant as the reply.
+        if (size_t pos = text.rfind("</think>"); pos != std::string::npos)
+            text.erase(0, pos + 8);
+
+        // Cut anything that looks like leaked tool syntax, or a reasoning
+        // block the model opened and never closed.
+        for (char const* marker : { "<tool_call>", "</tool_call>", "<|", "{\"name\":", "<think>" })
         {
             size_t pos = text.find(marker);
             if (pos != std::string::npos)
@@ -758,6 +765,37 @@ namespace ModLlm::LlmTools
             text = foldWhitespace(text.substr(1, text.size() - 2));
 
         return text;
+    }
+
+    // Models that know the {item:12640} link convention generalize it to
+    // emotes and write {emote:wave} (or {emote wave}, {emote:"wave"}) into
+    // chat text instead of calling the emote tool. The intent is
+    // unambiguous, so honor it: strip every such tag from `text` and return
+    // the first name that is a real built-in emote.
+    std::string ExtractInlineEmote(std::string& text)
+    {
+        std::string found;
+        size_t pos = 0;
+        while ((pos = text.find("{emote", pos)) != std::string::npos)
+        {
+            size_t close = text.find('}', pos);
+            // Only the tag forms count: a separator (or nothing) must follow
+            // "{emote", so brace-wrapped prose like "{emotes are…}" survives.
+            if (close == std::string::npos)
+                break;
+            if (char next = text[pos + 6]; next != ':' && next != ' ' && next != '"' && next != '}')
+            {
+                pos += 6;
+                continue;
+            }
+
+            std::string name = text.substr(pos + 6, close - pos - 6);
+            std::erase_if(name, [](unsigned char c) { return std::isalpha(c) == 0; });
+            if (found.empty() && TextEmoteCatalog::FindId(name))
+                found = name;
+            text.erase(pos, close - pos + 1);
+        }
+        return found;
     }
 
     std::string ExpandChatLinks(std::string const& text,
@@ -871,17 +909,46 @@ namespace ModLlm::LlmTools
                 // not go out as whitespace.
                 std::string message = SanitizeChatText(
                     ExpandChatLinks(SanitizeChatText(args["message"].get<std::string>())));
+
+                // An {emote:...} tag in the text is the emote tool by
+                // another spelling: play it aimed at the actor, exactly as
+                // the real tool would, and speak whatever text remains.
+                std::string inlineEmote = ExtractInlineEmote(message);
+                message = SanitizeChatText(std::move(message));
+                bool emotePlayed = false;
+                if (!inlineEmote.empty() && context.bot->IsAlive())
+                    emotePlayed = context.ai->PlayEmote(TextEmoteCatalog::FindId(inlineEmote),
+                        context.actor ? context.actor->GetGUID() : ObjectGuid::Empty);
+
                 if (message.empty())
                 {
+                    if (emotePlayed)
+                        return true;
+                    if (!inlineEmote.empty() && !context.bot->IsAlive())
+                    {
+                        error = "you are dead and cannot emote";
+                        return false;
+                    }
                     error = "empty message";
                     return false;
                 }
 
+                // The client caps a typed chat line at 255 bytes; anything
+                // longer is not something a player could have sent.
+                if (message.size() > 255)
+                {
+                    error = "message too long for chat - one or two short sentences at most";
+                    return false;
+                }
+
                 std::string destination = args.value("destination", "");
-                if (destination.empty())
-                    return RouteSay(context, message, error);
-                return RouteSayTo(context, destination, args.value("whisper_to", ""),
-                    args.value("channel_name", ""), message, error);
+                bool sent = destination.empty()
+                    ? RouteSay(context, message, error)
+                    : RouteSayTo(context, destination, args.value("whisper_to", ""),
+                        args.value("channel_name", ""), message, error);
+                if (!sent && emotePlayed)
+                    error += Acore::StringFormat("; your {{emote:{}}} was performed", inlineEmote);
+                return sent;
             }
         });
 
