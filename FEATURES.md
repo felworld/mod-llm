@@ -284,6 +284,9 @@ battle banter rather than a stranger's greeting. A small dice roll
 enemy anyway, which lands as the classic untranslated-gibberish taunt. Outgoing, the `emote` tool's schema
 offers a curated slate of ~40 social and player-culture staples (`/wave`
 through `/golfclap`), though any real emote name the model picks resolves.
+An outgoing emote is aimed at the player the bot is responding to — "waves
+at you", the way a real player targets the initiator before typing /wave —
+rather than at the bot's (often self-targeted) combat target.
 
 ## Class services
 
@@ -443,7 +446,13 @@ nothing. Only `LLM.TradeAd.MaxItems` of those tradables (3 by default)
 reach the prompt, drawn at random for each ad: a model shown a full bag
 hawks the whole bag, and a wall of item links is a message nobody reads,
 while a fresh draw every time still works through the bag over several
-ads. Most ads go to Trade; a small share lands in zone General or
+ads. The draw is quality-weighted: uncommon (green) and better items —
+and class services — always compete for a slot, while a common (white)
+or worse item only enters with a small chance
+(`LLM.TradeAd.CommonItemChance`, 25% by default), since the wants side
+(reagents, consumables) is nearly all white and real trade traffic runs
+mostly green and up — the occasional white ad still happens.
+Most ads go to Trade; a small share lands in zone General or
 plain /say (`LLM.TradeAd.GeneralPercent`/`SayPercent`), the way players
 occasionally hawk outside the channel.
 

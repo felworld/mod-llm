@@ -28,6 +28,7 @@
 #include "PlayerbotAIConfig.h"
 #include "PlayerbotMgr.h"
 #include "QuestDef.h"
+#include "Random.h"
 #include "SharedDefines.h"
 #include "SpellInfo.h"
 #include "SpellMgr.h"
@@ -349,15 +350,30 @@ namespace ModLlm::ContextBuilder
         {
             if (PlayerbotAI* botAI = sPlayerbotsMgr.GetPlayerbotAI(bot))
             {
+                // Reagents and consumables - the whole WTB side - are almost
+                // all common (white) quality, so an unweighted draw fills the
+                // ads with white lines while the greens sit in the bag
+                // (felworld/mod-llm#45). Real trade traffic runs mostly
+                // uncommon and better: those always compete for a slot, a
+                // white-or-worse entry only with a configured chance, so the
+                // odd white ad still happens.
+                auto adWorthy = [](ItemTemplate const* proto)
+                {
+                    return proto->Quality >= ITEM_QUALITY_UNCOMMON
+                        || roll_chance_i(int32(sLlmConfig->tradeAdCommonItemChance));
+                };
+
                 std::vector<std::string> entries;
                 for (MarketQuote::Sellable const& sellable : MarketQuote::CollectSellables(botAI))
-                    entries.push_back(Acore::StringFormat("selling: {} x{} {{item:{}}} - about {} each",
-                        sellable.proto->Name1, sellable.count, sellable.proto->ItemId,
-                        ChatHelper::formatMoney(sellable.askEach)));
+                    if (adWorthy(sellable.proto))
+                        entries.push_back(Acore::StringFormat("selling: {} x{} {{item:{}}} - about {} each",
+                            sellable.proto->Name1, sellable.count, sellable.proto->ItemId,
+                            ChatHelper::formatMoney(sellable.askEach)));
 
                 for (MarketQuote::Want const& want : MarketQuote::CollectWants(botAI))
-                    entries.push_back(Acore::StringFormat("buying: {} {{item:{}}} - up to {} each",
-                        want.proto->Name1, want.proto->ItemId, ChatHelper::formatMoney(want.bidEach)));
+                    if (adWorthy(want.proto))
+                        entries.push_back(Acore::StringFormat("buying: {} {{item:{}}} - up to {} each",
+                            want.proto->Name1, want.proto->ItemId, ChatHelper::formatMoney(want.bidEach)));
 
                 // Class services the bot sells to strangers advertise
                 // alongside the goods (the quote is jittered at deal time,

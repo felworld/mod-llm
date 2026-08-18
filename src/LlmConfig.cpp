@@ -291,6 +291,7 @@ namespace ModLlm
         tradeAdGeneralPercent = sConfigMgr->GetOption<uint32>("LLM.TradeAd.GeneralPercent", 10);
         tradeAdSayPercent = sConfigMgr->GetOption<uint32>("LLM.TradeAd.SayPercent", 5);
         tradeAdMaxItems = sConfigMgr->GetOption<uint32>("LLM.TradeAd.MaxItems", 3);
+        tradeAdCommonItemChance = sConfigMgr->GetOption<uint32>("LLM.TradeAd.CommonItemChance", 25);
 
         guildAdChance = sConfigMgr->GetOption<uint32>("LLM.GuildAd.Chance", 4);
         guildRecruitChance = sConfigMgr->GetOption<uint32>("LLM.GuildRecruit.Chance", 2);

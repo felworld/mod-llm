@@ -616,11 +616,22 @@ LLM.Initiative.MaxBotsPerTick = 2
 #                     all ten. 0 lists everything.
 #        Default:     3
 #
+#    LLM.TradeAd.CommonItemChance
+#        Description: Percent chance a common-(white-)or-worse item enters
+#                     the ad draw at all. The WTB side (reagents run out of,
+#                     consumables running low) is nearly all white, so an
+#                     unweighted draw fills the ads with white lines; real
+#                     trade traffic runs mostly uncommon and better. Uncommon+
+#                     items and services always compete. 100 disables the
+#                     filter, 0 keeps whites out of ads entirely.
+#        Default:     25
+#
 
 LLM.TradeAd.Chance = 30
 LLM.TradeAd.GeneralPercent = 10
 LLM.TradeAd.SayPercent = 5
 LLM.TradeAd.MaxItems = 3
+LLM.TradeAd.CommonItemChance = 25
 
 #
 #    LLM.GuildAd.Chance
