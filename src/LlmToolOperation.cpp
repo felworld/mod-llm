@@ -8,6 +8,8 @@
 #include "Common.h"
 #include "ContextBuilder.h"
 #include "FelworldEvents.h"
+#include "Guild.h"
+#include "GuildMgr.h"
 #include "LlmClient.h"
 #include "LlmConfig.h"
 #include "LlmTools.h"
@@ -19,6 +21,7 @@
 #include "PlayerbotMgr.h"
 #include "StringFormat.h"
 #include "ToolRegistry.h"
+#include "Util.h"
 
 #include <nlohmann/json.hpp>
 
@@ -55,6 +58,37 @@ namespace ModLlm
             ++count;
             return true;
         }
+
+        // Ad prompts end in "if nothing is worth posting, do nothing", and
+        // small models often narrate that choice as prose ("none worth
+        // pushing rn") instead of staying silent. Bare content only earns
+        // the say rescue on an ad trigger when it matches the format the
+        // prompt demanded - a WTS/WTB line for a trade ad, a line naming the
+        // guild for a guild ad; the rest is deliberation, dropped as the
+        // do-nothing it means. An explicit say call is untouched: a model
+        // that called the tool committed to speaking.
+        bool LooksLikeRequestedAd(Player* bot, TriggerContext const& trigger,
+            std::string const& content)
+        {
+            if (trigger.tradeAd)
+            {
+                if (content.find("{item:") != std::string::npos)
+                    return true;
+                size_t start = content.find_first_not_of(" \t\r\n\"'*");
+                if (start == std::string::npos)
+                    return false;
+                std::string_view lead = std::string_view(content).substr(start);
+                return StringStartsWithI(lead, "wts") || StringStartsWithI(lead, "wtb");
+            }
+
+            if (trigger.guildAd)
+            {
+                Guild* guild = sGuildMgr->GetGuildById(bot->GetGuildId());
+                return guild && StringContainsStringI(content, guild->GetName());
+            }
+
+            return true;
+        }
     }
 
     bool LlmToolOperation::IsValid() const
@@ -83,14 +117,21 @@ namespace ModLlm
         std::vector<ToolCall> calls = _toolCalls;
 
         // Weaker models sometimes answer in prose instead of calling a tool;
-        // optionally rescue that as a say.
+        // optionally rescue that as a say. Ad triggers gate the rescue on
+        // the content actually looking like the requested ad.
         if (calls.empty() && !_bareContent.empty() && sLlmConfig->treatBareContentAsSay)
         {
-            nlohmann::json args;
-            args["message"] = _bareContent;
-            // Synthetic call: the fabricated id lets a failure feed back
-            // like any genuine call's would.
-            calls.push_back({ "say", args.dump(), "call_say" });
+            if (!LooksLikeRequestedAd(bot, _trigger, _bareContent))
+                LOG_INFO("module.llm", "Bot {} bare content dropped, not the ad the prompt asked"
+                    " for: '{}'", bot->GetName(), _bareContent);
+            else
+            {
+                nlohmann::json args;
+                args["message"] = _bareContent;
+                // Synthetic call: the fabricated id lets a failure feed back
+                // like any genuine call's would.
+                calls.push_back({ "say", args.dump(), "call_say" });
+            }
         }
 
         // Tool outcomes surface at INFO under LLM.Debug.Enable; the default

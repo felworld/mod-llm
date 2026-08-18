@@ -61,7 +61,9 @@ chat comes from that reality (rez requests, release calls) instead of a
 fiction where it's still standing. And the say/yell/emote tools refuse while
 dead: the server silently drops those from dead real players, so bots obey
 the same rule, while party/raid/guild/whisper/channel chat stays open to the
-dead as it is for everyone.
+dead as it is for everyone. The prompt also points a dead bot at its
+`remember` scratchpad — who killed it, a debt, a grudge — so the moment can
+resurface the next time the two meet instead of dying with the corpse run.
 
 Levels in the prompt are the ones the bot could read off its target frame.
 A hostile far enough above the bot to wear a skull reaches the model as `??`
@@ -459,6 +461,11 @@ or worse item only enters with a small chance
 (`LLM.TradeAd.CommonItemChance`, 25% by default), since the wants side
 (reagents, consumables) is nearly all white and real trade traffic runs
 mostly green and up — the occasional white ad still happens.
+A prose reply on an ad trigger only earns the implicit-say rescue when it
+matches the format the prompt demanded — a WTS/WTB line or an `{item:}`
+tag for trade ads, a line naming the guild for guild ads; anything else is
+the model narrating its do-nothing choice ("none worth pushing rn") and is
+dropped instead of posted to a city channel.
 Most ads go to Trade; a small share lands in zone General or
 plain /say (`LLM.TradeAd.GeneralPercent`/`SayPercent`), the way players
 occasionally hawk outside the channel.

@@ -297,6 +297,11 @@ namespace ModLlm::ContextBuilder
                     " have not released your spirit yet. You cannot speak aloud or emote; only party,"
                     " raid, guild, whisper and channel chat still reach anyone, the way a dead player"
                     " asks for a resurrection or says they are about to release.";
+
+            // Death is when grudges are made: with speech mostly blocked,
+            // the scratchpad is the action that keeps the moment alive.
+            snapshot.replyGuidance += " If this death is worth carrying - who killed you, a debt,"
+                " a grudge - save a note with remember.";
         }
 
         // Guild chat is the one room a guild's own identity sets the register
