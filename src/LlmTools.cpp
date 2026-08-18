@@ -68,28 +68,48 @@ namespace ModLlm::LlmTools
             return true;
         }
 
-        // Sends `message` into the exact channel named by the trigger.
-        // PlayerbotAI::SayToChannel would re-resolve builtin channels by the
-        // bot's current zone and report success even for a channel the bot
-        // is not on, where Channel::Say quietly drops the line.
+        // Finds a channel the bot is on by name; "General" matches the
+        // zone-local "General - Durotar" so the model can use the short name.
+        Channel* FindJoinedChannel(Player* bot, std::string const& name)
+        {
+            ChannelMgr* mgr = ChannelMgr::forTeam(bot->GetTeamId());
+            if (!mgr)
+                return nullptr;
+
+            Channel* prefixMatch = nullptr;
+            for (auto const& [key, channel] : mgr->GetChannels())
+            {
+                if (!channel || !bot->IsInChannel(channel))
+                    continue;
+                if (StringEqualI(channel->GetName(), name))
+                    return channel;
+                if (!prefixMatch && StringStartsWithI(channel->GetName(), name))
+                    prefixMatch = channel;
+            }
+            return prefixMatch;
+        }
+
+        // Sends `message` into the channel named by the trigger. Triggers
+        // carry short builtin names ("LocalDefense" for the joined
+        // "LocalDefense - <zone>"), so resolve by prefix against the bot's
+        // joined channels - not PlayerbotAI::SayToChannel, which re-resolves
+        // builtins by the bot's current zone and reports success even for a
+        // channel the bot is not on, where Channel::Say quietly drops the
+        // line.
         bool SendToChannel(Player* bot, std::string const& channelName, std::string const& message)
         {
-            if (ChannelMgr* mgr = ChannelMgr::forTeam(bot->GetTeamId()))
-            {
-                Channel* channel = mgr->GetChannel(channelName, bot, false);
-                if (channel && bot->IsInChannel(channel))
-                {
-                    channel->Say(bot->GetGUID(), message, LANG_UNIVERSAL);
+            Channel* channel = FindJoinedChannel(bot, channelName);
+            if (!channel)
+                return false;
 
-                    // Speaking into Trade is market chatter: stamp the town
-                    // anchor so the bot hangs around for bites instead of
-                    // rolling its next activity out of the city.
-                    if (channel->GetChannelId() == ChatChannelId::TRADE)
-                        sTradeOfferMgr->RenewAdAnchor(bot->GetGUID());
-                    return true;
-                }
-            }
-            return false;
+            channel->Say(bot->GetGUID(), message, LANG_UNIVERSAL);
+
+            // Speaking into Trade is market chatter: stamp the town
+            // anchor so the bot hangs around for bites instead of
+            // rolling its next activity out of the city.
+            if (channel->GetChannelId() == ChatChannelId::TRADE)
+                sTradeOfferMgr->RenewAdAnchor(bot->GetGUID());
+            return true;
         }
 
         // Speaking aloud (/say, /yell) is only worth doing when a human is
@@ -205,27 +225,6 @@ namespace ModLlm::LlmTools
                 Overhear::OnBotChannelSpeech(context.bot, trigger, trigger.channelName, plain);
 
             return true;
-        }
-
-        // Finds a channel the bot is on by name; "General" matches the
-        // zone-local "General - Durotar" so the model can use the short name.
-        Channel* FindJoinedChannel(Player* bot, std::string const& name)
-        {
-            ChannelMgr* mgr = ChannelMgr::forTeam(bot->GetTeamId());
-            if (!mgr)
-                return nullptr;
-
-            Channel* prefixMatch = nullptr;
-            for (auto const& [key, channel] : mgr->GetChannels())
-            {
-                if (!channel || !bot->IsInChannel(channel))
-                    continue;
-                if (StringEqualI(channel->GetName(), name))
-                    return channel;
-                if (!prefixMatch && StringStartsWithI(channel->GetName(), name))
-                    prefixMatch = channel;
-            }
-            return prefixMatch;
         }
 
         // Sends `message` to an explicitly chosen audience (the say tool's
