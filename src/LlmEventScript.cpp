@@ -728,12 +728,28 @@ namespace ModLlm
             switch (notification.activity)
             {
                 case WpvpCalloutActivity::AttackingPlayer:
-                    spotted = notification.victimName == bot->GetName()
-                        ? Acore::StringFormat("you are being attacked near {} by an enemy: {}", notification.areaName,
-                            enemyDesc)
-                        : Acore::StringFormat("you spotted an enemy attacking {} near {}: {}",
-                            notification.victimName, notification.areaName, enemyDesc);
+                {
+                    // These callouts only fire for a victim genuinely
+                    // outmatched - by level or by numbers - so tell the model
+                    // which it was: both levels, and the headcount when the
+                    // victim is outnumbered.
+                    uint8 attackerCount = notification.victimAttackerCount;
+                    if (notification.victimName == bot->GetName())
+                        spotted = attackerCount > 1
+                            ? Acore::StringFormat("you are being attacked near {} by {} enemies; one of them is {}",
+                                notification.areaName, attackerCount, enemyDesc)
+                            : Acore::StringFormat("you are being attacked near {} by an enemy: {}",
+                                notification.areaName, enemyDesc);
+                    else
+                        spotted = attackerCount > 1
+                            ? Acore::StringFormat(
+                                "you spotted {} enemies attacking {}, a level {} ally, near {}; one of them is {}",
+                                attackerCount, notification.victimName, notification.victimLevel,
+                                notification.areaName, enemyDesc)
+                            : Acore::StringFormat("you spotted an enemy attacking {}, a level {} ally, near {}: {}",
+                                notification.victimName, notification.victimLevel, notification.areaName, enemyDesc);
                     break;
+                }
                 case WpvpCalloutActivity::Prowling:
                     spotted = Acore::StringFormat("you spotted an enemy the defense channels already warned about"
                         " prowling near {}: {}", notification.areaName, enemyDesc);
