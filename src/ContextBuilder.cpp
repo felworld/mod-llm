@@ -377,7 +377,7 @@ namespace ModLlm::ContextBuilder
 
                 for (MarketQuote::Want const& want : MarketQuote::CollectWants(botAI))
                     if (adWorthy(want.proto))
-                        entries.push_back(Acore::StringFormat("buying: {} {{item:{}}} - up to {} each",
+                        entries.push_back(Acore::StringFormat("buying: {} {{item:{}}} - paying {} each",
                             want.proto->Name1, want.proto->ItemId, ChatHelper::formatMoney(want.bidEach)));
 
                 // Class services the bot sells to strangers advertise

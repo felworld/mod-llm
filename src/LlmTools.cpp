@@ -1934,7 +1934,7 @@ namespace ModLlm::LlmTools
                 if (appraisal.wants && appraisal.bidEach)
                 {
                     uint32 budget = MarketQuote::SpendableMoney(context.ai);
-                    result += Acore::StringFormat(" You would pay up to about {} each, and you have {} "
+                    result += Acore::StringFormat(" You would pay about {} each, and you have {} "
                         "free to spend. If a price is agreed, seal it with commit_trade (direction "
                         "\"buy\").", ChatHelper::formatMoney(appraisal.bidEach), ChatHelper::formatMoney(budget));
                 }
@@ -1980,7 +1980,7 @@ namespace ModLlm::LlmTools
                 {
                     if (++listed > 8)
                         break;
-                    lines += Acore::StringFormat("buying: {} {{item:{}}} - up to {} each\n",
+                    lines += Acore::StringFormat("buying: {} {{item:{}}} - paying {} each\n",
                         want.proto->Name1, want.proto->ItemId, ChatHelper::formatMoney(want.bidEach));
                 }
 
