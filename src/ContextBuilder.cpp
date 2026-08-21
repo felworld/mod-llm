@@ -371,9 +371,9 @@ namespace ModLlm::ContextBuilder
                 std::vector<std::string> entries;
                 for (MarketQuote::Sellable const& sellable : MarketQuote::CollectSellables(botAI))
                     if (adWorthy(sellable.proto))
-                        entries.push_back(Acore::StringFormat("selling: {} x{} {{item:{}}} - about {} each",
+                        entries.push_back(Acore::StringFormat("selling: {} x{} {{item:{}}} - about {}{}",
                             sellable.proto->Name1, sellable.count, sellable.proto->ItemId,
-                            ChatHelper::formatMoney(sellable.askEach)));
+                            ChatHelper::formatMoney(sellable.askEach), sellable.count > 1 ? " each" : ""));
 
                 for (MarketQuote::Want const& want : MarketQuote::CollectWants(botAI))
                     if (adWorthy(want.proto))

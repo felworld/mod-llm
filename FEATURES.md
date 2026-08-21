@@ -452,8 +452,16 @@ outright never make the list — see
 — plus the class services it sells to
 strangers ([portals and summons](#class-services), priced by the configured
 tips) — so the model phrases a grounded one-liner like
-`WTS [Light Leather] x14 40s` or `wts portals 50s a head`, or posts
-nothing. Only `LLM.TradeAd.MaxItems` of those tradables (3 by default)
+`WTS [Light Leather] x14 3s ea` or `wts portals 50s a head`, or posts
+nothing. Every item price the model sees — ad context, `list_sellables`,
+`evaluate_offer` — is per unit, and the prompt says so and shows a per-unit
+example, so the model never has to multiply up a stack total itself: a
+per-unit number next to a stack-priced example is how "x14 40s ea" blends
+happen (felworld/mod-llm#52). A single spare item is quoted without "each".
+Quotes that look like stack prices on cheap goods (linen at several silver
+apiece) are the AH bot's per-item valuation floor
+(`AuctionHouseBot.PriceMinimumCenterBase.*`), which is also what the AH
+lists them at. Only `LLM.TradeAd.MaxItems` of those tradables (3 by default)
 reach the prompt, drawn at random for each ad: a model shown a full bag
 hawks the whole bag, and a wall of item links is a message nobody reads,
 while a fresh draw every time still works through the bag over several

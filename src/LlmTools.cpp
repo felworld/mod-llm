@@ -1939,9 +1939,10 @@ namespace ModLlm::LlmTools
                         "\"buy\").", ChatHelper::formatMoney(appraisal.bidEach), ChatHelper::formatMoney(budget));
                 }
                 else if (appraisal.stock && appraisal.askEach)
-                    result += Acore::StringFormat(" You carry {} to spare and would ask about {} each. "
+                    result += Acore::StringFormat(" You carry {} to spare and would ask about {}{}. "
                         "If a price is agreed, seal it with commit_trade (direction \"sell\").",
-                        appraisal.stock, ChatHelper::formatMoney(appraisal.askEach));
+                        appraisal.stock, ChatHelper::formatMoney(appraisal.askEach),
+                        appraisal.stock > 1 ? " each" : "");
                 else
                     result += " No trade to make here - decline or ignore.";
 
@@ -1970,9 +1971,9 @@ namespace ModLlm::LlmTools
                 {
                     if (++listed > 10)
                         break;
-                    lines += Acore::StringFormat("selling: {} x{} {{item:{}}} - about {} each\n",
+                    lines += Acore::StringFormat("selling: {} x{} {{item:{}}} - about {}{}\n",
                         sellable.proto->Name1, sellable.count, sellable.proto->ItemId,
-                        ChatHelper::formatMoney(sellable.askEach));
+                        ChatHelper::formatMoney(sellable.askEach), sellable.count > 1 ? " each" : ""));
                 }
 
                 listed = 0;

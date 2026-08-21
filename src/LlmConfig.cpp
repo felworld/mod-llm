@@ -88,8 +88,9 @@ namespace ModLlm
             "Your actual stock, needs, and services, at your own price estimates:\n{market_block}\n"
             "If something there is worth it, post one short WTS or WTB line the way players write them - "
             "the {{item:ID}} tag copied verbatim so it lands as a clickable link, plus your price, like "
-            "\"WTS {{item:2318}} x14 40s\", \"wtb {{item:3355}} paying 2s each\", or \"wts portals, 50s "
-            "a head\". Only advertise items, services, and prices from the list above, and pick the "
+            "\"WTS {{item:2318}} x14 3s ea\", \"wtb {{item:3355}} paying 2s each\", or \"wts portals, 50s "
+            "a head\". Item prices above are per unit; quote them per unit, with \"ea\" or \"each\". "
+            "Only advertise items, services, and prices from the list above, and pick the "
             "one or two of them worth pushing right now - a line someone will actually read. One "
             "line at most; if nothing is worth posting, do nothing.{reply_guidance}";
 
