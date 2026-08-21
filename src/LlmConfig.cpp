@@ -270,7 +270,7 @@ namespace ModLlm
         eventChanceQuestComplete = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.QuestComplete", 20);
         eventChanceLevelUp = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.LevelUp", 50);
         eventChanceDuel = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.Duel", 40);
-        eventChanceAchievement = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.Achievement", 40);
+        eventChanceAchievement = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.Achievement", 25);
         eventChanceLoot = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.Loot", 15);
         eventChanceRollWon = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.RollWon", 20);
         eventChanceRollLost = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.RollLost", 10);
@@ -280,6 +280,7 @@ namespace ModLlm
         eventChanceDefenseEscalation = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.DefenseEscalation", 100);
         eventChannelChance = sConfigMgr->GetOption<uint32>("LLM.Event.ChannelChance", 10);
         eventLootMinQuality = sConfigMgr->GetOption<uint32>("LLM.Event.LootMinQuality", 3);
+        eventAchievementMinPoints = sConfigMgr->GetOption<uint32>("LLM.Event.Achievement.MinPoints", 20);
 
         initiativeEnabled = sConfigMgr->GetOption<bool>("LLM.Initiative.Enable", true);
         initiativeMinIntervalSeconds = sConfigMgr->GetOption<uint32>("LLM.Initiative.MinIntervalSeconds", 45);

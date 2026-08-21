@@ -117,7 +117,7 @@ namespace ModLlm
         uint32 eventChanceQuestComplete = 20;
         uint32 eventChanceLevelUp = 50;
         uint32 eventChanceDuel = 40;
-        uint32 eventChanceAchievement = 40;
+        uint32 eventChanceAchievement = 25;
         uint32 eventChanceLoot = 15;
         uint32 eventChanceRollWon = 20;
         uint32 eventChanceRollLost = 10;
@@ -127,6 +127,7 @@ namespace ModLlm
         uint32 eventChanceDefenseEscalation = 100;
         uint32 eventChannelChance = 10;
         uint32 eventLootMinQuality = 3; // ITEM_QUALITY_RARE
+        uint32 eventAchievementMinPoints = 20;
 
         // Initiative (unprompted idle behaviour)
         bool initiativeEnabled = true;

@@ -6,6 +6,8 @@
 #include "BotSelector.h"
 #include "ChatHelper.h"
 #include "Creature.h"
+#include "DBCEnums.h"
+#include "DBCStructure.h"
 #include "Group.h"
 #include "HistoryStore.h"
 #include "Item.h"
@@ -17,6 +19,7 @@
 #include "ObjectAccessor.h"
 #include "Player.h"
 #include "PlayerbotAI.h"
+#include "Playerbots.h"
 #include "QuestDef.h"
 #include "Random.h"
 #include "ScriptMgr.h"
@@ -29,6 +32,7 @@
 #include <mutex>
 #include <string_view>
 #include <unordered_map>
+#include <vector>
 
 namespace ModLlm
 {
@@ -233,13 +237,28 @@ namespace ModLlm
             DispatchDuelist(loser, winner, Acore::StringFormat("you lost a duel against {}", winnerName));
         }
 
+        // An achievement is the one event with an audience past line of
+        // sight: WotLK announces it to everyone standing around and to the
+        // whole guild. The vicinity half is the noisy one - nobody has ever
+        // turned to a stranger over their "Expert First Aid"
+        // (felworld/mod-llm#50) - so only the audiences that would actually
+        // talk about it hear one here: the achiever's party or raid (never a
+        // battleground group, where the match is the only subject) and its
+        // guild. Both reach across maps while this hook runs on a map
+        // thread, so the audience is walked on the world thread instead.
         void OnPlayerAchievementComplete(Player* player, AchievementEntry const* achievement) override
         {
+            if (!sLlmConfig->IsEnabled() || !sLlmConfig->eventEnabled)
+                return;
+            if (!IsNotableAchievement(achievement))
+                return;
+
             char const* name = achievement->name[0];
-            DispatchEvent(player, "achievement", sLlmConfig->eventChanceAchievement,
-                ActorAware(player->GetGUID(),
-                    Acore::StringFormat("you earned the achievement \"{}\"", name ? name : "?"),
-                    Acore::StringFormat("{} earned the achievement \"{}\"", player->GetName(), name ? name : "?")));
+            Dispatch::RunDelayed([this, achieverGuid = player->GetGUID(), achieverName = player->GetName(),
+                title = std::string(name ? name : "?")]
+                {
+                    DispatchAchievement(achieverGuid, achieverName, title);
+                }, 1);
         }
 
         void OnPlayerStoreNewItem(Player* player, Item* item, uint32 /*count*/) override
@@ -339,17 +358,38 @@ namespace ModLlm
         // third-person line - and then congratulates itself on its own kill.
         using EventDescriber = std::function<std::string(Player* bot)>;
 
-        // Only feats that carry their own story - a ding, an achievement, a
-        // rare drop - are worth retelling to a whole zone or battleground
-        // team. Play-by-play (mob pulls, deaths, duels, PvP kills) is
-        // invisible to readers who are not standing there: the prompt asks
-        // the model to retell or stay silent, but small models still produce
-        // "nice pulls", so the gate is enforced here and those comments stay
-        // in local /say.
+        // Only feats that carry their own story - a ding, a rare drop - are
+        // worth retelling to a whole zone or battleground team. Play-by-play
+        // (mob pulls, deaths, duels, PvP kills) is invisible to readers who
+        // are not standing there: the prompt asks the model to retell or stay
+        // silent, but small models still produce "nice pulls", so the gate is
+        // enforced here and those comments stay in local /say. Achievements
+        // never reach this path - their audience is the achiever's group and
+        // guild, nothing wider (see OnPlayerAchievementComplete).
         static bool IsBroadcastWorthy(char const* eventType)
         {
             std::string_view type(eventType);
-            return type == "level_up" || type == "achievement" || type == "loot";
+            return type == "level_up" || type == "loot";
+        }
+
+        // Rare enough to be worth a word, in the terms the DBC gives us:
+        // realm firsts by flag; Feats of Strength, which award no points at
+        // all precisely because they cannot be farmed (statistics also score
+        // zero, but they are counters that never complete and so never reach
+        // this hook); and anything worth MinPoints or more, which is where
+        // the metas and the hard content sit. What that leaves out is the
+        // routine ten-pointers - a profession rank, a zone's quests done, a
+        // dungeon cleared - which is the whole point.
+        static bool IsNotableAchievement(AchievementEntry const* achievement)
+        {
+            // Tracking entries are not sent to anyone's client at all.
+            if (achievement->flags & ACHIEVEMENT_FLAG_HIDDEN)
+                return false;
+            if (achievement->flags & (ACHIEVEMENT_FLAG_REALM_FIRST_KILL | ACHIEVEMENT_FLAG_REALM_FIRST_REACH))
+                return true;
+            if (!achievement->points)
+                return true;
+            return achievement->points >= sLlmConfig->eventAchievementMinPoints;
         }
 
         // Describer for the common single-actor event: the actor hears
@@ -362,6 +402,122 @@ namespace ModLlm
             {
                 return bot->GetGUID() == actorGuid ? selfDescription : otherDescription;
             };
+        }
+
+        // The world-thread half of OnPlayerAchievementComplete: gather the
+        // achiever's party/raid and guild, tell each bot in them what
+        // happened, and let a couple of them react. Neither audience is a
+        // spatial query - a guild is spread over every map - so this walks
+        // the online roster once rather than the bots standing nearby.
+        void DispatchAchievement(ObjectGuid achieverGuid, std::string const& achieverName,
+            std::string const& title)
+        {
+            Player* achiever = ObjectAccessor::FindPlayer(achieverGuid);
+            if (!achiever || !achiever->IsInWorld())
+                return;
+
+            Group* group = achiever->GetGroup();
+            if (group && (group->isBGGroup() || group->isBFGroup()))
+                group = nullptr;
+
+            uint32 guildId = achiever->GetGuildId();
+            if (!group && !guildId)
+                return;
+
+            struct Listener
+            {
+                Player* bot;
+                bool inGroup;
+                bool inGuild;
+            };
+
+            bool groupHasHuman = false;
+            bool guildHasHuman = false;
+            std::vector<Listener> listeners;
+            for (auto const& [guid, player] : ObjectAccessor::GetPlayers())
+            {
+                if (!player->IsInWorld())
+                    continue;
+
+                bool inGroup = group && player->GetGroup() == group;
+                bool inGuild = guildId && player->GetGuildId() == guildId;
+                if (!inGroup && !inGuild)
+                    continue;
+
+                if (IsRealPlayer(player))
+                {
+                    groupHasHuman = groupHasHuman || inGroup;
+                    guildHasHuman = guildHasHuman || inGuild;
+                    continue;
+                }
+
+                PlayerbotAI* botAI = GET_PLAYERBOT_AI(player);
+                if (!botAI || !botAI->IsBotAI())
+                    continue;
+                if (sLlmConfig->skipInCombat && player->IsInCombat())
+                    continue;
+
+                listeners.push_back({ player, inGroup, inGuild });
+            }
+
+            uint32 dispatched = 0;
+            for (Listener const& listener : listeners)
+            {
+                // Bots congratulating bots in an empty room is nobody's
+                // conversation: each audience needs a human reading it.
+                bool viaGroup = listener.inGroup && groupHasHuman;
+                bool viaGuild = listener.inGuild && guildHasHuman;
+                if (!viaGroup && !viaGuild)
+                    continue;
+
+                Player* bot = listener.bot;
+                bool self = bot->GetGUID() == achieverGuid;
+
+                // A guildmate's feat is heard about, not witnessed - the
+                // announcement can come from the other end of the world - so
+                // the relationship is named, or the model wonders how it
+                // knows.
+                std::string description = self
+                    ? Acore::StringFormat("you earned the achievement \"{}\"", title)
+                    : Acore::StringFormat("{}{} earned the achievement \"{}\"",
+                        viaGroup ? "" : "your guildmate ", achieverName, title);
+
+                // The announcement landed on every one of their screens
+                // whether or not the dice pick anyone to say something.
+                sLlmHistoryStore->AddOverheardLine(bot->GetGUID(), "",
+                    Acore::StringFormat("({})", description));
+
+                if (dispatched >= sLlmConfig->eventMaxBotsPerEvent)
+                    continue;
+                if (urand(0, 99) >= sLlmConfig->eventChanceAchievement)
+                    continue;
+                if (IsOnCooldown(bot->GetGUID()))
+                    continue;
+
+                TriggerContext trigger;
+                trigger.kind = TRIGGER_GAME_EVENT;
+                trigger.eventType = "achievement";
+                trigger.message = description;
+
+                // Answer where the announcement itself appeared: party or
+                // raid chat for a groupmate's feat, guild chat otherwise.
+                if (viaGroup)
+                {
+                    trigger.chatType = group->isRaidGroup() ? CHAT_MSG_RAID : CHAT_MSG_PARTY;
+                    trigger.roomKey = Acore::StringFormat("group:{}", group->GetGUID().GetCounter());
+                }
+                else
+                {
+                    trigger.chatType = CHAT_MSG_GUILD;
+                    trigger.roomKey = Acore::StringFormat("guild:{}", guildId);
+                }
+
+                if (!Dispatch::Submit(bot, self ? nullptr : achiever, std::move(trigger)))
+                    continue;
+
+                StartCooldown(bot->GetGUID());
+                ++dispatched;
+            }
         }
 
         void DispatchEvent(Player* source, char const* eventType, uint32 chance, std::string description,

@@ -61,6 +61,8 @@ in [FEATURES.md](FEATURES.md).
 - **[Game events](FEATURES.md#game-events)** — kills, deaths, level-ups, quest completions,
   duels, achievements, notable loot, loot-roll wins/losses, group joins, out-of-group heals —
   narrated into every nearby bot's overheard transcript whether or not anyone was picked to react.
+  Each event reaches only the audience that would really see it: a stranger's quest turn-in or
+  "Expert First Aid" draws nothing, while a rare achievement reaches the achiever's party and guild.
 - **[Initiative](FEATURES.md#initiative)** — an idle scheduler gives each bot periodic
   opportunities to act unprompted; unprompted remarks reach the zone General channel, or
   team chat while the bot is in a battleground.

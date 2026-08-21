@@ -493,6 +493,13 @@ LLM.Event.MaxBotsPerEvent = 2
 #                     on items at/above LootMinQuality draw reactions - Greed
 #                     rolls are routine - but every participant bot learns
 #                     the outcome either way via its overheard transcript.
+#                     Achievement fires only for the achiever's own party or
+#                     raid (never a battleground group) and its guild, and
+#                     only for a feat worth Achievement.MinPoints or more -
+#                     everyone in the vicinity is told about an achievement
+#                     in WotLK, but nobody remarks on a stranger's "Expert
+#                     First Aid". The comment goes to party/raid chat, or to
+#                     guild chat where the announcement itself landed.
 #                     GroupJoin fires when a bot joins a party or raid with a
 #                     real player in it; the greeting goes to party/raid chat.
 #                     Healed fires only for the healed bot itself when a
@@ -515,7 +522,7 @@ LLM.Event.Chance.Death = 30
 LLM.Event.Chance.QuestComplete = 20
 LLM.Event.Chance.LevelUp = 50
 LLM.Event.Chance.Duel = 40
-LLM.Event.Chance.Achievement = 40
+LLM.Event.Chance.Achievement = 25
 LLM.Event.Chance.Loot = 15
 LLM.Event.Chance.RollWon = 20
 LLM.Event.Chance.RollLost = 10
@@ -546,6 +553,19 @@ LLM.Event.ChannelChance = 10
 #
 
 LLM.Event.LootMinQuality = 3
+
+#
+#    LLM.Event.Achievement.MinPoints
+#        Description: Minimum achievement points for a completed achievement
+#                     to be worth mentioning at all. Realm firsts and Feats
+#                     of Strength (which award no points precisely because
+#                     they cannot be farmed) always qualify; the routine
+#                     ten-pointers - a profession rank, a zone's quests done,
+#                     a dungeon cleared - do not.
+#        Default:     20
+#
+
+LLM.Event.Achievement.MinPoints = 20
 
 ########################################
 # Initiative (unprompted behaviour)

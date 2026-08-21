@@ -10,6 +10,7 @@
 
 #include "ObjectGuid.h"
 
+#include <functional>
 #include <memory>
 
 class Player;
@@ -36,6 +37,12 @@ namespace ModLlm::Dispatch
     // other: a second reply waits until the first has been "typed".
     // Safe from any thread.
     void QueueOperationDelayed(std::unique_ptr<PlayerbotOperation> operation, uint32 delayMs);
+
+    // Runs `callback` on the world thread after `delayMs`. For map-thread
+    // hooks whose audience is not a spatial query - a guild roster, a group
+    // scattered over several maps - and so can only be walked there. Safe
+    // from any thread.
+    void RunDelayed(std::function<void()> callback, uint32 delayMs);
 
     // Drives the delayed queues; call every world update.
     void UpdateDelayed(uint32 diff);

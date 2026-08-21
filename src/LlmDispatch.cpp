@@ -16,6 +16,7 @@
 #include "ToolRegistry.h"
 
 #include <algorithm>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <utility>
@@ -37,6 +38,12 @@ namespace ModLlm::Dispatch
             std::unique_ptr<PlayerbotOperation> operation;
         };
 
+        struct PendingCallback
+        {
+            uint32 remainingMs = 0;
+            std::function<void()> callback;
+        };
+
         // A bot's consecutive lines keep at least a breath between them even
         // when the second reply finishes "typing" while the first is still
         // held.
@@ -49,6 +56,7 @@ namespace ModLlm::Dispatch
         std::mutex _pendingMutex;
         std::vector<PendingDispatch> _pending;
         std::vector<PendingOperation> _pendingOperations;
+        std::vector<PendingCallback> _pendingCallbacks;
     }
 
     bool Submit(Player* bot, Player* actor, TriggerContext trigger)
@@ -114,12 +122,19 @@ namespace ModLlm::Dispatch
         _pendingOperations.push_back({ delayMs, std::move(operation) });
     }
 
+    void RunDelayed(std::function<void()> callback, uint32 delayMs)
+    {
+        std::lock_guard<std::mutex> lock(_pendingMutex);
+        _pendingCallbacks.push_back({ delayMs, std::move(callback) });
+    }
+
     void UpdateDelayed(uint32 diff)
     {
         // Collect due triggers under the lock, submit outside it: Submit
         // touches game state and the HTTP client and must not hold the lock.
         std::vector<TriggerContext> due;
         std::vector<std::unique_ptr<PlayerbotOperation>> dueOperations;
+        std::vector<std::function<void()>> dueCallbacks;
         {
             std::lock_guard<std::mutex> lock(_pendingMutex);
             for (size_t i = 0; i < _pending.size();)
@@ -147,7 +162,23 @@ namespace ModLlm::Dispatch
                 dueOperations.push_back(std::move(_pendingOperations[i].operation));
                 _pendingOperations.erase(_pendingOperations.begin() + i);
             }
+
+            for (size_t i = 0; i < _pendingCallbacks.size();)
+            {
+                if (_pendingCallbacks[i].remainingMs > diff)
+                {
+                    _pendingCallbacks[i].remainingMs -= diff;
+                    ++i;
+                    continue;
+                }
+
+                dueCallbacks.push_back(std::move(_pendingCallbacks[i].callback));
+                _pendingCallbacks.erase(_pendingCallbacks.begin() + i);
+            }
         }
+
+        for (std::function<void()>& callback : dueCallbacks)
+            callback();
 
         for (std::unique_ptr<PlayerbotOperation>& operation : dueOperations)
             PlayerbotWorldThreadProcessor::instance().QueueOperation(std::move(operation));
@@ -181,5 +212,6 @@ namespace ModLlm::Dispatch
         std::lock_guard<std::mutex> lock(_pendingMutex);
         _pending.clear();
         _pendingOperations.clear();
+        _pendingCallbacks.clear();
     }
 }

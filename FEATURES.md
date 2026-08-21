@@ -371,6 +371,15 @@ levels above the killer, with the feat named in the event ("…, an elite") so
 the reaction matches its weight. Quest turn-ins are likewise the quester's
 and their group's business only: nothing marks a turn-in on a bystander's
 screen, so strangers neither comment on it nor see it in their transcripts.
+Achievements go further: WotLK announces one to everybody in the vicinity
+*and* to the whole guild, but nobody has ever turned to a stranger over their
+"Expert First Aid", so only the achiever's party or raid (never a
+battleground group) and its guild hear about one at all — and only when the
+feat is genuinely rare: a realm first, a Feat of Strength, or an achievement
+worth `LLM.Event.Achievement.MinPoints` or more, which leaves out the routine
+ten-pointers. The comment goes where the announcement itself landed, party/raid
+chat or guild chat, and a guildmate's feat is described as one ("your guildmate
+X earned …") since it was heard about rather than watched.
 Whether or not a bot
 is picked to react, the event is narrated into every nearby bot's overheard
 transcript (mob kills exempt — grinding would flood it), because seeing and
@@ -416,7 +425,7 @@ aloud — but a configurable share (`LLM.Event.ChannelChance`,
 `LLM.Initiative.ChannelChance`) goes to the bot's zone **General channel**
 instead — the idle zone chatter real servers have — whenever the bot and at
 least one real player are on the channel. Only events that carry their own
-story zone-wide (level-ups, achievements, notable loot) roll for General;
+story zone-wide (level-ups, notable loot) roll for General;
 play-by-play like mob pulls, deaths, and duels is invisible to readers across
 the zone and stays in local /say.
 

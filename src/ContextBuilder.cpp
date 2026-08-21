@@ -66,6 +66,8 @@ namespace ModLlm::ContextBuilder
                         return "raid";
                     if (trigger.chatType == CHAT_MSG_PARTY)
                         return "party";
+                    if (trigger.chatType == CHAT_MSG_GUILD)
+                        return "guild";
                     return "say";
             }
         }
@@ -113,6 +115,15 @@ namespace ModLlm::ContextBuilder
                 return " If you say something, it goes to your whole battleground team. They are in this"
                     " match with you: keep it to what is happening in here - the fight, the flags, the"
                     " score - and say nothing at all unless it is worth their time.";
+
+            // An achievement comment: the announcement reached the whole
+            // guild, so everyone reading already knows what happened and any
+            // of them could answer - which is why most of a guild says
+            // nothing at all.
+            if (trigger.kind == TRIGGER_GAME_EVENT && trigger.chatType == CHAT_MSG_GUILD)
+                return " If you say something, it goes to your whole guild, who all saw the same"
+                    " announcement go by. A short word is the most it is worth, and only if you have"
+                    " one - most of the guild will let it pass.";
 
             if (trigger.kind != TRIGGER_CHAT_PARTY)
                 return "";
