@@ -1973,7 +1973,7 @@ namespace ModLlm::LlmTools
                         break;
                     lines += Acore::StringFormat("selling: {} x{} {{item:{}}} - about {}{}\n",
                         sellable.proto->Name1, sellable.count, sellable.proto->ItemId,
-                        ChatHelper::formatMoney(sellable.askEach), sellable.count > 1 ? " each" : ""));
+                        ChatHelper::formatMoney(sellable.askEach), sellable.count > 1 ? " each" : "");
                 }
 
                 listed = 0;
