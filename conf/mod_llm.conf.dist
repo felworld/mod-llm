@@ -487,6 +487,12 @@ LLM.Event.MaxBotsPerEvent = 2
 #                     ("gg" territory): bystanders see challenges and
 #                     outcomes but never comment on them - at gate duel
 #                     spots, spectator commentary drowned the area.
+#                     DuelRequest voices the challenge itself, again for one
+#                     duelist only: a bot challenger taunts its mark (or just
+#                     flexes); when a real player throws down the gauntlet,
+#                     the challenged bot answers instead. Replaces
+#                     playerbots' canned challenge line (llm mode sets
+#                     AiPlayerbot.DuelChatter = 0).
 #                     RollWon/RollLost fire when a group loot roll resolves:
 #                     the winning bot may gloat, bots that Need-rolled and
 #                     lost may grumble (in party/raid chat). Only Need rolls
@@ -522,6 +528,7 @@ LLM.Event.Chance.Death = 30
 LLM.Event.Chance.QuestComplete = 20
 LLM.Event.Chance.LevelUp = 50
 LLM.Event.Chance.Duel = 40
+LLM.Event.Chance.DuelRequest = 40
 LLM.Event.Chance.Achievement = 25
 LLM.Event.Chance.Loot = 15
 LLM.Event.Chance.RollWon = 20
@@ -686,6 +693,22 @@ LLM.TradeAd.CommonItemChance = 25
 LLM.GuildAd.Chance = 4
 LLM.GuildRecruit.Chance = 2
 LLM.GuildRecruit.CooldownSeconds = 1800
+
+#
+#    LLM.DuelSolicit.Chance
+#        Description: Percent of initiative opportunities where a bot dwelling
+#                     at a gate duel spot (playerbots' duel-field hangout
+#                     outside Stormwind or Orgrimmar) calls out for opponents
+#                     in its own words - or just sizes someone up with an
+#                     emote. Replaces playerbots' canned "Anyone up for a
+#                     duel?" line (llm mode sets AiPlayerbot.DuelChatter = 0).
+#                     Spoken as plain /say, so it fires only with a real
+#                     player in earshot; actually challenging someone stays
+#                     playerbots' deterministic "start duel" logic.
+#        Default:     60
+#
+
+LLM.DuelSolicit.Chance = 60
 
 #
 #    LLM.GuildFlavor.Enable
@@ -860,6 +883,7 @@ LLM.Prompt.StyleExamples = "\n\nHow you type - examples of situation => message 
 # LLM.Prompt.TradeAd = ""
 # LLM.Prompt.GuildAd = ""
 # LLM.Prompt.GuildRecruit = ""
+# LLM.Prompt.DuelSolicit = ""
 # LLM.Prompt.HistoryLine = ""
 # LLM.Prompt.Router = ""
 # LLM.Prompt.SayRouter = ""

@@ -112,6 +112,13 @@ namespace ModLlm
             "them and send an invite with the guild_invite tool. No pressure and no hard sell; if "
             "they do not seem worth bothering, do nothing.{reply_guidance}";
 
+        constexpr char DEFAULT_PROMPT_DUEL_SOLICIT[] =
+            "{memory_block}{history_block}You are hanging out at the dueling spot outside the city "
+            "gates, looking for opponents. Around you: {environment}. If you feel like it, call out "
+            "a short challenge in your own words, the way a player hawks for duels - or size someone "
+            "up wordlessly with an emote like flex, point, or stare. One line at most; if nobody "
+            "around seems worth calling out, do nothing.{reply_guidance}";
+
         constexpr char DEFAULT_PROMPT_ROUTER[] =
             "You are routing a chat message between players in World of Warcraft. In {channel_label} chat, "
             "{actor_name} says: \"{message}\"\n"
@@ -270,6 +277,7 @@ namespace ModLlm
         eventChanceQuestComplete = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.QuestComplete", 20);
         eventChanceLevelUp = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.LevelUp", 50);
         eventChanceDuel = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.Duel", 40);
+        eventChanceDuelRequest = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.DuelRequest", 40);
         eventChanceAchievement = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.Achievement", 25);
         eventChanceLoot = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.Loot", 15);
         eventChanceRollWon = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.RollWon", 20);
@@ -297,6 +305,7 @@ namespace ModLlm
 
         guildAdChance = sConfigMgr->GetOption<uint32>("LLM.GuildAd.Chance", 4);
         guildRecruitChance = sConfigMgr->GetOption<uint32>("LLM.GuildRecruit.Chance", 2);
+        duelSolicitChance = sConfigMgr->GetOption<uint32>("LLM.DuelSolicit.Chance", 60);
         guildRecruitCooldownSeconds = sConfigMgr->GetOption<uint32>("LLM.GuildRecruit.CooldownSeconds", 1800);
 
         guildFlavorEnabled = sConfigMgr->GetOption<bool>("LLM.GuildFlavor.Enable", true);
@@ -327,6 +336,7 @@ namespace ModLlm
         promptTradeAd = LoadPrompt("LLM.Prompt.TradeAd", DEFAULT_PROMPT_TRADE_AD);
         promptGuildAd = LoadPrompt("LLM.Prompt.GuildAd", DEFAULT_PROMPT_GUILD_AD);
         promptGuildRecruit = LoadPrompt("LLM.Prompt.GuildRecruit", DEFAULT_PROMPT_GUILD_RECRUIT);
+        promptDuelSolicit = LoadPrompt("LLM.Prompt.DuelSolicit", DEFAULT_PROMPT_DUEL_SOLICIT);
         promptHistoryLine = LoadPrompt("LLM.Prompt.HistoryLine", DEFAULT_PROMPT_HISTORY_LINE);
         promptRouter = LoadPrompt("LLM.Prompt.Router", DEFAULT_PROMPT_ROUTER);
         promptSayRouter = LoadPrompt("LLM.Prompt.SayRouter", DEFAULT_PROMPT_SAY_ROUTER);

@@ -104,6 +104,8 @@ namespace ModLlm::PromptAssembler
                         templ = &sLlmConfig->promptGuildAd;
                     else if (trigger.guildRecruit)
                         templ = &sLlmConfig->promptGuildRecruit;
+                    else if (trigger.duelSolicit)
+                        templ = &sLlmConfig->promptDuelSolicit;
                     else
                         templ = &sLlmConfig->promptInitiative;
                     break;

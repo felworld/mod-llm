@@ -210,6 +210,26 @@ namespace ModLlm
                     return Acore::StringFormat("{} challenged {} to a duel", challengerName, targetName);
                 },
                 challenger);
+
+            // The challenge itself gets a voice - the LLM stand-in for
+            // playerbots' canned "Care for a duel?" line, cut off in llm
+            // mode via AiPlayerbot.DuelChatter=0. A bot challenger taunts
+            // its mark; when a real player throws down the gauntlet, the
+            // challenged bot answers it instead. One duelist per request
+            // either way, and bystanders above stay narration-only, so the
+            // felworld/mod-llm#22 quiet-duel-spot guarantees hold.
+            if (!IsRealPlayer(challenger))
+                DispatchDuelist(challenger, target,
+                    Acore::StringFormat(
+                        "you just challenged {} to a duel - a short taunt, or an emote like flex or point, "
+                        "fits the moment", targetName),
+                    "duel_request", sLlmConfig->eventChanceDuelRequest);
+            else
+                DispatchDuelist(target, challenger,
+                    Acore::StringFormat(
+                        "{} just challenged you to a duel - answer the challenge in your own words, or with "
+                        "an emote like flex or salute", challengerName),
+                    "duel_request", sLlmConfig->eventChanceDuelRequest);
         }
 
         void OnPlayerDuelEnd(Player* winner, Player* loser, DuelCompleteType type) override
@@ -233,8 +253,10 @@ namespace ModLlm
                     return Acore::StringFormat("{} won a duel against {}", winnerName, loserName);
                 });
 
-            DispatchDuelist(winner, loser, Acore::StringFormat("you won a duel against {}", loserName));
-            DispatchDuelist(loser, winner, Acore::StringFormat("you lost a duel against {}", winnerName));
+            DispatchDuelist(winner, loser, Acore::StringFormat("you won a duel against {}", loserName),
+                "duel_end", sLlmConfig->eventChanceDuel);
+            DispatchDuelist(loser, winner, Acore::StringFormat("you lost a duel against {}", winnerName),
+                "duel_end", sLlmConfig->eventChanceDuel);
         }
 
         // An achievement is the one event with an audience past line of
@@ -535,7 +557,8 @@ namespace ModLlm
         // this is. Submit() itself has no combat gate, and the reply is
         // "typed" out over a few seconds anyway - by delivery the dust has
         // settled.
-        void DispatchDuelist(Player* bot, Player* opponent, std::string description)
+        void DispatchDuelist(Player* bot, Player* opponent, std::string description,
+            char const* eventType, uint32 chance)
         {
             if (!sLlmConfig->IsEnabled() || !sLlmConfig->eventEnabled)
                 return;
@@ -546,7 +569,7 @@ namespace ModLlm
             sLlmHistoryStore->AddOverheardLine(bot->GetGUID(), "",
                 Acore::StringFormat("({})", description));
 
-            if (urand(0, 99) >= sLlmConfig->eventChanceDuel)
+            if (urand(0, 99) >= chance)
                 return;
             if (IsOnCooldown(bot->GetGUID()))
                 return;
@@ -555,7 +578,7 @@ namespace ModLlm
 
             TriggerContext trigger;
             trigger.kind = TRIGGER_GAME_EVENT;
-            trigger.eventType = "duel_end";
+            trigger.eventType = eventType;
             trigger.message = std::move(description);
 
             if (!Dispatch::Submit(bot, opponent, std::move(trigger)))

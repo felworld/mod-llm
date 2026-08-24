@@ -386,8 +386,11 @@ transcript (mob kills exempt — grinding would flood it), because seeing and
 reacting are different things. Duels are the duelists' story: bystanders see
 challenges and outcomes in their transcripts but never comment on them (at
 gate duel spots, spectator commentary — and the reply chains it seeded —
-drowned the area in "gl"/"gg" chatter), and the one spoken reaction,
-the "gg" at the end, comes from the two who fought (`LLM.Event.Chance.Duel`).
+drowned the area in "gl"/"gg" chatter), and the spoken reactions come from
+the participants themselves: the challenger's taunt as the flag goes down
+(`LLM.Event.Chance.DuelRequest`) and the "gg" at the end
+(`LLM.Event.Chance.Duel`) — the full picture is in
+[Duel talk](#duel-talk).
 Duel events address participants in the second
 person — "you lost a duel against X" — since a small model that only sees its
 own name in a third-person line may not realize it was the loser, and
@@ -613,6 +616,40 @@ argument, the selected player's guild), `.llm guildflavor set "Guild Name"
 rp+wpvp` overrides it, `clear` drops it, and `reroll` rolls a new one from the
 configured weights. Options: `LLM.GuildFlavor.Enable`,
 `LLM.GuildFlavor.Profiles`.
+
+## Duel talk
+
+Everything spoken around bot duels comes from the model, not from canned
+strings. mod-playerbots ships fixed lines for the duel-spot solicitation
+("Anyone up for a duel?"), the challenge ("Care for a duel?"), and the
+post-duel exchange; llm mode turns those off (`AiPlayerbot.DuelChatter = 0`
+— see playerbots'
+[tunable duel chatter](https://github.com/felworld/mod-playerbots/blob/main/FEATURES.md#tunable-duel-chatter))
+and voices the same moments in the bots' own words:
+
+**Soliciting.** A bot dwelling at the gate duel field outside Stormwind or
+Orgrimmar spends a share of its initiative fires (`LLM.DuelSolicit.Chance`)
+calling out for opponents — or sizing someone up wordlessly with an emote;
+the prompt offers both, and playerbots' flex/roar performance at a picked
+mark stays either way. The call-out is plain `/say` behind the usual
+human-in-earshot gate, and since it is LLM speech it rides the normal
+chain-capped overhear routing — so a nearby bot can actually answer it,
+which the canned line structurally never drew.
+
+**Challenging.** As the duel flag goes down, the bot challenger taunts its
+mark (`LLM.Event.Chance.DuelRequest`) — or just flexes: the say tool is only
+one tool on the table. When a real player throws down the gauntlet, the
+challenged bot answers the challenge instead.
+
+**The duel and after.** Who actually gets challenged stays playerbots'
+deterministic business — the "start duel" trigger's health, level, and
+duel-ground etiquette — and the post-duel "gg" already came from the
+duelists themselves (`LLM.Event.Chance.Duel`, see
+[Game events](#game-events)).
+
+Bystanders stay narration-only throughout, and a comment on a duel event
+still allows at most one chained reply, so the quiet-duel-spot guarantees
+(no spectator "gl"/"gg" spirals) hold.
 
 ## Persistence
 

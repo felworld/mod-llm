@@ -117,6 +117,7 @@ namespace ModLlm
         uint32 eventChanceQuestComplete = 20;
         uint32 eventChanceLevelUp = 50;
         uint32 eventChanceDuel = 40;
+        uint32 eventChanceDuelRequest = 40;
         uint32 eventChanceAchievement = 25;
         uint32 eventChanceLoot = 15;
         uint32 eventChanceRollWon = 20;
@@ -157,6 +158,11 @@ namespace ModLlm
         uint32 guildRecruitChance = 2;
         uint32 guildRecruitCooldownSeconds = 1800;
 
+        // Duel-spot call-outs: a bot dwelling at the gate duel field spends
+        // this share of its initiative fires soliciting opponents out loud
+        // (replaces playerbots' canned line in llm mode - DuelChatter=0).
+        uint32 duelSolicitChance = 60;
+
         // Guild flavors: the identity a bot-led guild talks in. The weighted
         // profile list is parsed at load time, so a malformed entry is
         // reported once instead of at every roll.
@@ -190,6 +196,7 @@ namespace ModLlm
         std::string promptTradeAd;
         std::string promptGuildAd;
         std::string promptGuildRecruit;
+        std::string promptDuelSolicit;
         std::string promptHistoryLine;
         std::string promptRouter;
         std::string promptSayRouter;

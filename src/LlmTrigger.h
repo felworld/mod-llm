@@ -86,6 +86,8 @@ namespace ModLlm
                                      // city GuildRecruitment channel
         bool guildRecruit = false;   // cold-recruit initiative: the actor is a passing
                                      // unguilded player the bot may chat up and invite
+        bool duelSolicit = false;    // duel-spot initiative: the bot is dwelling at the
+                                     // gate duel field and may call out for opponents
         bool crossFaction = false;   // the actor is on the opposing faction: no shared language
         bool crossFactionChatOk = false; // rolled permission to shout gibberish at them anyway
     };

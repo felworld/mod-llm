@@ -13,9 +13,11 @@
 #include "LlmDispatch.h"
 #include "LlmTools.h"
 #include "MemoryStore.h"
+#include "NewRpgInfo.h"
 #include "ObjectAccessor.h"
 #include "Player.h"
 #include "PlayerbotAI.h"
+#include "Playerbots.h"
 #include "Random.h"
 #include "ScriptMgr.h"
 #include "TraceStore.h"
@@ -47,6 +49,19 @@ namespace ModLlm
 
             return GuildFlavors::WouldColdPitch(profile, target->GetLevel(),
                 uint8(sWorld->getIntConfig(CONFIG_MAX_PLAYER_LEVEL)));
+        }
+
+        // The bot is dwelling at a gate duel spot (arrived, per playerbots'
+        // RPG state) and free to perform - not mid-duel; the initiative loop
+        // already skips bots in combat.
+        bool AtDuelSpot(Player* bot)
+        {
+            PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
+            if (!botAI || bot->duel)
+                return false;
+
+            auto const* spot = std::get_if<NewRpgInfo::DuelSpot>(&botAI->rpgInfo.data);
+            return spot && spot->arrivedT;
         }
     }
 
@@ -212,6 +227,19 @@ namespace ModLlm
                     }
                 }
 
+                // A bot loitering at the duel field outside the gates spends
+                // a large share of its initiative fires calling out for
+                // opponents - the LLM stand-in for playerbots' canned
+                // "Anyone up for a duel?" line (AiPlayerbot.DuelChatter=0 in
+                // llm mode). The prompt invites a spoken challenge or a
+                // wordless emote; delivery is plain /say, so the
+                // human-in-earshot gate below still applies, and a reply
+                // from another LLM bot rides the normal chain-capped
+                // overhear routing. Actually challenging someone stays
+                // playerbots' deterministic business ("start duel").
+                if (!trigger.tradeAd && urand(0, 99) < sLlmConfig->duelSolicitChance && AtDuelSpot(player))
+                    trigger.duelSolicit = true;
+
                 // Another slice becomes guild chatter, for bots whose guild
                 // rank can actually invite. In a capital that is a
                 // recruitment line into the city's GuildRecruitment channel -
@@ -225,7 +253,7 @@ namespace ModLlm
                 // summons a parade of follow-up recruiters; a player who
                 // *asks* to join is unaffected, that path is reactive.
                 Player* recruit = nullptr;
-                if (!trigger.tradeAd && CanRecruitFor(player))
+                if (!trigger.tradeAd && !trigger.duelSolicit && CanRecruitFor(player))
                 {
                     if (urand(0, 99) < sLlmConfig->guildAdChance
                         && sTravelMgr.IsFriendlyCapital(player->GetZoneId(), player->GetTeamId()))
@@ -263,7 +291,7 @@ namespace ModLlm
                 // match the wider reach; a /say remark needs a human close
                 // enough to actually hear it.
                 bool channelBound = trigger.chatType == CHAT_MSG_CHANNEL;
-                if (!trigger.tradeAd && !trigger.guildAd && !trigger.guildRecruit)
+                if (!trigger.tradeAd && !trigger.guildAd && !trigger.guildRecruit && !trigger.duelSolicit)
                     channelBound = urand(0, 99) < sLlmConfig->initiativeChannelChance
                         && BotSelector::BindAmbientChannel(player, trigger);
                 if (!channelBound
