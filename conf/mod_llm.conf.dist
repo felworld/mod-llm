@@ -508,6 +508,11 @@ LLM.Event.MaxBotsPerEvent = 2
 #                     guild chat where the announcement itself landed.
 #                     GroupJoin fires when a bot joins a party or raid with a
 #                     real player in it; the greeting goes to party/raid chat.
+#                     Bots arrive in batches, so GroupJoin is the chance that
+#                     anybody in a batch greets at all and
+#                     GroupJoin.Falloff (below) decides how many others join
+#                     in - one greeting is the common case, two happens, a
+#                     whole party answering does not.
 #                     Healed fires only for the healed bot itself when a
 #                     player outside its group heals it; the thanks is said
 #                     aloud. Groupmate heals are routine and never draw one.
@@ -534,6 +539,10 @@ LLM.Event.Chance.Loot = 15
 LLM.Event.Chance.RollWon = 20
 LLM.Event.Chance.RollLost = 10
 LLM.Event.Chance.GroupJoin = 100
+# Chance (0-100) of each greeting after the first when several bots join the
+# same group at once, given the one before it was said: 30 makes a second
+# greeting uncommon and a third rare, whatever the size of the batch.
+LLM.Event.Chance.GroupJoinFalloff = 30
 LLM.Event.Chance.Healed = 20
 LLM.Event.Chance.DefenseCallout = 100
 LLM.Event.Chance.DefenseEscalation = 100

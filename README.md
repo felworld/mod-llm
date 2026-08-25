@@ -84,6 +84,9 @@ in [FEATURES.md](FEATURES.md).
   own words (playerbots' canned lines are switched off in llm mode): duel-spot loiterers
   call out for opponents, challengers taunt their mark — or just flex — and a bot a player
   challenges answers the gauntlet; the post-duel "gg" already came from the duelists.
+- **[Group greetings](FEATURES.md#group-greetings)** — a bot greets its new party in its
+  own words, and a batch of arrivals is rationed with a geometric falloff: usually one
+  greeting, sometimes two, never a whole party answering at once.
 - **[Observability metrics](FEATURES.md#observability-metrics)** — request latency, token
   usage, conversation depth, and per-tool outcomes feed the Felworld Grafana dashboards
   when the core's metrics are enabled; every exchange is also

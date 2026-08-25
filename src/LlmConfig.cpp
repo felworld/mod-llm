@@ -5,6 +5,8 @@
 
 #include "LlmConfig.h"
 
+#include <algorithm>
+
 #include "Config.h"
 #include "Log.h"
 #include "World.h"
@@ -283,6 +285,8 @@ namespace ModLlm
         eventChanceRollWon = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.RollWon", 20);
         eventChanceRollLost = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.RollLost", 10);
         eventChanceGroupJoin = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.GroupJoin", 100);
+        eventChanceGroupJoinFalloff =
+            std::min<uint32>(sConfigMgr->GetOption<uint32>("LLM.Event.Chance.GroupJoinFalloff", 30), 100);
         eventChanceHealed = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.Healed", 20);
         eventChanceDefenseCallout = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.DefenseCallout", 100);
         eventChanceDefenseEscalation = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.DefenseEscalation", 100);

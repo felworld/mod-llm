@@ -773,8 +773,17 @@ namespace ModLlm
     };
 
     // A bot greets its new party or raid when it joins one - the LLM
-    // replacement for playerbots' canned "Hello" whisper on invite accept
-    // (which we keep disabled via AiPlayerbot.EnableGreet = 0).
+    // replacement for playerbots' canned join/leave lines (which llm mode
+    // keeps disabled via AiPlayerbot.GroupChatter = 0).
+    //
+    // Bots usually arrive in batches, and every one of them greeting is the
+    // tell that they aren't people. So the greeting goes through a speaker
+    // quota, the same shape playerbots rations its own group lines with
+    // (felworld/mod-playerbots#84): the first arrival rolls how many of the
+    // batch will speak at all - Chance.GroupJoin that anybody does, then
+    // Chance.GroupJoinFalloff for each speaker after the first - and the
+    // rest join quietly. The count comes out geometric, so one greeting is
+    // the common case, two happens, and a whole party answering does not.
     //
     // Bots joining fires this hook from the bot's AI update, which runs on
     // map-update threads: only the joining bot (on this thread's map) is
@@ -800,11 +809,12 @@ namespace ModLlm
             Player* bot = ObjectAccessor::FindPlayer(guid);
             if (!bot || IsRealPlayer(bot))
                 return;
-            if (urand(0, 99) >= sLlmConfig->eventChanceGroupJoin)
-                return;
-
             // Don't greet into a group of nothing but bots.
             if (!BotSelector::GroupHasRealPlayer(group))
+                return;
+
+            int32 const slot = ClaimGreeting(group->GetGUID());
+            if (slot < 0)
                 return;
 
             bool raid = group->isRaidGroup();
@@ -823,8 +833,64 @@ namespace ModLlm
             trigger.actorGuid = group->GetLeaderGUID();
             trigger.actorName = group->GetLeaderName();
 
-            Dispatch::SubmitDelayed(bot, nullptr, std::move(trigger), urand(1500, 4000));
+            // Each speaker after the first lands behind the one before it, so
+            // a second greeting reads as an answer rather than an echo.
+            uint32 delayMs = urand(1500, 4000);
+            for (int32 i = 0; i < slot; ++i)
+                delayMs += urand(2500, 5000);
+
+            Dispatch::SubmitDelayed(bot, nullptr, std::move(trigger), delayMs);
         }
+
+    private:
+        // Zero-based speaking position in this group's greeting quota, or -1
+        // when the quota is spent (or was rolled at zero). The quota stands
+        // for a window rather than forever: an arrival a minute later is its
+        // own event, not part of the batch.
+        int32 ClaimGreeting(ObjectGuid groupGuid)
+        {
+            constexpr auto QUOTA_WINDOW = std::chrono::seconds(15);
+            constexpr uint32 MAX_SPEAKERS = 5;
+
+            std::lock_guard<std::mutex> lock(_quotaMutex);
+
+            auto const now = std::chrono::steady_clock::now();
+
+            // Groups are transient; drop the ones whose window has long since
+            // closed rather than keeping an entry per group ever formed.
+            if (_quotas.size() > 512)
+                std::erase_if(_quotas, [&](auto const& pair) { return now - pair.second.rolledAt >= QUOTA_WINDOW; });
+
+            Quota& quota = _quotas[groupGuid.GetRawValue()];
+            if (now - quota.rolledAt >= QUOTA_WINDOW)
+            {
+                quota.speakers = 0;
+                quota.taken = 0;
+                quota.rolledAt = now;
+
+                if (urand(0, 99) < sLlmConfig->eventChanceGroupJoin)
+                {
+                    quota.speakers = 1;
+                    while (quota.speakers < MAX_SPEAKERS && urand(0, 99) < sLlmConfig->eventChanceGroupJoinFalloff)
+                        ++quota.speakers;
+                }
+            }
+
+            if (quota.taken >= quota.speakers)
+                return -1;
+
+            return static_cast<int32>(quota.taken++);
+        }
+
+        struct Quota
+        {
+            uint32 speakers{0};
+            uint32 taken{0};
+            std::chrono::steady_clock::time_point rolledAt{};
+        };
+
+        std::mutex _quotaMutex;
+        std::unordered_map<uint64, Quota> _quotas;
     };
 
     // The LLM replacement for playerbots' prebaked defense-callout lines

@@ -651,6 +651,27 @@ Bystanders stay narration-only throughout, and a comment on a duel event
 still allows at most one chained reply, so the quiet-duel-spot guarantees
 (no spectator "gl"/"gg" spirals) hold.
 
+## Group greetings
+
+A bot greets its new party or raid in its own words when it joins one, the
+LLM replacement for mod-playerbots' canned hellos and goodbyes (llm mode
+turns those off with `AiPlayerbot.GroupChatter = 0` — see playerbots'
+[group hellos and goodbyes](https://github.com/felworld/mod-playerbots/blob/main/FEATURES.md#group-hellos-and-goodbyes-that-arrive-one-at-a-time)).
+A group of nothing but bots is never greeted into: there is nobody to read
+it.
+
+Bots arrive in batches — you add five alts, or a leader invites a party's
+worth in one go — and five greetings landing together is the tell that they
+aren't people. So the greetings are rationed with the same geometric
+falloff playerbots uses: the first arrival rolls how many of the batch will
+speak at all (`LLM.Event.Chance.GroupJoin`, default 100), then
+`LLM.Event.Chance.GroupJoinFalloff` (default 30) decides each speaker after
+that one, and everyone else joins quietly. One greeting is the common case,
+two happens, a whole party answering does not — and the same holds for a
+raid, since the quota is rolled rather than accumulated per bot. Speakers
+are staggered a few seconds apart on top of the usual arrival delay, so a
+second greeting reads as an answer to the first.
+
 ## Persistence
 
 Three features persist to the characters DB (schema auto-applied at worldserver
