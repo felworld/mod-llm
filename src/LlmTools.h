@@ -49,6 +49,12 @@ namespace ModLlm
         // models sometimes leak into chat text. Exposed for tests.
         std::string SanitizeChatText(std::string text);
 
+        // Splits a memory note a model typed into prose ("note: kelda
+        // ninja'd the axe", "remember zerson, good pulls") off `text`,
+        // leaving whatever preceded it. Returns the note body, or an empty
+        // string when the prose carries none. Exposed for tests.
+        std::string ExtractInlineNote(std::string& text);
+
         // Replaces {item:ID}, {quest:ID} and {spell:ID} tags with clickable
         // client hyperlinks; a tag whose ID resolves to nothing is dropped so
         // a hallucinated ID can never reach chat as a broken link. Braces

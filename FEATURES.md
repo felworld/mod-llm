@@ -42,6 +42,12 @@ and a message over the client's 255-byte typing cap is rejected back to the
 model rather than sent. An `{emote:wave}` tag written into chat text — small
 models generalize the link convention to emotes — is played as the real emote
 it names, aimed like the `emote` tool, and whatever text remains is spoken.
+A memory note announced in prose (`note: ...`, `remember zerson, good pulls`)
+gets the same treatment on the rescue path: the note is saved through
+`remember`, under a slug taken from its own opening, and only what preceded it
+is spoken. Prose is the one place the model can address the wrong tool, and
+the scratchpad is private — a bot reciting what it thinks of the people
+standing next to it is the loudest tell there is.
 
 ## Prompt context
 

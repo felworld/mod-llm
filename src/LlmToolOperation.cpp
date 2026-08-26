@@ -124,16 +124,36 @@ namespace ModLlm
         // (felworld/mod-llm#59).
         if (calls.empty() && !_bareContent.empty() && sLlmConfig->treatBareContentAsSay && !_spoke)
         {
-            if (!LooksLikeRequestedAd(bot, _trigger, _bareContent))
-                LOG_INFO("module.llm", "Bot {} bare content dropped, not the ad the prompt asked"
-                    " for: '{}'", bot->GetName(), _bareContent);
-            else
+            // Prose is the one place the model can address the wrong tool: it
+            // types the note it meant to save alongside (or instead of) the
+            // chat line, and the rescue would speak the scratchpad to the
+            // party. Route each half where it was addressed.
+            std::string spoken = _bareContent;
+            std::string note = LlmTools::ExtractInlineNote(spoken);
+
+            if (!spoken.empty())
+            {
+                if (!LooksLikeRequestedAd(bot, _trigger, spoken))
+                    LOG_INFO("module.llm", "Bot {} bare content dropped, not the ad the prompt asked"
+                        " for: '{}'", bot->GetName(), spoken);
+                else
+                {
+                    nlohmann::json args;
+                    args["message"] = spoken;
+                    // Synthetic call: the fabricated id lets a failure feed
+                    // back like any genuine call's would.
+                    calls.push_back({ "say", args.dump(), "call_say" });
+                }
+            }
+
+            if (!note.empty())
             {
                 nlohmann::json args;
-                args["message"] = _bareContent;
-                // Synthetic call: the fabricated id lets a failure feed back
-                // like any genuine call's would.
-                calls.push_back({ "say", args.dump(), "call_say" });
+                // Prose carries no slug; the note's own opening stands in, so
+                // a repeat note about the same subject lands on the same key.
+                args["slug"] = note.substr(0, note.find_first_of(".,;", 1));
+                args["content"] = note;
+                calls.push_back({ "remember", args.dump(), "call_remember" });
             }
         }
 

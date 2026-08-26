@@ -43,6 +43,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -810,6 +811,111 @@ namespace ModLlm::LlmTools
             text.erase(pos, close - pos + 1);
         }
         return found;
+    }
+
+    // A model that answers in prose instead of calling tools writes the note
+    // it meant to save into that same prose, announcing it by the tool's own
+    // name. The intent is as unambiguous as an {emote:...} tag, so honor it
+    // the same way: cut the note out and hand back what the bot meant to say.
+    std::string ExtractInlineNote(std::string& text)
+    {
+        // Longest form first, so "note to self" wins over "note".
+        static constexpr std::string_view markers[] = {
+            "note to self", "mental note", "remembering", "remember", "noting", "noted", "notes", "note"
+        };
+
+        // Without a colon or dash the same words open an ordinary reminder
+        // aimed at somebody ("remember to summon me", "note that it
+        // respawns", "remember he owes me 5g"); a note names its subject
+        // instead.
+        static constexpr std::string_view reminders[] = {
+            "to", "that", "the", "this", "it", "its", "when", "if", "we", "you", "your",
+            "u", "ur", "i", "im", "my", "not", "dont", "do", "ill", "well",
+            "he", "hes", "him", "his", "she", "shes", "her", "they", "theyre", "them", "me",
+            "where", "what", "who", "how", "why"
+        };
+
+        auto matchesAt = [&text](size_t pos, std::string_view word)
+        {
+            if (pos + word.size() > text.size())
+                return false;
+            for (size_t i = 0; i < word.size(); ++i)
+                if (std::tolower(static_cast<unsigned char>(text[pos + i])) != word[i])
+                    return false;
+            return true;
+        };
+
+        for (size_t pos = 0; pos < text.size(); ++pos)
+        {
+            // Only a sentence start can open a note: the chat line comes
+            // first and the note is appended after it.
+            if (pos)
+            {
+                size_t prev = text.find_last_not_of(" \t\r\"'*", pos - 1);
+                if (prev != std::string::npos)
+                {
+                    char previous = text[prev];
+                    if (previous != '.' && previous != '!' && previous != '?' && previous != ';'
+                        && previous != '\n')
+                        continue;
+                }
+            }
+
+            for (std::string_view marker : markers)
+            {
+                if (!matchesAt(pos, marker))
+                    continue;
+
+                size_t body = pos + marker.size();
+                if (body < text.size() && std::isalnum(static_cast<unsigned char>(text[body])) != 0)
+                    continue;
+
+                body = text.find_first_not_of(" \t,.", body);
+                if (body == std::string::npos)
+                    continue;
+
+                bool punctuated = text[body] == ':' || text[body] == '-';
+                if (punctuated)
+                    ++body;
+                while (body < text.size() && std::isspace(static_cast<unsigned char>(text[body])) != 0)
+                    ++body;
+
+                if (!punctuated)
+                {
+                    size_t wordEnd = body;
+                    while (wordEnd < text.size() && std::isalpha(static_cast<unsigned char>(text[wordEnd])) != 0)
+                        ++wordEnd;
+
+                    std::string_view next = std::string_view(text).substr(body, wordEnd - body);
+                    if (std::any_of(std::begin(reminders), std::end(reminders),
+                        [&](std::string_view word)
+                        {
+                            return next.size() == word.size()
+                                && std::equal(next.begin(), next.end(), word.begin(),
+                                    [](unsigned char a, unsigned char b) { return std::tolower(a) == b; });
+                        }))
+                        continue;
+                }
+
+                std::string note = text.substr(body);
+                if (size_t noteEnd = note.find_last_not_of(" \t\r\n\"'*"); noteEnd != std::string::npos)
+                    note.erase(noteEnd + 1);
+                else
+                    note.clear();
+                if (note.empty())
+                    continue;
+
+                text.erase(pos);
+                if (size_t said = text.find_last_not_of(" \t\r\n"); said != std::string::npos)
+                    text.erase(said + 1);
+                else
+                    text.clear();
+
+                return note;
+            }
+        }
+
+        return "";
     }
 
     std::string ExpandChatLinks(std::string const& text,

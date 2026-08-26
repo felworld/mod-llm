@@ -89,3 +89,36 @@ TEST(LlmToolsTest, SanitizeChatTextFoldsNewlinesIntoOneLine)
     EXPECT_EQ(LlmTools::SanitizeChatText("\n\nleading and trailing\n\n"), "leading and trailing");
     EXPECT_EQ(LlmTools::SanitizeChatText("\n"), "");
 }
+
+TEST(LlmToolsTest, ExtractInlineNoteTakesAnAnnouncedNoteOutOfChat)
+{
+    std::string wholeLine = "Remember: ledeyn killed the corruptor recently, seems reliable";
+    EXPECT_EQ(LlmTools::ExtractInlineNote(wholeLine),
+        "ledeyn killed the corruptor recently, seems reliable");
+    EXPECT_EQ(wholeLine, "");
+
+    std::string tail = "nice work zerson. note: zerson, troll warrior, good pulls. reliable group.";
+    EXPECT_EQ(LlmTools::ExtractInlineNote(tail), "zerson, troll warrior, good pulls. reliable group.");
+    EXPECT_EQ(tail, "nice work zerson.");
+
+    std::string afterBlankLine = "he's taunting?\n\nnoting sochipa as the one who got me";
+    EXPECT_EQ(LlmTools::ExtractInlineNote(afterBlankLine), "sochipa as the one who got me");
+    EXPECT_EQ(afterBlankLine, "he's taunting?");
+
+    std::string unpunctuated = "remember zerson, dwarf hunter, good pulls";
+    EXPECT_EQ(LlmTools::ExtractInlineNote(unpunctuated), "zerson, dwarf hunter, good pulls");
+    EXPECT_EQ(unpunctuated, "");
+}
+
+TEST(LlmToolsTest, ExtractInlineNoteLeavesOrdinaryChatAlone)
+{
+    for (char const* line : { "gz debekim! that elite was nasty. respect.", "remember to bring food",
+        "note that it respawns fast", "remember where the vendor is?", "cant remember his name",
+        "remember he owes me 5g", "note she pulls fast", "keynote: whatever", "i noted your point",
+        "note:", "" })
+    {
+        std::string text = line;
+        EXPECT_EQ(LlmTools::ExtractInlineNote(text), "");
+        EXPECT_EQ(text, line);
+    }
+}
