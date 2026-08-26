@@ -27,6 +27,7 @@
 #include "StringFormat.h"
 #include "WpvpDefense.h"
 
+#include <algorithm>
 #include <chrono>
 #include <functional>
 #include <mutex>
@@ -813,7 +814,7 @@ namespace ModLlm
             if (!BotSelector::GroupHasRealPlayer(group))
                 return;
 
-            int32 const slot = ClaimGreeting(group->GetGUID());
+            int32 const slot = ClaimGreeting(group->GetGUID(), guid);
             if (slot < 0)
                 return;
 
@@ -847,7 +848,14 @@ namespace ModLlm
         // when the quota is spent (or was rolled at zero). The quota stands
         // for a window rather than forever: an arrival a minute later is its
         // own event, not part of the batch.
-        int32 ClaimGreeting(ObjectGuid groupGuid)
+        //
+        // One logical join can raise the hook more than once for the same bot
+        // (group state is rebuilt member by member on instance entry, and the
+        // dungeon finder routes through Group::AddMember as well), so a bot
+        // that already holds a slot in this window is turned away rather than
+        // handed a second one - otherwise it greets the same party twice
+        // (felworld/mod-llm#59).
+        int32 ClaimGreeting(ObjectGuid groupGuid, ObjectGuid botGuid)
         {
             constexpr auto QUOTA_WINDOW = std::chrono::seconds(15);
             constexpr uint32 MAX_SPEAKERS = 5;
@@ -866,6 +874,7 @@ namespace ModLlm
             {
                 quota.speakers = 0;
                 quota.taken = 0;
+                quota.claimants.clear();
                 quota.rolledAt = now;
 
                 if (urand(0, 99) < sLlmConfig->eventChanceGroupJoin)
@@ -879,6 +888,11 @@ namespace ModLlm
             if (quota.taken >= quota.speakers)
                 return -1;
 
+            uint64 const raw = botGuid.GetRawValue();
+            if (std::find(quota.claimants.begin(), quota.claimants.end(), raw) != quota.claimants.end())
+                return -1;
+
+            quota.claimants.push_back(raw);
             return static_cast<int32>(quota.taken++);
         }
 
@@ -886,6 +900,7 @@ namespace ModLlm
         {
             uint32 speakers{0};
             uint32 taken{0};
+            std::vector<uint64> claimants; // one slot per bot per window
             std::chrono::steady_clock::time_point rolledAt{};
         };
 

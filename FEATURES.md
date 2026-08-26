@@ -678,6 +678,12 @@ raid, since the quota is rolled rather than accumulated per bot. Speakers
 are staggered a few seconds apart on top of the usual arrival delay, so a
 second greeting reads as an answer to the first.
 
+A bot holds at most one slot per group per window. One logical join can raise
+the join hook more than once — group state is rebuilt member by member when a
+party zones into an instance, and the dungeon finder adds members through the
+same path — and a bot that already holds a slot is turned away on the repeat
+instead of greeting the party twice.
+
 ## Persistence
 
 Three features persist to the characters DB (schema auto-applied at worldserver
