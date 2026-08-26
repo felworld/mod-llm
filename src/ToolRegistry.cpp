@@ -35,13 +35,24 @@ namespace ModLlm
         return nullptr;
     }
 
+    // "say" is the whole of it: yell, whisper, party, raid, guild and channel
+    // are destinations of that one tool rather than tools of their own, and
+    // "emote" puts an animation in the world, not words.
+    bool ToolRegistry::IsSpeechTool(std::string const& name)
+    {
+        return name == "say";
+    }
+
     nlohmann::json ToolRegistry::BuildToolsArray(uint32 triggerMask, Player* bot, Player* actor,
-        TriggerContext const* trigger) const
+        TriggerContext const* trigger, bool allowSpeech) const
     {
         nlohmann::json tools = nlohmann::json::array();
         for (ToolSpec const& tool : _tools)
         {
             if (!(tool.triggerMask & triggerMask))
+                continue;
+
+            if (!allowSpeech && IsSpeechTool(tool.name))
                 continue;
 
             if (tool.requiresActor && !actor)

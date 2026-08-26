@@ -35,6 +35,10 @@ namespace ModLlm
         // (bounded in LlmToolOperation).
         nlohmann::json extraMessages = nlohmann::json::array();
         uint32 round = 0;
+        // Set once a speech tool has landed earlier in this chain: the bot has
+        // already been heard, so the speech tools are withheld for the rest of
+        // the rounds instead of letting it repeat itself.
+        bool spoke = false;
 
         // Control requests (e.g. the group-chat router) bypass the standard
         // pipeline: customMessages is sent instead of the assembled prompt,

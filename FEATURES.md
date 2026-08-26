@@ -17,7 +17,13 @@ messages with context and tool list rebuilt against the new game state, capped
 at two per trigger — carry two things back to the model: execution errors, so
 it can pick an alternative action (`LLM.ErrorFeedback.Enable`), and read-tool
 results (`get_gear`, `get_inventory`), so it can answer questions about its
-own gear, bags, and money with the facts in hand. A prose reply rescued as an
+own gear, bags, and money with the facts in hand. A bot that has already been
+heard keeps the toolbox minus the speech tools for the rest of the exchange:
+a round that spoke and read something would otherwise come back and answer the
+same prompt from the same context, and the party hears the same line twice.
+The prose rescue is off for those rounds too, and a `say` called anyway is
+swallowed; a speech attempt that *failed* leaves speech available, so a
+rejected message can still be retried. A prose reply rescued as an
 implicit `say` (`LLM.TreatBareContentAsSay`) feeds back the same way when
 it fails: that rescue is how small models answer most of the time, and without
 the round they never heard redirects like the cross-faction "use the emote

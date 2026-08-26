@@ -118,8 +118,11 @@ namespace ModLlm
 
         // Weaker models sometimes answer in prose instead of calling a tool;
         // optionally rescue that as a say. Ad triggers gate the rescue on
-        // the content actually looking like the requested ad.
-        if (calls.empty() && !_bareContent.empty() && sLlmConfig->treatBareContentAsSay)
+        // the content actually looking like the requested ad. A round that
+        // follows one which already spoke gets no rescue: withholding the say
+        // tool would otherwise just push the repeat into prose
+        // (felworld/mod-llm#59).
+        if (calls.empty() && !_bareContent.empty() && sLlmConfig->treatBareContentAsSay && !_spoke)
         {
             if (!LooksLikeRequestedAd(bot, _trigger, _bareContent))
                 LOG_INFO("module.llm", "Bot {} bare content dropped, not the ad the prompt asked"
@@ -182,9 +185,33 @@ namespace ModLlm
 
         bool goDefendSucceeded = false;
         bool anySucceeded = false;
+        std::vector<std::string> spokenArgs; // speech calls already sent this round
         for (size_t index : order)
         {
             ToolCall const& call = calls[index];
+
+            // An earlier round of this exchange already spoke, so this one was
+            // handed a toolbox without the speech tools - but a model is free
+            // to call a tool it was never offered, and that call is exactly
+            // the repeated line the withholding was for (felworld/mod-llm#59).
+            // Swallowed rather than failed: the words the bot owed the world
+            // are already out there.
+            if (_spoke && ToolRegistry::IsSpeechTool(call.name))
+            {
+                finish(index, true, "swallowed: already replied out loud earlier in this exchange");
+                continue;
+            }
+
+            // A model that lists the same speech call twice in one response
+            // meant to say it once. Only a byte-identical repeat is dropped -
+            // two different messages (a party line and a whisper, say) are a
+            // real player's prerogative.
+            if (ToolRegistry::IsSpeechTool(call.name)
+                && std::find(spokenArgs.begin(), spokenArgs.end(), call.arguments) != spokenArgs.end())
+            {
+                finish(index, true, "swallowed: this exact message already went out");
+                continue;
+            }
 
             // Swallowed, not failed: an error would invite the model to try
             // the message again in the feedback round, and silence is exactly
@@ -244,6 +271,14 @@ namespace ModLlm
                     goDefendSucceeded = true;
                 std::string result = std::move(context.result);
                 finish(index, true, result.empty() ? "executed" : "returned data", std::move(result));
+                // Recorded only here, past every swallow and failure above:
+                // the follow-up round withholds the speech tools on it, and it
+                // must mean the bot was genuinely heard.
+                if (ToolRegistry::IsSpeechTool(call.name))
+                {
+                    outcomes[index].spoke = true;
+                    spokenArgs.push_back(call.arguments);
+                }
             }
             else
             {
@@ -273,10 +308,12 @@ namespace ModLlm
 
         bool anyFailed = false;
         bool anyResult = false;
+        bool spoke = _spoke;
         for (Outcome const& outcome : outcomes)
         {
             anyFailed = anyFailed || !outcome.ok;
             anyResult = anyResult || !outcome.result.empty();
+            spoke = spoke || outcome.spoke;
         }
         if (!anyResult && !(anyFailed && sLlmConfig->errorFeedbackEnabled))
             return;
@@ -308,6 +345,9 @@ namespace ModLlm
                     + ". Nobody in the world saw this attempt; pick a different action, or do nothing.";
             else if (!outcome.result.empty())
                 content = outcome.result;
+            else if (outcome.spoke)
+                content = "ok: your message was sent and everyone heard it. You have already replied out"
+                    " loud this turn; use the remaining tools only if something else still needs doing.";
             else
                 content = "ok";
             extra.push_back({
@@ -317,12 +357,19 @@ namespace ModLlm
             });
         }
 
+        // A round that already spoke goes back to the model without the speech
+        // tools. Left in, they are the likeliest thing a small model reaches
+        // for a second time, and it answers the same prompt from the same
+        // context - so the party hears the same line twice
+        // (felworld/mod-llm#59). The rest of the toolbox stays, so the model
+        // can still act on what a read tool just told it.
         LlmRequest followUp;
         followUp.snapshot = ContextBuilder::Build(bot, actor, _trigger);
-        followUp.tools = sLlmToolRegistry->BuildToolsArray(_trigger.kind, bot, actor, &_trigger);
+        followUp.tools = sLlmToolRegistry->BuildToolsArray(_trigger.kind, bot, actor, &_trigger, !spoke);
         followUp.trigger = _trigger;
         followUp.extraMessages = std::move(extra);
         followUp.round = _round + 1;
+        followUp.spoke = spoke;
 
         if (sLlmClient->Submit(std::move(followUp)))
         {

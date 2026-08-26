@@ -26,9 +26,9 @@ namespace ModLlm
     {
     public:
         LlmToolOperation(TriggerContext trigger, std::vector<ToolCall> toolCalls, std::string bareContent,
-            uint32 round = 0)
+            uint32 round = 0, bool spoke = false)
             : _trigger(std::move(trigger)), _toolCalls(std::move(toolCalls)), _bareContent(std::move(bareContent))
-            , _round(round)
+            , _round(round), _spoke(spoke)
         {
         }
 
@@ -45,6 +45,7 @@ namespace ModLlm
             bool ok;
             std::string text;    // "executed" or the error detail
             std::string result;  // read-tool payload for the follow-up round
+            bool spoke = false;  // a speech tool that actually reached chat
         };
 
         void SubmitToolFeedback(Player* bot, Player* actor, std::vector<ToolCall> const& calls,
@@ -54,6 +55,7 @@ namespace ModLlm
         std::vector<ToolCall> _toolCalls;
         std::string _bareContent;
         uint32 _round = 0;
+        bool _spoke = false; // an earlier round of this chain already spoke
     };
 }
 

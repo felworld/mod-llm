@@ -84,12 +84,19 @@ namespace ModLlm
 
         ToolSpec const* Find(std::string const& name) const;
 
+        // True for the tools that put words in the world's chat. A bot that
+        // has already spoken in an exchange is offered the rest of the toolbox
+        // without these, so a follow-up round cannot repeat the line it just
+        // sent (felworld/mod-llm#59).
+        static bool IsSpeechTool(std::string const& name);
+
         // OpenAI "tools" array of every tool available for the given trigger
         // and game state. Call on the thread that owns bot/actor; actor may be
         // nullptr (tools that require one are then omitted). Pass the trigger
-        // so tools with a triggerFilter can be offered selectively.
+        // so tools with a triggerFilter can be offered selectively, and
+        // allowSpeech = false to withhold the speech tools.
         nlohmann::json BuildToolsArray(uint32 triggerMask, Player* bot = nullptr, Player* actor = nullptr,
-            TriggerContext const* trigger = nullptr) const;
+            TriggerContext const* trigger = nullptr, bool allowSpeech = true) const;
 
         // Validates a parsed arguments object against a tool's schema:
         // object-ness, required keys, declared keys, primitive types, enums.

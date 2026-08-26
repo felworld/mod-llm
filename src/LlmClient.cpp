@@ -474,7 +474,7 @@ namespace ModLlm
         // while the bot finishes "typing" if the reply came faster than a
         // human could write it.
         auto operation = std::make_unique<LlmToolOperation>(request.trigger, std::move(response.toolCalls),
-            std::move(response.content), request.round);
+            std::move(response.content), request.round, request.spoke);
         if (typingDelayMs)
             Dispatch::QueueOperationDelayed(std::move(operation), typingDelayMs);
         else
