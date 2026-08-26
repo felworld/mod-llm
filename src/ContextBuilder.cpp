@@ -20,6 +20,7 @@
 #include "LevelPerception.h"
 #include "LlmConfig.h"
 #include "LlmTools.h"
+#include "Map.h"
 #include "MemoryStore.h"
 #include "ObjectAccessor.h"
 #include "ObjectMgr.h"
@@ -205,6 +206,31 @@ namespace ModLlm::ContextBuilder
                 snapshot.botGroup = Acore::StringFormat("You lead a {} with {}. ", kind, members);
             else
                 snapshot.botGroup = Acore::StringFormat("You are in a {} with {}. ", kind, members);
+        }
+
+        // The instance loading screen names the place, and everything past it
+        // is a different game from questing outside: elites in every pull, a
+        // run the group does as one. Without those facts the model plays a
+        // dungeon like the open world - awed by an ordinary elite, taking
+        // solo credit for the group's kills (felworld/mod-llm#57). The clause
+        // rides in botGroup because the prompt templates are config-deployed:
+        // a new named field would mean editing every one of them.
+        //
+        // IsDungeon() is 5-man instances plus raids only - battlegrounds and
+        // arenas are their own map types, and BattlegroundContext already
+        // speaks for them.
+        if (bot->GetMap()->IsDungeon())
+        {
+            char const* place = bot->GetMap()->IsRaid() ? "a raid" : "a dungeon";
+            if (Group* group = bot->GetGroup())
+                snapshot.botGroup += Acore::StringFormat("You are inside {}, {} you are clearing"
+                    " together - kills in here are the whole {}'s work, and elite mobs are the"
+                    " standard fare. ",
+                    bot->GetMap()->GetMapName(), place, group->isRaidGroup() ? "raid" : "party");
+            else
+                snapshot.botGroup = Acore::StringFormat("You are inside {}, {} where elite mobs are"
+                    " the standard fare. ",
+                    bot->GetMap()->GetMapName(), place);
         }
 
         // A player knows what kind of guild they joined, so a member of a

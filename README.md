@@ -63,6 +63,9 @@ in [FEATURES.md](FEATURES.md).
   narrated into every nearby bot's overheard transcript whether or not anyone was picked to react.
   Each event reaches only the audience that would really see it: a stranger's quest turn-in or
   "Expert First Aid" draws nothing, while a rare achievement reaches the achiever's party and guild.
+  Group-tapped kills credit the whole party ("your party killed X"), not the last hit; inside an
+  instance — which the bot's prompt names and frames as the group's shared run — plain elites and
+  level gaps stop reading as feats, and flagged bosses read as "a boss".
 - **[Initiative](FEATURES.md#initiative)** — an idle scheduler gives each bot periodic
   opportunities to act unprompted; unprompted remarks reach the zone General channel, or
   team chat while the bot is in a battleground.

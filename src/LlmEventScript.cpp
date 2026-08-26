@@ -70,6 +70,12 @@ namespace ModLlm
             // a mob well above the killer's level. The killer's own group
             // (the killer included) keeps the usual dice - kill banter is
             // party chat's bread and butter.
+            //
+            // Inside an instance the same kill reads differently, so the
+            // yardsticks below shift with it. IsDungeon() is the 5-man and
+            // raid maps; battlegrounds are not dungeons.
+            bool const inInstance = killer->GetMap()->IsDungeon();
+
             char const* rankPhrase = nullptr;
             switch (killed->GetCreatureTemplate()->rank)
             {
@@ -77,7 +83,11 @@ namespace ModLlm
                     rankPhrase = "a rare";
                     break;
                 case CREATURE_ELITE_ELITE:
-                    rankPhrase = "an elite";
+                    // Elite is the standard fare in a dungeon - nearly every
+                    // trash mob wears the dragon - so calling one out there is
+                    // like being impressed by a boar out in the world.
+                    if (!inInstance)
+                        rankPhrase = "an elite";
                     break;
                 case CREATURE_ELITE_RAREELITE:
                     rankPhrase = "a rare elite";
@@ -89,20 +99,44 @@ namespace ModLlm
                     break;
             }
 
+            // A boss is the one kill in a dungeon worth a word, whatever its
+            // rank column says. The flag is all the core has to go on, and the
+            // world DB only carries it where the content was built with it:
+            // classic-era dungeon bosses (Princess Theradras, Noxxion,
+            // Mutanus, Herod) are plain rank-1 elites with flags_extra 0 and
+            // read as ordinary kills here; WotLK bosses are flagged.
+            if (killed->IsDungeonBoss())
+                rankPhrase = "a boss";
+
             // +4 and up is the orange-to-red con a player would see on the
-            // mob - the gap where a kill starts looking like a feat.
+            // mob - the gap where a kill starts looking like a feat. Not in an
+            // instance, where a party fights above-level mobs from the door
+            // onward and every pull would qualify.
             int32 levelGap = int32(killed->GetLevel()) - int32(killer->GetLevel());
-            bool notable = rankPhrase || levelGap >= 4;
+            bool notable = rankPhrase || (!inInstance && levelGap >= 4);
 
             ObjectGuid killerGuid = killer->GetGUID();
             Group* killerGroup = killer->GetGroup();
+
+            // The game's own answer to "whose kill was that?": the loot
+            // recipient group, set when the mob was first tapped and cleared
+            // only on respawn, so it still stands when this hook fires at the
+            // end of Unit::Kill.
+            Group* creditGroup = killed->GetLootRecipientGroup();
+            bool groupKill = creditGroup != nullptr;
+            char const* groupKind = groupKill && creditGroup->isRaidGroup() ? "raid" : "party";
+
             std::string killerName = killer->GetName();
             std::string killedName = killed->GetName();
 
             DispatchEvent(killer, "creature_kill", sLlmConfig->eventChanceKill,
-                [killerGuid, killerGroup, killerName, killedName, rankPhrase, levelGap, notable](Player* bot)
+                [killerGuid, killerGroup, creditGroup, groupKill, groupKind, killerName, killedName, rankPhrase,
+                    levelGap, notable](Player* bot)
                 {
-                    if (!notable && (!killerGroup || bot->GetGroup() != killerGroup))
+                    Group* botGroup = bot->GetGroup();
+                    bool credited = creditGroup && botGroup == creditGroup;
+
+                    if (!notable && !credited && (!killerGroup || botGroup != killerGroup))
                         return std::string();
 
                     bool self = bot->GetGUID() == killerGuid;
@@ -114,6 +148,15 @@ namespace ModLlm
                         what += Acore::StringFormat(", {}", rankPhrase);
                     else if (notable)
                         what += Acore::StringFormat(", {} levels above {}", levelGap, self ? "you" : "them");
+
+                    // Everyone in the group fought the mob; only one of them
+                    // landed the last hit. Naming that one sends the party's
+                    // congratulations to whoever happened to swing last, past
+                    // the four people who did the rest of it
+                    // (felworld/mod-llm#57).
+                    if (groupKill)
+                        return credited ? Acore::StringFormat("your {} killed {}", groupKind, what)
+                                        : Acore::StringFormat("{} and their group killed {}", killerName, what);
 
                     return self ? Acore::StringFormat("you killed {}", what)
                                 : Acore::StringFormat("{} killed {}", killerName, what);

@@ -56,7 +56,12 @@ whether or not they were picked to answer (`LLM.Chat.Overhear.Enable`) — and
 notable game events seen nearby (duels, deaths, level-ups, ...), which land in
 the same overheard transcript as narration lines, so a bow right after a duel
 still means something. Inside a battleground it also includes that match's
-[scoreboard](#battleground-scoreboards). Chat links reach prompts as the bracketed text a player
+[scoreboard](#battleground-scoreboards). Inside a dungeon or raid it names
+the instance and states the register of the place — a run the group clears
+together, where kills are the whole party's work and elite mobs are the
+standard fare — because without those facts the model plays a dungeon like
+the open world: awed by an ordinary elite, crediting the group's kills to
+one name. Chat links reach prompts as the bracketed text a player
 sees (`[Some Quest]`), never raw client markup. Hearing ranges default to the
 server's player listen ranges (`ListenRange.Say`/`.Yell`/`.TextEmote`); set
 the `LLM.*Distance` options to diverge.
@@ -372,9 +377,19 @@ loot. A comment about a groupmate's deed goes to party/raid chat; enemy-faction
 deeds draw comment only on the same cross-faction dice. Mob kills draw comment
 only from the killer's own group — strangers don't narrate someone's grinding,
 and a passerby's "gg" at a player still mid-fight read as nonsense — unless
-the kill would turn a head: a rare, an elite, a world boss, or a mob 4+
-levels above the killer, with the feat named in the event ("…, an elite") so
-the reaction matches its weight. Quest turn-ins are likewise the quester's
+the kill would turn a head: a rare, an elite, a world boss, a flagged dungeon
+boss, or a mob 4+ levels above the killer, with the feat named in the event
+("…, an elite") so the reaction matches its weight. A kill a group tapped is
+credited to the group, not the last hit — everyone in the game's own
+loot-credit group reads "your party killed X", notable-kill bystanders read
+"X and their group killed Y" — so the congratulations stop going to whoever
+happened to swing last, past the four people who did the rest of it. And
+inside an instance the yardsticks shift: a plain elite is the standard fare
+there and carries no feat, the 4+ level gap stops counting (a party fights
+above-level mobs from the door onward), and a boss kill says "a boss"
+wherever the world DB flags one (WotLK-era instances carry the flag;
+classic-era bosses are unflagged rank-1 elites and read as ordinary kills —
+the model still sees the name). Quest turn-ins are likewise the quester's
 and their group's business only: nothing marks a turn-in on a bystander's
 screen, so strangers neither comment on it nor see it in their transcripts.
 Achievements go further: WotLK announces one to everybody in the vicinity
