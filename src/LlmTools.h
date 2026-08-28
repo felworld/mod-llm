@@ -45,6 +45,13 @@ namespace ModLlm
         // Call periodically from the world update. World thread only.
         void UpdateTravel();
 
+        // The class buffs `bot` can cast on someone else right now, as a
+        // display list ("Blessing of Might, Blessing of Wisdom"), empty when
+        // it knows none. Grounding for the model: without the spellbook in
+        // front of it, "BoW" is an acronym it cannot expand. World thread
+        // only.
+        std::string CastableBuffList(Player* bot);
+
         // Removes quotation wrapping and tool-syntax artifacts that weak
         // models sometimes leak into chat text. Exposed for tests.
         std::string SanitizeChatText(std::string text);

@@ -18,6 +18,7 @@ to do:
 | `get_gear` / `get_inventory` | Read tools: hand the bot's equipped gear or bag contents back to the model (each item with an `{item:ID}` link tag) in a follow-up round |
 | `invite_to_party` | Invite the player it is talking to, or any online player named in the request ("invite Ledeyn"), via a synthetic client packet so all core validation runs |
 | `challenge_duel` | Challenge the player to a duel |
+| `buff_player` | Cast a class buff on the player — the bot's prompt lists the buffs it can actually cast, so shorthand like "BoW" resolves, and a buff asked for by name sticks for the rest of the party session ([details](FEATURES.md#buff-requests)) |
 | `guild_invite` | Invite the player to the bot's guild — offered only when the bot's rank can invite and the player is guildless, validated by the core like any invite ([details](FEATURES.md#guild-recruiting)) |
 | `bg_strategy` | Relay a Warsong Gulch play call ("inc!!", "fc mid") to the whole team — fans out playerbots' `bg strategy` orders, every bot rolling its own compliance ([details](FEATURES.md#battleground-play-calls)) |
 | `conjure_refreshments` / `open_portal` | Mage class services: conjure food or water and walk it over to the asker, or open a portal to a capital city — free for the bot's circle, sold to strangers for a tip collected through a real trade window ([details](FEATURES.md#class-services)) |

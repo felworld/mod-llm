@@ -106,6 +106,12 @@ dead as it is for everyone. The prompt also points a dead bot at its
 `remember` scratchpad — who killed it, a debt, a grudge — so the moment can
 resurface the next time the two meet instead of dying with the corpse run.
 
+The bot's own spellbook is on-screen too, at least the part someone might
+ask for: the prompt names the class buffs it can cast on another player
+right now. Without them the model answers "can I get BoW?" by guessing —
+usually that it has no such spell — because the acronym matches nothing
+it can see. Detailed in [buff requests](#buff-requests).
+
 Levels in the prompt are the ones the bot could read off its target frame.
 A hostile far enough above the bot to wear a skull reaches the model as `??`
 — "a ??-level undead rogue" — the same shorthand a player would use, so bots
@@ -399,6 +405,36 @@ via `open_portal`/`summon_player` instead of leaving a "sure thing" in
 chat that sets nothing in motion. Sellers also work their services into
 their own market ads. Only world (random) bots sell — never someone's alt
 — and a tip set to 0 keeps that service circle-only, exactly as before.
+
+## Buff requests
+
+`buff_player` casts one of the bot's class buffs on whoever it's talking
+to — the iconic "can I get fort?". The `buff` argument names what they
+asked for, matched case-insensitively against a curated table of
+single-target buffs worth asking for (Arcane Intellect, Dampen Magic,
+Amplify Magic, Fortitude, Divine Spirit, Shadow Protection, Fear Ward,
+Mark of the Wild, Thorns, the four Blessings, Water Breathing, Water
+Walking, Unending Breath); omit it and the bot gives its signature buff.
+The highest rank the bot knows is cast, stepping down when the target is
+too low for it.
+
+Two things ground the model rather than leaving it to guess. The bot's
+prompt states which of those buffs it can actually cast right now — a
+player reads their own spellbook, and without it "BoW" is an acronym with
+nothing to expand against. And when the named buff matches nothing, the
+error handed back for the retry round names the real list (`you do not
+know a buff matching "bow"; the buffs you can cast are: Blessing of
+Might, Blessing of Wisdom, Blessing of Kings`), so even a small model
+lands on the right one instead of insisting it has no such spell
+(felworld/mod-llm#61).
+
+A buff asked for by name also sticks. On a successful cast the tool
+records it as that pair's standing choice in mod-playerbots'
+[buff preference board](https://github.com/felworld/mod-playerbots/blob/main/FEATURES.md#buff-requests-that-stick),
+the same store the `!prefer buff` command writes, so the bot's own upkeep
+loop keeps re-applying that buff for the rest of the party session
+instead of paving it over with its role default a minute later. Buffing
+with no name given is the bot's own pick and changes nothing.
 
 ## Game events
 

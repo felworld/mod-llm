@@ -9,6 +9,7 @@
 #include "Battleground.h"
 #include "BattlegroundWS.h"
 #include "BotSelector.h"
+#include "BuffPreference.h"
 #include "Channel.h"
 #include "ChannelMgr.h"
 #include "Chat.h"
@@ -524,7 +525,11 @@ namespace ModLlm::LlmTools
 
         // The friendly buffs a bot can put on another player, by class. The
         // first entry for a class is its signature buff, used when the model
-        // does not name one.
+        // does not name one. Curated on purpose: single-target, castable on
+        // someone else, and worth asking for - not every friendly spell in
+        // the book. Ids are first ranks; the rank walk below finds the rest.
+        // Names are display-cased because they are shown to the model as the
+        // bot's castable list; matching against them is case-insensitive.
         struct ClassBuff
         {
             uint8 playerClass;
@@ -534,15 +539,22 @@ namespace ModLlm::LlmTools
 
         constexpr ClassBuff CLASS_BUFFS[] =
         {
-            { CLASS_MAGE,    "arcane intellect",      1459  },
-            { CLASS_PRIEST,  "power word: fortitude", 1243  },
-            { CLASS_PRIEST,  "divine spirit",         14752 },
-            { CLASS_DRUID,   "mark of the wild",      1126  },
-            { CLASS_DRUID,   "thorns",                467   },
-            { CLASS_PALADIN, "blessing of might",     19740 },
-            { CLASS_PALADIN, "blessing of wisdom",    19742 },
-            { CLASS_PALADIN, "blessing of kings",     20217 },
-            { CLASS_WARLOCK, "unending breath",       5697  },
+            { CLASS_MAGE,    "Arcane Intellect",      1459  },
+            { CLASS_MAGE,    "Dampen Magic",          604   },
+            { CLASS_MAGE,    "Amplify Magic",         1008  },
+            { CLASS_PRIEST,  "Power Word: Fortitude", 1243  },
+            { CLASS_PRIEST,  "Divine Spirit",         14752 },
+            { CLASS_PRIEST,  "Shadow Protection",     976   },
+            { CLASS_PRIEST,  "Fear Ward",             6346  },
+            { CLASS_DRUID,   "Mark of the Wild",      1126  },
+            { CLASS_DRUID,   "Thorns",                467   },
+            { CLASS_PALADIN, "Blessing of Might",     19740 },
+            { CLASS_PALADIN, "Blessing of Wisdom",    19742 },
+            { CLASS_PALADIN, "Blessing of Kings",     20217 },
+            { CLASS_PALADIN, "Blessing of Sanctuary", 20911 },
+            { CLASS_SHAMAN,  "Water Breathing",       131   },
+            { CLASS_SHAMAN,  "Water Walking",         546   },
+            { CLASS_WARLOCK, "Unending Breath",       5697  },
         };
 
         // Every rank of `firstRank`'s chain the bot knows, ascending.
@@ -744,6 +756,22 @@ namespace ModLlm::LlmTools
         };
 
         std::unordered_map<ObjectGuid, PendingTravel> pendingTravels;
+    }
+
+    std::string CastableBuffList(Player* bot)
+    {
+        std::string list;
+        for (ClassBuff const& buff : CLASS_BUFFS)
+        {
+            if (buff.playerClass != bot->getClass() || KnownRanks(bot, buff.firstRankSpellId).empty())
+                continue;
+
+            if (!list.empty())
+                list += ", ";
+            list += buff.name;
+        }
+
+        return list;
     }
 
     std::string SanitizeChatText(std::string text)
@@ -1525,6 +1553,7 @@ namespace ModLlm::LlmTools
 
                 std::string wanted = args.value("buff", "");
                 std::vector<uint32> ranks;
+                uint32 firstRank = 0;
                 for (ClassBuff const& buff : CLASS_BUFFS)
                 {
                     if (buff.playerClass != context.bot->getClass())
@@ -1533,11 +1562,24 @@ namespace ModLlm::LlmTools
                         continue;
                     ranks = KnownRanks(context.bot, buff.firstRankSpellId);
                     if (!ranks.empty())
+                    {
+                        firstRank = buff.firstRankSpellId;
                         break;
+                    }
                 }
                 if (ranks.empty())
                 {
-                    error = wanted.empty() ? "you have no buff spells" : "you do not know that buff";
+                    // Name the spellbook back to the model. "BoW" matches no
+                    // entry by substring, and without the real list it has
+                    // nothing to expand the acronym against on the retry
+                    // round (felworld/mod-llm#61).
+                    std::string const castable = CastableBuffList(context.bot);
+                    if (wanted.empty() || castable.empty())
+                        error = "you have no buff spells";
+                    else
+                        error = Acore::StringFormat(
+                            "you do not know a buff matching \"{}\"; the buffs you can cast are: {}",
+                            wanted, castable);
                     return false;
                 }
 
@@ -1551,6 +1593,14 @@ namespace ModLlm::LlmTools
                 switch (result)
                 {
                     case SPELL_CAST_OK:
+                        // A buff they asked for by name becomes this pair's
+                        // standing choice, so the playerbots upkeep loop stops
+                        // paving it over with its own default on the next
+                        // re-buff. An unnamed buff is the bot's own pick and
+                        // changes nothing.
+                        if (!wanted.empty())
+                            BuffPreferenceBoard::instance().Set(
+                                context.bot->GetGUID(), context.actor->GetGUID(), firstRank);
                         return true;
                     case SPELL_FAILED_OUT_OF_RANGE:
                     case SPELL_FAILED_LINE_OF_SIGHT:

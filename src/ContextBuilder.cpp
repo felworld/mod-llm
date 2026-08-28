@@ -610,6 +610,14 @@ namespace ModLlm::ContextBuilder
                     " invite, and the ritual, and your chat reply then confirms what it reports back.";
         }
 
+        // A player can read their own spellbook, so the bot knows which buffs
+        // it can put on someone. Without the list, shorthand like "BoW" has
+        // nothing to expand against and the buff tool gets asked for spells
+        // the bot never trained (felworld/mod-llm#61).
+        if (std::string const castableBuffs = LlmTools::CastableBuffList(bot); !castableBuffs.empty())
+            snapshot.replyGuidance += Acore::StringFormat(
+                " The buffs you can cast on someone are: {}.", castableBuffs);
+
         // An unguilded player talking to a bot whose rank can invite: the
         // reactive side of recruiting. A player knows what their own guild is
         // and pitches it honestly - no gatekeeping, anyone may ask.
