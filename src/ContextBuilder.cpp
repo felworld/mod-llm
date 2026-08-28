@@ -223,10 +223,37 @@ namespace ModLlm::ContextBuilder
         {
             char const* place = bot->GetMap()->IsRaid() ? "a raid" : "a dungeon";
             if (Group* group = bot->GetGroup())
+            {
+                char const* groupKind = group->isRaidGroup() ? "raid" : "party";
                 snapshot.botGroup += Acore::StringFormat("You are inside {}, {} you are clearing"
                     " together - kills in here are the whole {}'s work, and elite mobs are the"
                     " standard fare. ",
-                    bot->GetMap()->GetMapName(), place, group->isRaidGroup() ? "raid" : "party");
+                    bot->GetMap()->GetMapName(), place, groupKind);
+
+                // Who opens on the next pack is settled game AI, not an open
+                // question: under DungeonPullByTank the main tank pulls once
+                // everyone is rested and in range (a human tank pulls at
+                // will), and nobody else ever initiates. Left unsaid, the
+                // model treats each pull as up for negotiation - endless
+                // "who's pulling next?", and agreements no game behaviour
+                // honours (felworld/mod-llm#63). Naming the tank answers the
+                // question the way the role badge on the party frames does.
+                // GetMainTankGuid is the pull machinery's own selection, so
+                // the clause names the player who really opens.
+                if (sPlayerbotAIConfig.dungeonPullByTank)
+                {
+                    ObjectGuid tankGuid = PlayerbotAI::GetMainTankGuid(group);
+                    if (tankGuid == bot->GetGUID())
+                        snapshot.botGroup += Acore::StringFormat("You are the {}'s tank: the next"
+                            " pull is always yours, and you take it on your own the moment everyone"
+                            " is rested and in range. ", groupKind);
+                    else if (Player* tank = ObjectAccessor::FindPlayer(tankGuid))
+                        snapshot.botGroup += Acore::StringFormat("{} is the {}'s tank, and the next"
+                            " pull is always theirs to open - between fights you drink up, stay"
+                            " close, and be ready when they go in. ",
+                            tank->GetName(), groupKind);
+                }
+            }
             else
                 snapshot.botGroup = Acore::StringFormat("You are inside {}, {} where elite mobs are"
                     " the standard fare. ",

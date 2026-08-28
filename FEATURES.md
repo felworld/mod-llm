@@ -67,7 +67,15 @@ the instance and states the register of the place — a run the group clears
 together, where kills are the whole party's work and elite mobs are the
 standard fare — because without those facts the model plays a dungeon like
 the open world: awed by an ordinary elite, crediting the group's kills to
-one name. Chat links reach prompts as the bracketed text a player
+one name. When mod-playerbots'
+[tank-driven pulls](https://github.com/felworld/mod-playerbots/blob/main/FEATURES.md#dungeon-pulls-by-the-tank)
+are on (`AiPlayerbot.DungeonPullByTank`), the clause also names the group's
+main tank as the one who always opens on the next pack — the fact a player
+reads off the party frames' role badges. Without it the model treats every
+pull as up for negotiation: endless "who's pulling next?", and agreements
+between bots that no game behaviour honours, since the tank pulls on its own
+the moment the group is rested and in range regardless of what chat decided
+(felworld/mod-llm#63). Chat links reach prompts as the bracketed text a player
 sees (`[Some Quest]`), never raw client markup. Hearing ranges default to the
 server's player listen ranges (`ListenRange.Say`/`.Yell`/`.TextEmote`); set
 the `LLM.*Distance` options to diverge.
