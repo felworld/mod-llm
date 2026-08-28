@@ -14,6 +14,7 @@
 #include "ChannelMgr.h"
 #include "Chat.h"
 #include "ChatHelper.h"
+#include "CombatDirective.h"
 #include "GameTime.h"
 #include "Group.h"
 #include "Guild.h"
@@ -721,6 +722,33 @@ namespace ModLlm::LlmTools
                 return true;
             }
             return false;
+        }
+
+        // A combat order only carries inside the party that heard it, and a
+        // battleground raid is not that party - a stranger on the team does
+        // not get to set how forty bots fight.
+        bool CombatDirectiveBlocked(Player* bot, Player* actor, std::string& error)
+        {
+            Group* group = bot->GetGroup();
+            if (!group || !actor || !group->IsMember(actor->GetGUID()) || group->isBGGroup() || group->isBFGroup())
+            {
+                error = "you are not in their party";
+                return true;
+            }
+            return false;
+        }
+
+        // Who an order binds is decided by how it was given, never by the
+        // model: said to the party, the whole party takes it up; whispered or
+        // said face to face, only this bot does.
+        bool PartyAddressed(TriggerContext const& trigger)
+        {
+            if (trigger.kind != TRIGGER_CHAT_PARTY)
+                return false;
+
+            return trigger.chatType == CHAT_MSG_PARTY || trigger.chatType == CHAT_MSG_PARTY_LEADER
+                || trigger.chatType == CHAT_MSG_RAID || trigger.chatType == CHAT_MSG_RAID_LEADER
+                || trigger.chatType == CHAT_MSG_RAID_WARNING;
         }
 
         bool GroupHasRealPlayer(Player* bot)
@@ -1841,6 +1869,55 @@ namespace ModLlm::LlmTools
             {
                 std::string ignored;
                 return !BgStrategyBlocked(bot, ignored);
+            }
+        });
+
+        // combat_directive - the standing instructions a party gives itself,
+        // "no AoE, the healer is out of mana", "save your mana for the boss".
+        // The order goes on playerbots' directive board, which changes the
+        // bot's combat strategies the way the `co` command would and hands
+        // them back when the party ends. An order is an order: every bot in
+        // the party takes it up, and the bot that was spoken to answers for
+        // them all (felworld/mod-llm#64).
+        sLlmToolRegistry->Register({
+            "combat_directive",
+            "Take up a combat instruction from someone in your party, like 'no AoE on this pull' or "
+            "'go easy on mana'. The order stands for the rest of the run, until someone lifts it. "
+            "Everyone it was said to takes it up, so your reply just needs to acknowledge it.",
+            {
+                { "type", "object" },
+                { "properties", { { "directive", { { "type", "string" },
+                    { "enum", { "no_aoe", "aoe_ok", "conserve_mana", "mana_free" } },
+                    { "description", "no_aoe: hold off on area-of-effect abilities. aoe_ok: area of "
+                        "effect is fine again, lifting an earlier no_aoe. conserve_mana: ration mana. "
+                        "mana_free: stop rationing mana and spend it freely." } } } } },
+                { "required", { "directive" } }
+            },
+            TRIGGER_CHAT_SAY | TRIGGER_CHAT_WHISPER | TRIGGER_CHAT_PARTY,
+            true,
+            [](ToolExecContext& context, nlohmann::json const& args, std::string& error)
+            {
+                if (CombatDirectiveBlocked(context.bot, context.actor, error))
+                    return false;
+
+                CombatDirective const directive =
+                    CombatDirectiveBoard::FromName(args["directive"].get<std::string>());
+                if (directive == CombatDirective::None)
+                {
+                    error = "that is not an instruction you know how to follow";
+                    return false;
+                }
+
+                if (PartyAddressed(*context.trigger))
+                    CombatDirectiveBoard::instance().OrderGroup(context.actor, directive);
+                else
+                    CombatDirectiveBoard::instance().OrderBot(context.bot, context.actor, directive);
+                return true;
+            },
+            [](Player* bot, Player* actor)
+            {
+                std::string ignored;
+                return !CombatDirectiveBlocked(bot, actor, ignored);
             }
         });
 

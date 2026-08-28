@@ -436,6 +436,38 @@ loop keeps re-applying that buff for the rest of the party session
 instead of paving it over with its role default a minute later. Buffing
 with no name given is the bot's own pick and changes nothing.
 
+## Combat orders
+
+"Don't AoE here." A party gives itself standing instructions all the
+time, and before `combat_directive` none of them landed on anything —
+the bots heard the words and kept pulling the extra pack.
+
+The tool takes one `directive` argument from a fixed vocabulary of
+opposed pairs — `no_aoe` / `aoe_ok`, `conserve_mana` / `mana_free` — and
+hands it to mod-playerbots'
+[directive board](https://github.com/felworld/mod-playerbots/blob/main/FEATURES.md#combat-orders-that-expire-with-the-party),
+which changes the bots' combat strategies the way the `co` command would
+and gives them back when the party ends. Curated kinds, not raw strategy
+strings: the model picks an instruction, not an engine internal.
+
+**Scope comes from addressing, not from the model.** There's no "who"
+argument to get wrong. An instruction in party or raid chat was said to
+the party, so every playerbot in the group takes it up; a whisper or a
+say pointed at one bot binds that bot alone. Battleground team chat isn't
+a party order — a stranger on the team doesn't get to set how forty bots
+fight — and the tool is only offered at all when the actor is in the
+bot's own (non-battleground) group.
+
+An order is an order, so there are no compliance rolls and no chorus of
+announcements: every bot in scope complies silently and the bot that was
+spoken to answers for them all, which is also what keeps a party-wide
+instruction from turning into five identical "will do"s.
+
+Active orders are in the bot's prompt — *You are currently holding to: no
+AoE (ordered by Ledeyn).* A player who was told "no AoE" three pulls ago
+still remembers it, and answers accordingly instead of taking the same
+order twice (felworld/mod-llm#64).
+
 ## Game events
 
 Kills, deaths, level-ups, quest completions, duels, achievements, notable

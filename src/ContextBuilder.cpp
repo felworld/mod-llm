@@ -9,6 +9,7 @@
 #include "BotSelector.h"
 #include "CellImpl.h"
 #include "ChatHelper.h"
+#include "CombatDirective.h"
 #include "Containers.h"
 #include "DBCStores.h"
 #include "GridNotifiers.h"
@@ -617,6 +618,12 @@ namespace ModLlm::ContextBuilder
         if (std::string const castableBuffs = LlmTools::CastableBuffList(bot); !castableBuffs.empty())
             snapshot.replyGuidance += Acore::StringFormat(
                 " The buffs you can cast on someone are: {}.", castableBuffs);
+
+        // Standing combat orders. A player told "no AoE here" three pulls ago
+        // still remembers it, and answers "sorry, we said no AoE" rather than
+        // taking the order twice (felworld/mod-llm#64).
+        if (std::string const orders = CombatDirectiveBoard::instance().Describe(bot); !orders.empty())
+            snapshot.replyGuidance += Acore::StringFormat(" You are currently holding to: {}.", orders);
 
         // An unguilded player talking to a bot whose rank can invite: the
         // reactive side of recruiting. A player knows what their own guild is
