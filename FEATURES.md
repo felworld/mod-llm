@@ -75,7 +75,14 @@ reads off the party frames' role badges. Without it the model treats every
 pull as up for negotiation: endless "who's pulling next?", and agreements
 between bots that no game behaviour honours, since the tank pulls on its own
 the moment the group is rested and in range regardless of what chat decided
-(felworld/mod-llm#63). Chat links reach prompts as the bracketed text a player
+(felworld/mod-llm#63). The clause also lists the instance's real boss roster
+in fight order (from the same encounter table the dungeon finder tracks
+completion with), marking the final boss and the ones the run has already
+downed — the facts a player knows about the place they zoned into. Dungeon
+smalltalk leans on those names constantly, and without them the model invents
+one; the invention then sticks, because a made-up boss said once lands in the
+party transcript and every later reply echoes it for the rest of the run
+(felworld/mod-llm#62). Chat links reach prompts as the bracketed text a player
 sees (`[Some Quest]`), never raw client markup. Hearing ranges default to the
 server's player listen ranges (`ListenRange.Say`/`.Yell`/`.TextEmote`); set
 the `LLM.*Distance` options to diverge.

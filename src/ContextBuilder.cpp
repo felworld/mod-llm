@@ -10,6 +10,7 @@
 #include "CellImpl.h"
 #include "ChatHelper.h"
 #include "Containers.h"
+#include "DBCStores.h"
 #include "GridNotifiers.h"
 #include "GridNotifiersImpl.h"
 #include "Group.h"
@@ -17,6 +18,7 @@
 #include "GuildFlavor.h"
 #include "GuildMgr.h"
 #include "HistoryStore.h"
+#include "InstanceScript.h"
 #include "LevelPerception.h"
 #include "LlmConfig.h"
 #include "LlmTools.h"
@@ -36,10 +38,76 @@
 #include "StringFormat.h"
 #include "TradeOfferMgr.h"
 
+#include <algorithm>
+
 namespace ModLlm::ContextBuilder
 {
     namespace
     {
+        // The instance's encounter roster, in fight order, kills so far
+        // marked. A player knows the bosses of the place they zoned into
+        // and remembers which the run has downed; dungeon smalltalk leans
+        // on those names constantly. Without them the model reaches for a
+        // name and invents one - and the invention sticks, because one
+        // bot's made-up boss lands in the party transcript and every later
+        // reply echoes it for the rest of the run (felworld/mod-llm#62).
+        // Real names give that talk something true to land on.
+        std::string DungeonBossClause(Map* map)
+        {
+            // Difficulty resolution mirrors Map::UpdateEncounterState: the
+            // shared-difficulty maps and the ICC/RS heroics keep their
+            // encounter lists under the normal difficulties.
+            DungeonEncounterList const* encounters;
+            if ((map->GetId() == 631 || map->GetId() == 724) && map->IsHeroic())
+                encounters = sObjectMgr->GetDungeonEncounterList(map->GetId(),
+                    !map->Is25ManRaid() ? RAID_DIFFICULTY_10MAN_NORMAL : RAID_DIFFICULTY_25MAN_NORMAL);
+            else
+                encounters = sObjectMgr->GetDungeonEncounterList(map->GetId(),
+                    IsSharedDifficultyMap(map->GetId()) ? Difficulty(map->GetDifficulty() % 2)
+                                                        : map->GetDifficulty());
+            if (!encounters)
+                return "";
+
+            // Kill state comes from the same mask Map::UpdateEncounterState
+            // maintains. Maps without an InstanceScript never set it, so
+            // their roster simply carries no kill marks - the names are the
+            // payload.
+            uint32 completedMask = 0;
+            if (InstanceMap* instanceMap = map->ToInstanceMap())
+                if (InstanceScript* script = instanceMap->GetInstanceScript())
+                    completedMask = script->GetCompletedEncounterMask();
+
+            std::vector<DungeonEncounter const*> ordered(encounters->begin(), encounters->end());
+            std::sort(ordered.begin(), ordered.end(),
+                [](DungeonEncounter const* left, DungeonEncounter const* right)
+                { return left->dbcEntry->encounterIndex < right->dbcEntry->encounterIndex; });
+
+            // lastEncounterDungeon marks the encounter that completes an LFG
+            // dungeon. Wing maps (Scarlet Monastery, Stratholme, Dire Maul)
+            // carry one per wing, where the tag would crown several "final"
+            // bosses at once - only a lone finale gets called out.
+            bool loneFinale = std::count_if(ordered.begin(), ordered.end(),
+                [](DungeonEncounter const* encounter) { return encounter->lastEncounterDungeon != 0; }) == 1;
+
+            std::string names;
+            for (DungeonEncounter const* encounter : ordered)
+            {
+                char const* name = encounter->dbcEntry->encounterName[0];
+                if (!name || !*name)
+                    continue;
+                if (!names.empty())
+                    names += ", ";
+                names += name;
+                if (loneFinale && encounter->lastEncounterDungeon)
+                    names += " (the final boss)";
+                if (completedMask & (1 << encounter->dbcEntry->encounterIndex))
+                    names += " (dead)";
+            }
+            if (names.empty())
+                return "";
+            return Acore::StringFormat("The bosses in here are {}. ", names);
+        }
+
         std::string ChannelLabel(TriggerContext const& trigger)
         {
             switch (trigger.kind)
@@ -222,6 +290,7 @@ namespace ModLlm::ContextBuilder
         if (bot->GetMap()->IsDungeon())
         {
             char const* place = bot->GetMap()->IsRaid() ? "a raid" : "a dungeon";
+            std::string bosses = DungeonBossClause(bot->GetMap());
             if (Group* group = bot->GetGroup())
             {
                 char const* groupKind = group->isRaidGroup() ? "raid" : "party";
@@ -229,6 +298,7 @@ namespace ModLlm::ContextBuilder
                     " together - kills in here are the whole {}'s work, and elite mobs are the"
                     " standard fare. ",
                     bot->GetMap()->GetMapName(), place, groupKind);
+                snapshot.botGroup += bosses;
 
                 // Who opens on the next pack is settled game AI, not an open
                 // question: under DungeonPullByTank the main tank pulls once
@@ -255,9 +325,12 @@ namespace ModLlm::ContextBuilder
                 }
             }
             else
+            {
                 snapshot.botGroup = Acore::StringFormat("You are inside {}, {} where elite mobs are"
                     " the standard fare. ",
                     bot->GetMap()->GetMapName(), place);
+                snapshot.botGroup += bosses;
+            }
         }
 
         // A player knows what kind of guild they joined, so a member of a
