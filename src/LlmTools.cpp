@@ -401,32 +401,48 @@ namespace ModLlm::LlmTools
         // impossible actions are never offered to the model) and its executor
         // (state can change between prompt and execution).
 
-        bool InviteBlocked(Player* bot, Player* actor, std::string& error)
+        // Inviter-side half: can this bot invite anybody at all? Mirrors the
+        // inviter checks in WorldSession::HandleGroupInviteOpcode, so the tool
+        // stays available whenever some invite could still succeed - the target
+        // may be a third party the actor named, not the actor.
+        bool InviteImpossible(Player* bot, std::string& error)
         {
-            if (bot->GetTeamId() != actor->GetTeamId())
+            Group* group = bot->GetGroup();
+            if (!group)
+                return false;
+            if (!group->IsLeader(bot->GetGUID()) && !group->IsAssistant(bot->GetGUID()))
+            {
+                error = "you do not have invite rights in your group";
+                return true;
+            }
+            if (group->IsFull())
+            {
+                error = "your group is full";
+                return true;
+            }
+            return false;
+        }
+
+        bool InviteBlocked(Player* bot, Player* target, std::string& error)
+        {
+            if (target == bot)
+            {
+                error = "that is your own name";
+                return true;
+            }
+            if (bot->GetTeamId() != target->GetTeamId())
             {
                 error = "they are on the opposing faction";
                 return true;
             }
-            if (Group* group = bot->GetGroup())
+            if (Group* group = bot->GetGroup(); group && target->GetGroup() == group)
             {
-                if (actor->GetGroup() == group)
-                {
-                    error = "they are already in your group";
-                    return true;
-                }
-                if (!group->IsLeader(bot->GetGUID()))
-                {
-                    error = "you are not the group leader";
-                    return true;
-                }
-                if (group->IsFull())
-                {
-                    error = "your group is full";
-                    return true;
-                }
+                error = "they are already in your group";
+                return true;
             }
-            if (actor->GetGroup() || actor->GetGroupInvite())
+            if (InviteImpossible(bot, error))
+                return true;
+            if (target->GetGroup() || target->GetGroupInvite())
             {
                 error = "they are already in another group or have a pending invite";
                 return true;
@@ -1283,29 +1299,60 @@ namespace ModLlm::LlmTools
         // invite_to_party - synthetic client packet so all core validation runs.
         sLlmToolRegistry->Register({
             "invite_to_party",
-            "Invite the player you are interacting with to join your party. Only use when they asked "
-            "to group up or grouping clearly makes sense.",
+            "Invite a player to join your party. Any online player can be named with player_name - "
+            "use it when someone asks you to invite a friend by name; omit it to invite the player "
+            "you are interacting with. Only use when someone asked to group up or grouping clearly "
+            "makes sense.",
             {
                 { "type", "object" },
-                { "properties", nlohmann::json::object() }
+                { "properties", {
+                    { "player_name", { { "type", "string" },
+                        { "description", "Name of the player to invite; omit for the player you are "
+                            "talking with" } } }
+                } }
             },
             TRIGGER_CHAT_SAY | TRIGGER_CHAT_WHISPER | TRIGGER_CHAT_CHANNEL | TRIGGER_EMOTE | TRIGGER_GAME_EVENT,
             true,
-            [](ToolExecContext& context, nlohmann::json const& /*args*/, std::string& error)
+            [](ToolExecContext& context, nlohmann::json const& args, std::string& error)
             {
-                if (InviteBlocked(context.bot, context.actor, error))
+                Player* target = context.actor;
+                std::string name = args.value("player_name", "");
+                if (!name.empty())
+                {
+                    if (!normalizePlayerName(name))
+                    {
+                        error = "that is not a usable player name";
+                        return false;
+                    }
+                    target = ObjectAccessor::FindPlayerByName(name);
+                    if (!target)
+                    {
+                        error = "no player with that name is online";
+                        return false;
+                    }
+                }
+
+                if (!target)
+                {
+                    error = "name the player to invite with player_name";
+                    return false;
+                }
+
+                if (InviteBlocked(context.bot, target, error))
                     return false;
 
                 WorldPacket packet;
-                packet << context.actor->GetName();
+                packet << target->GetName();
                 packet << uint32(0); // roles mask
                 context.bot->GetSession()->HandleGroupInviteOpcode(packet);
                 return true;
             },
-            [](Player* bot, Player* actor)
+            [](Player* bot, Player* /*actor*/)
             {
+                // Deliberately actor-agnostic: an actor already in the bot's
+                // group can still ask it to invite someone else.
                 std::string ignored;
-                return !InviteBlocked(bot, actor, ignored);
+                return !InviteImpossible(bot, ignored);
             }
         });
 

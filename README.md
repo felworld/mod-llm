@@ -16,7 +16,7 @@ to do:
 | `remember` | Write a short note into the bot's persistent private scratchpad (upsert by slug, optionally tied to the player it concerns) |
 | `forget` | Delete one of the bot's notes by slug |
 | `get_gear` / `get_inventory` | Read tools: hand the bot's equipped gear or bag contents back to the model (each item with an `{item:ID}` link tag) in a follow-up round |
-| `invite_to_party` | Invite the player, via a synthetic client packet so all core validation runs |
+| `invite_to_party` | Invite the player it is talking to, or any online player named in the request ("invite Ledeyn"), via a synthetic client packet so all core validation runs |
 | `challenge_duel` | Challenge the player to a duel |
 | `guild_invite` | Invite the player to the bot's guild — offered only when the bot's rank can invite and the player is guildless, validated by the core like any invite ([details](FEATURES.md#guild-recruiting)) |
 | `bg_strategy` | Relay a Warsong Gulch play call ("inc!!", "fc mid") to the whole team — fans out playerbots' `bg strategy` orders, every bot rolling its own compliance ([details](FEATURES.md#battleground-play-calls)) |
