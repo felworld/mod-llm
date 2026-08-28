@@ -442,7 +442,12 @@ whisper, which we keep disabled via `AiPlayerbot.EnableGreet`). And heals:
 a bot healed by a player outside its group thanks them aloud
 (`LLM.Event.Chance.Healed`; groupmate heals are routine and never draw thanks;
 mod-playerbots adds the /thank emote, and buff-capable bots buff back whoever
-buffs them).
+buffs them). And jumper cables: when an engineer bot clamps its Goblin Jumper
+Cables onto a dead group member — mod-playerbots only reaches for them when
+nobody alive in the group knows a resurrection spell — the engineer announces
+the attempt in party/raid chat in its own words
+(`LLM.Event.Chance.JumperCables`; replaces playerbots' canned "Trying X on Y"
+line, which llm mode disables via `AiPlayerbot.EngineeringChatter = 0`).
 
 ## Initiative
 

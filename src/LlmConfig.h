@@ -126,6 +126,7 @@ namespace ModLlm
         // Speakers past the first when several bots join at once.
         uint32 eventChanceGroupJoinFalloff = 30;
         uint32 eventChanceHealed = 20;
+        uint32 eventChanceJumperCables = 100;
         uint32 eventChanceDefenseCallout = 100;
         uint32 eventChanceDefenseEscalation = 100;
         uint32 eventChannelChance = 10;

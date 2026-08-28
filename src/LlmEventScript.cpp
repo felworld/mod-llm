@@ -7,6 +7,7 @@
 #include "ChatHelper.h"
 #include "Creature.h"
 #include "DBCEnums.h"
+#include "EngineeringDeviceActions.h"
 #include "DBCStructure.h"
 #include "Group.h"
 #include "HistoryStore.h"
@@ -951,6 +952,46 @@ namespace ModLlm
         std::unordered_map<uint64, Quota> _quotas;
     };
 
+    // The LLM replacement for playerbots' canned jumper-cables line (which
+    // llm mode disables via AiPlayerbot.EngineeringChatter = 0): an engineer
+    // bot with no real resurrection spell is about to jump-start a dead
+    // group member - the one gadget moment a player would type about. One
+    // speaker per event (the engineer itself), voiced in party/raid chat
+    // while the cables channel; the jump-start runs in playerbots regardless
+    // - only the speech goes through the model.
+    //
+    // Fires on the engineer's map-update thread: everything is copied into
+    // the trigger and the LLM work is queued.
+    void OnJumperCables(JumperCablesNotification const& notification)
+    {
+        if (!sLlmConfig->IsEnabled() || !sLlmConfig->eventEnabled)
+            return;
+
+        if (!sLlmConfig->eventChanceJumperCables || urand(0, 99) >= sLlmConfig->eventChanceJumperCables)
+            return;
+
+        Player* bot = notification.user;
+        if (!bot || IsRealPlayer(bot))
+            return;
+
+        Group* group = bot->GetGroup();
+        if (!group || !BotSelector::GroupHasRealPlayer(group))
+            return;
+
+        bool raid = group->isRaidGroup();
+
+        TriggerContext trigger;
+        trigger.kind = TRIGGER_GAME_EVENT;
+        trigger.eventType = "jumper_cables";
+        trigger.chatType = raid ? CHAT_MSG_RAID : CHAT_MSG_PARTY;
+        trigger.roomKey = Acore::StringFormat("group:{}", group->GetGUID().GetCounter());
+        trigger.message = Acore::StringFormat(
+            "nobody in the group can cast a resurrection, so you are clamping your {} onto {}'s corpse -"
+            " an engineer's jump-start that fails as often as it works. Tell the group what you are attempting",
+            notification.itemName, notification.targetName);
+        Dispatch::Submit(bot, nullptr, std::move(trigger));
+    }
+
     // The LLM replacement for playerbots' prebaked defense-callout lines
     // (which llm mode disables via AiPlayerbot.WpvpCallouts = 0): playerbots
     // always fires this notification when a callout or escalation is
@@ -1075,4 +1116,5 @@ void AddSC_llm_event()
     new ModLlm::LlmHealedScript();
     new ModLlm::LlmGroupScript();
     RegisterWpvpCalloutListener(&ModLlm::OnWpvpCallout);
+    RegisterJumperCablesListener(&ModLlm::OnJumperCables);
 }

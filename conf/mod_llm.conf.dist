@@ -516,6 +516,13 @@ LLM.Event.MaxBotsPerEvent = 2
 #                     Healed fires only for the healed bot itself when a
 #                     player outside its group heals it; the thanks is said
 #                     aloud. Groupmate heals are routine and never draw one.
+#                     JumperCables fires when an engineer bot clamps its
+#                     Goblin Jumper Cables onto a dead group member because
+#                     nobody alive in the group can cast a resurrection; the
+#                     engineer itself announces the attempt in party/raid
+#                     chat. Replaces playerbots' canned "Trying X on Y" line
+#                     (llm mode sets AiPlayerbot.EngineeringChatter = 0).
+#                     Cables are already a rare last resort, hence the 100.
 #                     DefenseCallout/DefenseEscalation fire when playerbots'
 #                     wpvp callout system picks a bot to raise the alarm
 #                     (LocalDefense sighting / WorldDefense griefing-spree
@@ -544,6 +551,7 @@ LLM.Event.Chance.GroupJoin = 100
 # greeting uncommon and a third rare, whatever the size of the batch.
 LLM.Event.Chance.GroupJoinFalloff = 30
 LLM.Event.Chance.Healed = 20
+LLM.Event.Chance.JumperCables = 100
 LLM.Event.Chance.DefenseCallout = 100
 LLM.Event.Chance.DefenseEscalation = 100
 

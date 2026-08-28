@@ -290,6 +290,7 @@ namespace ModLlm
         eventChanceGroupJoinFalloff =
             std::min<uint32>(sConfigMgr->GetOption<uint32>("LLM.Event.Chance.GroupJoinFalloff", 30), 100);
         eventChanceHealed = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.Healed", 20);
+        eventChanceJumperCables = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.JumperCables", 100);
         eventChanceDefenseCallout = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.DefenseCallout", 100);
         eventChanceDefenseEscalation = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.DefenseEscalation", 100);
         eventChannelChance = sConfigMgr->GetOption<uint32>("LLM.Event.ChannelChance", 10);
