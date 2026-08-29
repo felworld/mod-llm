@@ -154,9 +154,9 @@ namespace ModLlm
         uint32 tradeAdMaxItems = 3;
         uint32 tradeAdCommonItemChance = 25;
 
-        // Guild chatter: recruitment ads into the city GuildRecruitment
-        // channel, and the rarer cold pitch at a passing unguilded player.
-        // One pitch puts that player on a cooldown shared by every bot.
+        // Guild chatter: recruitment ads into the city Trade channel, and
+        // the rarer cold pitch at a passing unguilded player. One pitch
+        // puts that player on a cooldown shared by every bot.
         uint32 guildAdChance = 4;
         uint32 guildRecruitChance = 2;
         uint32 guildRecruitCooldownSeconds = 1800;

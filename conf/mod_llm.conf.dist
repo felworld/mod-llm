@@ -682,12 +682,13 @@ LLM.TradeAd.CommonItemChance = 25
 #        Description: Percent of initiative opportunities that become a guild
 #                     recruitment ad instead of an idle remark, when the bot's
 #                     guild rank can invite and it is standing in a friendly
-#                     capital with a real player on the GuildRecruitment
-#                     channel (the client auto-joins only unguilded players to
-#                     it in cities, so that is exactly a recruitable
-#                     audience). The prompt is seeded with real guild facts -
-#                     name, member count, online count, MOTD - so ads are
-#                     grounded: the model only phrases them.
+#                     capital with a real player on the Trade channel. Ads go
+#                     to Trade because that is where real recruiters posted:
+#                     the GuildRecruitment channel is closed to guilded
+#                     characters (a client DBC flag the core enforces). The
+#                     prompt is seeded with real guild facts - name, member
+#                     count, online count, MOTD - so ads are grounded: the
+#                     model only phrases them.
 #        Default:     4
 #
 #    LLM.GuildRecruit.Chance

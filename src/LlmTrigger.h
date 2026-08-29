@@ -84,7 +84,8 @@ namespace ModLlm
                                      // bot's real sellables and wants (WTS/WTB chatter)
         bool guildAd = false;        // guild-ad initiative: the prompt is seeded with the
                                      // bot's real guild facts, the reply bound to the
-                                     // city GuildRecruitment channel
+                                     // city Trade channel (GuildRecruitment is closed
+                                     // to guilded characters, as on real servers)
         bool guildRecruit = false;   // cold-recruit initiative: the actor is a passing
                                      // unguilded player the bot may chat up and invite
         bool duelSolicit = false;    // duel-spot initiative: the bot is dwelling at the

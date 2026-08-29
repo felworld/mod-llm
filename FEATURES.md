@@ -689,12 +689,13 @@ and the bot's own guild line says so when it is unguilded or its rank cannot
 invite. Two initiative slices add the unprompted side:
 
 **Recruitment ads.** A slice of initiative opportunities
-(`LLM.GuildAd.Chance`) becomes a recruitment line into the city's
-**GuildRecruitment channel** when the bot is standing in a friendly capital
-with a real player on the channel — and since the client auto-joins only
-unguilded players to that channel in cities, a listener is by definition
-recruitable. The prompt is seeded with real guild facts (name, member count,
-online count, MOTD), so the ad only claims what is true.
+(`LLM.GuildAd.Chance`) becomes a recruitment line into the city's **Trade
+channel** when the bot is standing in a friendly capital with a real player
+on the channel. Trade is where real recruiters advertised: the
+GuildRecruitment channel is closed to guilded characters (a client DBC flag
+the core enforces), so a recruiting bot could never speak there. The prompt
+is seeded with real guild facts (name, member count, online count, MOTD),
+so the ad only claims what is true.
 
 **Cold pitches.** A rarer slice (`LLM.GuildRecruit.Chance`) fires when the
 closest passing real player within say range is guildless and invitable: the

@@ -100,7 +100,7 @@ namespace ModLlm
 
         constexpr char DEFAULT_PROMPT_GUILD_AD[] =
             "{memory_block}{history_block}You are in town and could put out a word for your guild in "
-            "the guild recruitment channel, which unguilded players in cities see. Your guild:\n"
+            "the Trade channel, the way guilds advertise. Your guild:\n"
             "{guild_block}\n"
             "If you feel like it, post one short recruitment line the way players write them - guild "
             "name plus something true from the facts above, like \"<Dawnbreakers> recruiting, social "

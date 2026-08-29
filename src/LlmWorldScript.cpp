@@ -242,10 +242,11 @@ namespace ModLlm
 
                 // Another slice becomes guild chatter, for bots whose guild
                 // rank can actually invite. In a capital that is a
-                // recruitment line into the city's GuildRecruitment channel -
-                // the client auto-joins only unguilded players to it, so a
-                // human on the channel is exactly a human who could be
-                // recruited. Elsewhere it is the rarer cold pitch: the
+                // recruitment line into the city's Trade channel - the
+                // GuildRecruitment channel is closed to guilded characters
+                // (a ChatChannels.dbc flag the core enforces), so real
+                // recruiters advertised in Trade; doing the same keeps the
+                // core blizzlike. Elsewhere it is the rarer cold pitch: the
                 // closest passing unguilded player gets a friendly line and
                 // (if the model commits) a real guild invite. Firing the
                 // pitch puts that player on a cooldown shared by every bot -
@@ -259,7 +260,7 @@ namespace ModLlm
                         && sTravelMgr.IsFriendlyCapital(player->GetZoneId(), player->GetTeamId()))
                     {
                         TriggerContext ad;
-                        if (BotSelector::BindGuildRecruitmentChannel(player, ad))
+                        if (BotSelector::BindTradeChannel(player, ad))
                         {
                             trigger = std::move(ad);
                             trigger.kind = TRIGGER_INITIATIVE;

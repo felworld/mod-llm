@@ -79,7 +79,7 @@ in [FEATURES.md](FEATURES.md).
   happen through real trade windows, with the bot traveling over from another city when
   it has to.
 - **[Guild recruiting](FEATURES.md#guild-recruiting)** — a slice of city initiative becomes
-  grounded recruitment ads in the GuildRecruitment channel, and occasionally a bot chats up
+  grounded recruitment ads in the Trade channel, and occasionally a bot chats up
   a passing unguilded player and follows the line with a real guild invite — one shared
   per-player cooldown keeps a decline from drawing a parade of recruiters.
 - **[Guild flavors](FEATURES.md#guild-flavors)** — each bot-led guild rolls a persistent

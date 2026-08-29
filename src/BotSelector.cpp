@@ -534,9 +534,8 @@ namespace ModLlm::BotSelector
     namespace
     {
         // Membership alone proves nothing about location - playerbots keeps
-        // every bot on the faction-wide city channels (Trade,
-        // GuildRecruitment) wherever it roams, so callers gate on the bot
-        // actually standing in a city themselves.
+        // every bot on the faction-wide Trade channel wherever it roams, so
+        // callers gate on the bot actually standing in a city themselves.
         bool BindCityChannel(Player* bot, uint32 channelId, TriggerContext& trigger)
         {
             ChannelMgr* mgr = ChannelMgr::forTeam(bot->GetTeamId());
@@ -563,11 +562,6 @@ namespace ModLlm::BotSelector
     bool BindTradeChannel(Player* bot, TriggerContext& trigger)
     {
         return BindCityChannel(bot, ChatChannelId::TRADE, trigger);
-    }
-
-    bool BindGuildRecruitmentChannel(Player* bot, TriggerContext& trigger)
-    {
-        return BindCityChannel(bot, ChatChannelId::GUILD_RECRUITMENT, trigger);
     }
 
     Player* FindRecruitTarget(Player* bot, float distance)
