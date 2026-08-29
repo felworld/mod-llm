@@ -77,13 +77,20 @@ namespace ModLlm
             "{memory_block}{history_block}{actor_name} ({actor_level} {actor_race} {actor_class}"
             "{actor_guild}) {message}{reply_guidance}";
 
+        // The dice upstream pick a candidate, not a speaker: to a small model
+        // being prompted at all reads as a cue to talk, so both templates say
+        // outright that letting the moment pass is the normal outcome -
+        // framed positively, per the no-anti-examples rule.
         constexpr char DEFAULT_PROMPT_EVENT[] =
-            "{memory_block}{history_block}Something just happened nearby: {message}. If it changes how you "
-            "see someone or what you plan to do, save a private note with remember.{reply_guidance}";
+            "{memory_block}{history_block}Something just happened nearby: {message}. You saw it, and "
+            "seeing is enough: a busy player lets most moments pass and keeps playing. Speak only if "
+            "this one genuinely gives you something to say. If it changes how you see someone or what "
+            "you plan to do, save a private note with remember.{reply_guidance}";
 
         constexpr char DEFAULT_PROMPT_INITIATIVE[] =
-            "{memory_block}{history_block}Nothing is being said to you. Around you: {environment}. You may "
-            "make an idle remark, emote, or do nothing.{reply_guidance}";
+            "{memory_block}{history_block}Nothing is being said to you. Around you: {environment}. "
+            "Most idle moments you simply play on. If something around you genuinely earns a word or "
+            "a gesture, you may make an idle remark or emote; otherwise do nothing.{reply_guidance}";
 
         // Doubled braces keep the {item:ID} examples literal through fmt; a
         // single-braced tag would parse as a (missing) template argument.
@@ -275,7 +282,7 @@ namespace ModLlm
         eventBotDistance = sConfigMgr->GetOption<float>("LLM.Event.BotDistance", 40.0f);
         eventCooldownSeconds = sConfigMgr->GetOption<uint32>("LLM.Event.CooldownSeconds", 10);
         eventMaxBotsPerEvent = sConfigMgr->GetOption<uint32>("LLM.Event.MaxBotsPerEvent", 2);
-        eventChanceKill = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.Kill", 15);
+        eventChanceKill = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.Kill", 5);
         eventChancePvpKill = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.PvPKill", 40);
         eventChanceDeath = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.Death", 30);
         eventChanceQuestComplete = sConfigMgr->GetOption<uint32>("LLM.Event.Chance.QuestComplete", 20);

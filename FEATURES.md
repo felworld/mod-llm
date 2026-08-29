@@ -502,7 +502,12 @@ X earned …") since it was heard about rather than watched.
 Whether or not a bot
 is picked to react, the event is narrated into every nearby bot's overheard
 transcript (mob kills exempt — grinding would flood it), because seeing and
-reacting are different things. Duels are the duelists' story: bystanders see
+reacting are different things. And being picked is a chance to speak, not an
+obligation: the event and initiative prompts say outright that a busy player
+lets most moments pass — the dice select a candidate, and the model still
+decides whether this moment is worth a word (small models otherwise read any
+prompt as a cue to talk, which had a party calling the next pull after every
+single kill). Duels are the duelists' story: bystanders see
 challenges and outcomes in their transcripts but never comment on them (at
 gate duel spots, spectator commentary — and the reply chains it seeded —
 drowned the area in "gl"/"gg" chatter), and the spoken reactions come from

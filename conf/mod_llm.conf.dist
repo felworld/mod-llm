@@ -483,6 +483,9 @@ LLM.Event.MaxBotsPerEvent = 2
 #        Description: Percent chance per candidate bot, by event type.
 #                     0 disables spoken reactions for an event type (nearby
 #                     bots still see the event in their transcripts).
+#                     Kill fires once per mob that dies, and everyone in the
+#                     killer's group rolls it - across a dungeon pack that is
+#                     many rolls, so a low value still speaks up regularly.
 #                     Duel fires only for the two duelists at the duel's end
 #                     ("gg" territory): bystanders see challenges and
 #                     outcomes but never comment on them - at gate duel
@@ -534,7 +537,7 @@ LLM.Event.MaxBotsPerEvent = 2
 #                     it - travel responses ride the defense board either way.
 #
 
-LLM.Event.Chance.Kill = 15
+LLM.Event.Chance.Kill = 5
 LLM.Event.Chance.PvPKill = 40
 LLM.Event.Chance.Death = 30
 LLM.Event.Chance.QuestComplete = 20

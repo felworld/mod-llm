@@ -111,7 +111,10 @@ namespace ModLlm
         float eventBotDistance = 40.0f;
         uint32 eventCooldownSeconds = 10;
         uint32 eventMaxBotsPerEvent = 2;
-        uint32 eventChanceKill = 15;
+        // Kill fires once per mob, so a dungeon group rolls it for every
+        // member on every kill of a pack - a low chance still speaks up
+        // regularly across a run.
+        uint32 eventChanceKill = 5;
         uint32 eventChancePvpKill = 40;
         uint32 eventChanceDeath = 30;
         uint32 eventChanceQuestComplete = 20;
