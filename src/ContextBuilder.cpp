@@ -186,6 +186,16 @@ namespace ModLlm::ContextBuilder
                     " match with you: keep it to what is happening in here - the fight, the flags, the"
                     " score - and say nothing at all unless it is worth their time.";
 
+            // Group chat as the audience: the only room an instance run has,
+            // and where a comment about a groupmate goes out in the world
+            // too. Everyone reading is doing this with the bot, so what
+            // belongs there is what is happening to the group.
+            if ((trigger.kind == TRIGGER_INITIATIVE || trigger.kind == TRIGGER_GAME_EVENT)
+                && (trigger.chatType == CHAT_MSG_PARTY || trigger.chatType == CHAT_MSG_RAID))
+                return " If you say something, it goes to your whole group, who are doing this with you:"
+                    " keep it to what is happening around the group, and say nothing at all unless it is"
+                    " worth their time.";
+
             // An achievement comment: the announcement reached the whole
             // guild, so everyone reading already knows what happened and any
             // of them could answer - which is why most of a guild says

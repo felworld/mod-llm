@@ -192,12 +192,17 @@ namespace ModLlm::Dispatch
                 continue;
 
             // Deferred from a map-thread hook: now that we are on the world
-            // thread the channel can be resolved. An unbound trigger falls
-            // back to /say - worth doing only with a human in earshot.
+            // thread the audience can be resolved. Out in the world an
+            // unbound trigger falls back to /say - worth doing only with a
+            // human in earshot; inside an instance the group is the only
+            // audience, so a bot without one says nothing at all.
             if (trigger.wantAmbientChannel)
             {
                 trigger.wantAmbientChannel = false;
-                if (!BotSelector::BindAmbientChannel(bot, trigger)
+                BotSelector::AmbientAudience audience = BotSelector::BindAmbientAudience(bot, trigger);
+                if (audience == BotSelector::AmbientAudience::Silent)
+                    continue;
+                if (audience == BotSelector::AmbientAudience::Aloud
                     && !BotSelector::HasRealPlayerNearby(bot, sLlmConfig->sayDistance))
                     continue;
             }

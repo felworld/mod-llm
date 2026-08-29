@@ -284,6 +284,16 @@ namespace ModLlm::BotSelector
         // The audience for a channel message is the whole channel, so the
         // human-witness requirement is channel membership rather than
         // proximity to any particular bot.
+        //
+        // With one exception: a zone General channel inside an instance is
+        // shared by every copy of that map, so a line typed in one dungeon
+        // run reaches the bots in all the others - people a player in there
+        // has no idea exist and would never answer. A bot in an instance
+        // answers a General line only when whoever typed it is in the same
+        // run (felworld/mod-llm#65).
+        Map* senderMap = sender->FindMap();
+        bool zoneChannel = channel && channel->GetChannelId() == ChatChannelId::GENERAL;
+
         bool channelHasHuman = false;
         std::vector<Player*> channelBots;
         for (auto const& [guid, player] : ObjectAccessor::GetPlayers())
@@ -300,6 +310,8 @@ namespace ModLlm::BotSelector
             {
                 if (audience && GetBotAI(player))
                     ++audience->bots;
+                if (zoneChannel && InInstance(player) && player->FindMap() != senderMap)
+                    continue;
                 if (IsEligibleBot(player, sender))
                     channelBots.push_back(player);
             }
@@ -452,8 +464,22 @@ namespace ModLlm::BotSelector
         return listeners;
     }
 
+    bool InInstance(Player* bot)
+    {
+        Map* map = bot->FindMap();
+        return map && map->Instanceable();
+    }
+
     bool BindZoneChannel(Player* bot, TriggerContext& trigger)
     {
+        // A General channel is named after the zone and nothing else, so
+        // every copy of an instance shares one - "General - The Deadmines"
+        // is read by every group in the dungeon, realm-wide, and by nobody
+        // in yours. Players in there talk in group chat; a bot on that
+        // channel is a bot betraying itself (felworld/mod-llm#65).
+        if (InInstance(bot))
+            return false;
+
         ChannelMgr* mgr = ChannelMgr::forTeam(bot->GetTeamId());
         if (!mgr)
             return false;
@@ -476,27 +502,33 @@ namespace ModLlm::BotSelector
         return false;
     }
 
-    bool BindAmbientChannel(Player* bot, TriggerContext& trigger)
+    AmbientAudience BindAmbientAudience(Player* bot, TriggerContext& trigger)
     {
-        // Inside a battleground nobody reads the zone General channel: it is
-        // shared by every match on that map, while the team's own chat is
-        // where the match talks and where a teammate might act on what is
-        // said. The battleground group is the whole team, so /bg reaches all
-        // of it - and when no human is on the team, nothing is worth saying
-        // (falling back to General would only leak the line into the other
-        // matches).
-        Group* group = bot->GetGroup();
-        if (bot->InBattleground() && group && (group->isBGGroup() || group->isBFGroup()))
+        // Inside an instance the group is the whole world: it is who came in
+        // with the bot, who is standing next to it, and the only chat anybody
+        // in there reads. The zone General channel is shared by every other
+        // copy of the map (see BindZoneChannel), and /say reaches exactly the
+        // same people the group chat does, only worse - so a remark either
+        // goes to the group or is not worth making. Which group chat depends
+        // on how the players came in: /bg for a match, /raid for a raid,
+        // /party for a five-man.
+        if (InInstance(bot))
         {
-            if (!GroupHasRealPlayer(group))
-                return false;
+            Group* group = bot->GetGroup();
+            if (!group || !GroupHasRealPlayer(group))
+                return AmbientAudience::Silent;
 
-            trigger.chatType = CHAT_MSG_BATTLEGROUND;
+            if (group->isBGGroup() || group->isBFGroup())
+                trigger.chatType = CHAT_MSG_BATTLEGROUND;
+            else if (group->isRaidGroup())
+                trigger.chatType = CHAT_MSG_RAID;
+            else
+                trigger.chatType = CHAT_MSG_PARTY;
             trigger.roomKey = Acore::StringFormat("group:{}", group->GetGUID().GetCounter());
-            return true;
+            return AmbientAudience::Bound;
         }
 
-        return BindZoneChannel(bot, trigger);
+        return BindZoneChannel(bot, trigger) ? AmbientAudience::Bound : AmbientAudience::Aloud;
     }
 
     namespace

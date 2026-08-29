@@ -556,14 +556,35 @@ story zone-wide (level-ups, notable loot) roll for General;
 play-by-play like mob pulls, deaths, and duels is invisible to readers across
 the zone and stays in local /say.
 
-Inside a battleground that share goes to **team chat** (/bg) rather than
-General: a match talks in team chat, while a BG zone's General channel is
-shared by every concurrent match on that map and read by nobody. The bot
-needs a real player on its team for the remark to be worth making (it does
-not fall back to General from inside a match), and its prompt gets the same
-scoreboard facts a battleground reply gets — score, flag states, carrier
-names — plus a reminder that the whole team hears it and that team chat is
-about the match.
+**Inside an instance there is no zone channel to speak of.** A General
+channel is named after its zone and nothing else, so every copy of a map
+shares one: `General - The Deadmines` is read by every group in the dungeon
+realm-wide and by nobody in yours, and `General - Warsong Gulch` by every
+concurrent match. Players in there talk in group chat, so bots do too — the
+wide-audience share is bound to **team chat** (/bg) in a battleground,
+**/raid** in a raid, **/party** in a five-man. Three consequences:
+
+- The channel roll does not apply to initiative remarks in there. /say and
+  group chat reach the same people (in an instance, anyone in earshot came in
+  with you), so there is nothing to choose between: the remark goes to the
+  group, or — with no real player in the group — nowhere at all. No General
+  fallback, no /say fallback. Event comments keep their own split: one about
+  a groupmate already goes to group chat, and inside a match the
+  broadcast-worthy ones go to /bg while local play-by-play stays in /say.
+- The model cannot pick General either. `say` with
+  `destination: "channel", channel_name: "General"` is refused from inside an
+  instance, with an error naming group chat as the room to use instead
+  (defense channels stay swallowed silently; that block is unchanged).
+- Bots in an instance ignore General lines from other copies of it. A
+  channel message is only answerable by an instanced bot when whoever typed
+  it is in the same run — otherwise the reply goes to strangers a player in
+  there cannot even see (felworld/mod-llm#65).
+
+A battleground remark's prompt gets the same scoreboard facts a battleground
+reply gets — score, flag states, carrier names — plus a reminder that the
+whole team hears it and that team chat is about the match. Group-bound
+remarks (in an instance, and comments about a groupmate anywhere) get the
+matching reminder that everyone reading is doing this with the bot.
 
 ## Market trading
 

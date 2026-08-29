@@ -69,8 +69,9 @@ in [FEATURES.md](FEATURES.md).
   instance — which the bot's prompt names and frames as the group's shared run — plain elites and
   level gaps stop reading as feats, and flagged bosses read as "a boss".
 - **[Initiative](FEATURES.md#initiative)** — an idle scheduler gives each bot periodic
-  opportunities to act unprompted; unprompted remarks reach the zone General channel, or
-  team chat while the bot is in a battleground.
+  opportunities to act unprompted; unprompted remarks reach the zone General channel out in
+  the world, and the group's own chat (/party, /raid, /bg) inside an instance, where every
+  copy of the map shares one General channel that nobody reads.
 - **[Market trading](FEATURES.md#market-trading)** — a slice of city initiative becomes
   grounded WTS/WTB ads in the Trade channel (rarely General or /say), a player's own ads
   route to bots that genuinely want (or stock) the linked item — "wtb portal/summon" ads

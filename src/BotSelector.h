@@ -97,17 +97,32 @@ namespace ModLlm::BotSelector
     // it. Hearing is passive: no combat skip, no audience requirement.
     std::vector<Player*> CollectListeners(Player* speaker, float distance);
 
+    // True while the bot stands on an instanceable map - a dungeon, raid,
+    // battleground or arena - where the group it came in with is the only
+    // audience there is.
+    bool InInstance(Player* bot);
+
     // Points `trigger`'s reply at the bot's current zone General channel
     // (chatType, channelName, roomKey) when the bot is on it and a real
     // player is there to read it; returns false (trigger untouched)
-    // otherwise. World thread only (ChannelMgr access).
+    // otherwise. Never binds from inside an instance, where that channel is
+    // shared with every other copy of the map. World thread only (ChannelMgr
+    // access).
     bool BindZoneChannel(Player* bot, TriggerContext& trigger);
 
+    // What audience an unprompted remark has, once BindAmbientAudience has
+    // looked for one.
+    enum class AmbientAudience
+    {
+        Bound,  // `trigger` now points at the audience: a channel or group chat
+        Aloud,  // no wide audience: /say, if a human is in earshot
+        Silent, // there is nobody to say it to at all
+    };
+
     // Points `trigger` at the widest audience the bot has around it: its
-    // battleground team's chat inside a battleground, the zone General
-    // channel everywhere else. Returns false (trigger untouched) when that
-    // audience has no human in it. World thread only.
-    bool BindAmbientChannel(Player* bot, TriggerContext& trigger);
+    // group's chat inside an instance, the zone General channel outside one.
+    // World thread only.
+    AmbientAudience BindAmbientAudience(Player* bot, TriggerContext& trigger);
 
     // Same for the city-bound Trade channel, which playerbots keeps a bot
     // joined to exactly while it is in a city. World thread only.

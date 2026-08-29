@@ -387,6 +387,21 @@ namespace ModLlm::LlmTools
                     return true;
                 }
 
+                // "General" from inside an instance resolves to the map's
+                // own General channel ("General - The Deadmines"), which
+                // every copy of that map shares and nobody in any of them
+                // reads - the group's chat is where a run talks
+                // (felworld/mod-llm#65). Unlike the defense channels this is
+                // an error, not silence: there is a right room to say it in,
+                // and the model should be told which.
+                if (channel->GetChannelId() == ChatChannelId::GENERAL && BotSelector::InInstance(bot))
+                {
+                    error = "nobody in here reads that channel - it is shared with every other group"
+                        " on this map; use destination \"party\" (or \"raid\") to reach the people"
+                        " you are actually with";
+                    return false;
+                }
+
                 channel->Say(bot->GetGUID(), message, LANG_UNIVERSAL);
                 sLlmHistoryStore->AddRoomLine(
                     Acore::StringFormat("channel:{}:{}", channel->GetName(), uint32(bot->GetTeamId())),

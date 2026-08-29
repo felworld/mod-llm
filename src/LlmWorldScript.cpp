@@ -285,15 +285,27 @@ namespace ModLlm
                 }
 
                 // Some remarks go to the wide audience instead of /say - the
-                // zone's General channel, or the team's chat while the bot is
-                // in a battleground, which is where a match talks. The
+                // zone's General channel out in the world. The
                 // human-audience gate widens to "anyone in that audience" to
                 // match the wider reach; a /say remark needs a human close
                 // enough to actually hear it.
+                //
+                // Inside an instance there is no wider audience to roll for:
+                // the group is everyone there is, and it hears /say and group
+                // chat alike, so the remark always goes to the group - or,
+                // with no human in it, is dropped.
                 bool channelBound = trigger.chatType == CHAT_MSG_CHANNEL;
-                if (!trigger.tradeAd && !trigger.guildAd && !trigger.guildRecruit && !trigger.duelSolicit)
-                    channelBound = urand(0, 99) < sLlmConfig->initiativeChannelChance
-                        && BotSelector::BindAmbientChannel(player, trigger);
+                bool silent = false;
+                if (!trigger.tradeAd && !trigger.guildAd && !trigger.guildRecruit && !trigger.duelSolicit
+                    && (BotSelector::InInstance(player)
+                        || urand(0, 99) < sLlmConfig->initiativeChannelChance))
+                {
+                    BotSelector::AmbientAudience audience = BotSelector::BindAmbientAudience(player, trigger);
+                    channelBound = audience == BotSelector::AmbientAudience::Bound;
+                    silent = audience == BotSelector::AmbientAudience::Silent;
+                }
+                if (silent)
+                    continue;
                 if (!channelBound
                     && !BotSelector::HasRealPlayerNearby(player, sLlmConfig->sayDistance))
                     continue;
